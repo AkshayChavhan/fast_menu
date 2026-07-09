@@ -31,6 +31,9 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
 
 ## Quick start
 
+> **New to Supabase?** Follow the click-by-click **[Setup Walkthrough](docs/SETUP.md)**
+> instead — it covers every step below in detail with troubleshooting.
+
 ### 1. Prerequisites
 
 - Node.js 20+ and npm

@@ -43,12 +43,12 @@ export function SettingsForm({
     if (state?.ok) router.refresh();
   }, [state, router]);
 
-  // Ensure default locale stays selected in the offered set.
-  useEffect(() => {
-    if (!locales.includes(defaultLocale)) {
-      setLocales((prev) => [defaultLocale, ...prev]);
-    }
-  }, [defaultLocale, locales]);
+  // Changing the default language must keep it in the offered set. We enforce
+  // this in the event handler (not an effect) to avoid cascading re-renders.
+  function changeDefaultLocale(next: string) {
+    setDefaultLocale(next);
+    setLocales((prev) => (prev.includes(next) ? prev : [next, ...prev]));
+  }
 
   async function saveLogo(url: string | null) {
     await updateLogo(restaurant.id, url);
@@ -165,7 +165,7 @@ export function SettingsForm({
                 <select
                   name="default_locale"
                   value={defaultLocale}
-                  onChange={(e) => setDefaultLocale(e.target.value)}
+                  onChange={(e) => changeDefaultLocale(e.target.value)}
                   className={inputClass}
                 >
                   {SUPPORTED_LOCALES.map((l) => (
