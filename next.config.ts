@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         hostname: "*.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
+      {
+        // Demo seed images (supabase/seed.sql). Real uploads use Supabase Storage.
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
     ],
   },
 };

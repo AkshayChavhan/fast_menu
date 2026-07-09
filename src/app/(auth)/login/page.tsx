@@ -12,7 +12,12 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // Surface an email-confirmation failure redirected here by /auth/confirm.
+  const [error, setError] = useState<string | null>(() =>
+    searchParams.get("error") === "confirmation_failed"
+      ? "Your confirmation link was invalid or has expired. Please sign in, or request a new link."
+      : null,
+  );
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
