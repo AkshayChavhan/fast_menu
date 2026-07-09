@@ -39,6 +39,17 @@ export const SUPPORTED_LOCALES = [
   { code: "ar", label: "العربية" },
   { code: "zh", label: "中文" },
   { code: "ja", label: "日本語" },
+  // Indian regional languages
+  { code: "hi", label: "हिन्दी" },
+  { code: "bn", label: "বাংলা" },
+  { code: "ta", label: "தமிழ்" },
+  { code: "te", label: "తెలుగు" },
+  { code: "mr", label: "मराठी" },
+  { code: "gu", label: "ગુજરાતી" },
+  { code: "kn", label: "ಕನ್ನಡ" },
+  { code: "ml", label: "മലയാളം" },
+  { code: "pa", label: "ਪੰਜਾਬੀ" },
+  { code: "ur", label: "اردو" },
 ] as const;
 
 export const CURRENCIES = [

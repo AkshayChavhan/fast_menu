@@ -384,7 +384,7 @@ const FEATURES = [
   {
     icon: Languages,
     title: "Multi-language for hotels",
-    body: "Offer the same menu in 9+ languages. International guests read comfortably in their own language, instantly.",
+    body: "Offer the same menu in 19+ languages, including major Indian regional languages. International guests read comfortably in their own language, instantly.",
   },
   {
     icon: Printer,
@@ -524,7 +524,7 @@ const TIERS = [
     features: [
       "Everything in Pro",
       "Up to 10 menus / outlets",
-      "Multi-language (9+ locales)",
+      "Multi-language (19+ locales)",
       "Custom branding & domain",
       "Dedicated onboarding",
     ],

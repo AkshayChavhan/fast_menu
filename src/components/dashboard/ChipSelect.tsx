@@ -16,11 +16,14 @@ export function ChipSelect({
   value,
   onChange,
   tone = "brand",
+  renderLabel = labelize,
 }: {
   options: readonly string[];
   value: string[];
   onChange: (next: string[]) => void;
   tone?: "brand" | "amber";
+  // How to display each option; defaults to title-casing the raw value.
+  renderLabel?: (opt: string) => string;
 }) {
   const selectedClasses =
     tone === "amber"
@@ -50,7 +53,7 @@ export function ChipSelect({
                 : "border-neutral-200 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
             )}
           >
-            {labelize(opt)}
+            {renderLabel(opt)}
           </button>
         );
       })}

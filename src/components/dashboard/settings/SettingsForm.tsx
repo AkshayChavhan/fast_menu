@@ -181,6 +181,7 @@ export function SettingsForm({
               <ChipSelect
                 options={SUPPORTED_LOCALES.map((l) => l.code)}
                 value={locales}
+                renderLabel={(code) => LOCALE_LABEL.get(code) ?? code}
                 onChange={(next) => {
                   // Never allow removing the default locale.
                   const withDefault = next.includes(defaultLocale)
