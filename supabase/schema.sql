@@ -37,11 +37,28 @@ create table if not exists public.restaurants (
   default_locale text not null default 'en',
   locales       text[] not null default array['en'],-- languages the menu is offered in
   is_published  boolean not null default false,
+  -- Free-trial window. The account is "locked" (public menu hidden, publishing
+  -- blocked) once trial_ends_at <= now(). To unlock a paying customer, extend
+  -- this (e.g. set it far in the future) — there is no separate paid flag yet.
+  trial_ends_at timestamptz not null default now() + interval '14 days',
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
 create index if not exists restaurants_owner_id_idx on public.restaurants (owner_id);
 create index if not exists restaurants_slug_idx on public.restaurants (slug);
+
+-- Migration for existing databases: `create table if not exists` above won't add
+-- trial_ends_at to a table that already exists, so add + backfill it here. Any
+-- pre-existing restaurant gets a fresh 14-day trial from when this runs, so no
+-- one is locked out on launch. Idempotent — safe to re-run.
+alter table public.restaurants
+  add column if not exists trial_ends_at timestamptz;
+update public.restaurants
+  set trial_ends_at = now() + interval '14 days'
+  where trial_ends_at is null;
+alter table public.restaurants
+  alter column trial_ends_at set default now() + interval '14 days',
+  alter column trial_ends_at set not null;
 
 -- ---------------------------------------------------------------------------
 -- categories — menu sections (Starters, Mains, Drinks…), ordered.
@@ -145,8 +162,8 @@ begin
     final_slug := base_slug || '-' || n;
   end loop;
 
-  insert into public.restaurants (owner_id, name, slug)
-  values (new.id, 'My Restaurant', final_slug);
+  insert into public.restaurants (owner_id, name, slug, trial_ends_at)
+  values (new.id, 'My Restaurant', final_slug, now() + interval '14 days');
 
   return new;
 end;
@@ -176,9 +193,12 @@ drop policy if exists "restaurants_owner_all" on public.restaurants;
 create policy "restaurants_owner_all" on public.restaurants
   for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
+-- Public read requires the menu to be published AND the trial still active.
+-- An expired trial makes the row read as absent to anonymous visitors, so the
+-- public menu auto-hides with no application-code change.
 drop policy if exists "restaurants_public_read" on public.restaurants;
 create policy "restaurants_public_read" on public.restaurants
-  for select using (is_published = true);
+  for select using (is_published = true and trial_ends_at > now());
 
 -- helper: does the current user own this restaurant?
 create or replace function public.owns_restaurant(rid uuid)
