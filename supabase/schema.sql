@@ -392,3 +392,126 @@ create policy "reviews_public_read" on public.reviews
   for select using (
     status = 'approved' and public.restaurant_is_published(restaurant_id)
   );
+
+-- ============================================================================
+-- Menu import
+--
+-- Replaces a restaurant's entire menu from a JSON payload in one transaction.
+-- This has to be a database function rather than a sequence of client calls:
+-- the import deletes everything first, so a network failure halfway through
+-- the re-insert would leave the restaurant with an empty menu. A plpgsql
+-- function is atomic, so it either fully lands or fully rolls back.
+--
+-- `payload` is already normalised and validated by the app (prices in cents,
+-- arrays present, unknown allergens dropped) — this function does no coercion
+-- beyond reading the jsonb.
+--
+-- Note: deleting the dishes cascades to dish_pairings, so an import clears any
+-- "goes well with" links. The dashboard warns about this before applying.
+-- ============================================================================
+create or replace function public.import_menu(rid uuid, payload jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  cat        jsonb;
+  dish       jsonb;
+  new_cat_id uuid;
+  cat_idx    int := 0;
+  dish_idx   int;
+  n_cats     int := 0;
+  n_dishes   int := 0;
+begin
+  -- security definer bypasses RLS, so ownership is checked explicitly here.
+  if not public.owns_restaurant(rid) then
+    raise exception 'Not authorised for restaurant %', rid using errcode = '42501';
+  end if;
+
+  delete from public.dishes where restaurant_id = rid;
+  delete from public.categories where restaurant_id = rid;
+
+  for cat in
+    select value from jsonb_array_elements(coalesce(payload -> 'categories', '[]'::jsonb))
+  loop
+    insert into public.categories (restaurant_id, name, name_i18n, description, sort_order)
+    values (
+      rid,
+      cat ->> 'name',
+      coalesce(cat -> 'name_i18n', '{}'::jsonb),
+      nullif(cat ->> 'description', ''),
+      cat_idx
+    )
+    returning id into new_cat_id;
+
+    n_cats  := n_cats + 1;
+    cat_idx := cat_idx + 1;
+
+    dish_idx := 0;
+    for dish in
+      select value from jsonb_array_elements(coalesce(cat -> 'dishes', '[]'::jsonb))
+    loop
+      insert into public.dishes (
+        restaurant_id, category_id, name, name_i18n, description, description_i18n,
+        price_cents, image_url, allergens, dietary_tags,
+        is_available, is_featured, sort_order
+      )
+      values (
+        rid,
+        new_cat_id,
+        dish ->> 'name',
+        coalesce(dish -> 'name_i18n', '{}'::jsonb),
+        nullif(dish ->> 'description', ''),
+        coalesce(dish -> 'description_i18n', '{}'::jsonb),
+        coalesce((dish ->> 'price_cents')::int, 0),
+        nullif(dish ->> 'image_url', ''),
+        array(select jsonb_array_elements_text(coalesce(dish -> 'allergens', '[]'::jsonb))),
+        array(select jsonb_array_elements_text(coalesce(dish -> 'dietary_tags', '[]'::jsonb))),
+        coalesce((dish ->> 'is_available')::boolean, true),
+        coalesce((dish ->> 'is_featured')::boolean, false),
+        dish_idx
+      );
+
+      n_dishes := n_dishes + 1;
+      dish_idx := dish_idx + 1;
+    end loop;
+  end loop;
+
+  -- Dishes with no category, kept so an export/import round-trip doesn't
+  -- silently drop the "More" bucket the public menu renders.
+  dish_idx := 0;
+  for dish in
+    select value from jsonb_array_elements(coalesce(payload -> 'dishes', '[]'::jsonb))
+  loop
+    insert into public.dishes (
+      restaurant_id, category_id, name, name_i18n, description, description_i18n,
+      price_cents, image_url, allergens, dietary_tags,
+      is_available, is_featured, sort_order
+    )
+    values (
+      rid,
+      null,
+      dish ->> 'name',
+      coalesce(dish -> 'name_i18n', '{}'::jsonb),
+      nullif(dish ->> 'description', ''),
+      coalesce(dish -> 'description_i18n', '{}'::jsonb),
+      coalesce((dish ->> 'price_cents')::int, 0),
+      nullif(dish ->> 'image_url', ''),
+      array(select jsonb_array_elements_text(coalesce(dish -> 'allergens', '[]'::jsonb))),
+      array(select jsonb_array_elements_text(coalesce(dish -> 'dietary_tags', '[]'::jsonb))),
+      coalesce((dish ->> 'is_available')::boolean, true),
+      coalesce((dish ->> 'is_featured')::boolean, false),
+      dish_idx
+    );
+
+    n_dishes := n_dishes + 1;
+    dish_idx := dish_idx + 1;
+  end loop;
+
+  return jsonb_build_object('categories', n_cats, 'dishes', n_dishes);
+end;
+$$;
+
+revoke all on function public.import_menu(uuid, jsonb) from public, anon;
+grant execute on function public.import_menu(uuid, jsonb) to authenticated;

@@ -9,6 +9,7 @@ import {
   Settings,
   QrCode,
   Star,
+  FileUp,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -37,6 +38,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/menu", label: "Menu", icon: UtensilsCrossed },
   { href: "/dashboard/qr", label: "Preview & QR", icon: QrCode },
+  { href: "/dashboard/import", label: "Import / Export", icon: FileUp },
   {
     label: "Review",
     icon: Star,
