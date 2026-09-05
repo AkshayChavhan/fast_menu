@@ -42,6 +42,17 @@ export default function SignupPage() {
       return;
     }
 
+    // With email confirmation enabled, Supabase answers a sign-up for an
+    // already-registered email with a placeholder user (empty `identities`)
+    // and sends nothing — so "check your email" would be misleading here.
+    if (data.user && data.user.identities?.length === 0) {
+      setError(
+        "An account with this email already exists. Please sign in instead.",
+      );
+      setPending(false);
+      return;
+    }
+
     // If Supabase returned an active session, the project doesn't require
     // email confirmation — the user can go straight to the dashboard.
     setStatus(data.session ? "ready" : "confirm");
