@@ -110,13 +110,68 @@ an owner.)
 
 ## Scripts
 
-| Command             | Description                          |
-| ------------------- | ------------------------------------ |
-| `npm run dev`       | Start the dev server                 |
-| `npm run build`     | Production build                     |
-| `npm run start`     | Serve the production build           |
-| `npm run lint`      | ESLint                               |
-| `npm run typecheck` | TypeScript, no emit                  |
+| Command              | Description                                 |
+| -------------------- | ------------------------------------------- |
+| `pnpm dev`           | Start the dev server                        |
+| `pnpm build`         | Production build                            |
+| `pnpm start`         | Serve the production build                  |
+| `pnpm lint`          | ESLint                                      |
+| `pnpm typecheck`     | TypeScript, no emit                         |
+| `pnpm test`          | Unit tests (Vitest), once                   |
+| `pnpm test:watch`    | Unit tests in watch mode                    |
+| `pnpm test:sql`      | SQL tests against a throwaway Postgres      |
+
+---
+
+## Tests
+
+### `pnpm test` — Vitest
+
+Test files sit next to the code they cover, as `*.test.ts` / `*.test.tsx`.
+Pure logic runs in Node; files that need a DOM opt in with an
+`// @vitest-environment jsdom` docblock at the top.
+
+What's covered:
+
+| Area | File |
+| ---- | ---- |
+| Menu import/export parsing, normalisation, round-trip | `src/lib/menu-import.test.ts` |
+| Review settings + rating normalisation | `src/lib/reviews.test.ts` |
+| Price, slug and translation helpers | `src/lib/utils.test.ts` |
+| Site origin resolution | `src/lib/site.test.ts` |
+| Blob file downloads | `src/lib/download-file.test.ts` |
+| Public review submission (validation + sanitisation) | `src/app/r/[slug]/actions.test.ts` |
+| Star rating: mouse, keyboard, ARIA | `src/components/reviews/StarRating.test.tsx` |
+| Sidebar navigation + Review submenu | `src/components/dashboard/SidebarNav.test.tsx` |
+
+### `pnpm test:sql` — database functions
+
+`import_menu()` replaces a whole menu in one transaction, so it's tested for
+real rather than mocked. `scripts/test-sql.sh` spins up a throwaway PostgreSQL
+cluster in a temp directory, mirrors the tables the function touches
+(`supabase/tests/fixtures.sql`), extracts the function **straight out of
+`supabase/schema.sql`** so the tests can't drift from the shipped code, and runs
+`supabase/tests/import_menu.test.sql`. The cluster is deleted on exit and your
+own PostgreSQL is never started.
+
+It needs the Postgres client binaries on `PATH`:
+
+```bash
+brew install postgresql@14
+export PATH="$(brew --prefix postgresql@14)/bin:$PATH"
+pnpm test:sql
+```
+
+Beyond field fidelity and ordering, it asserts the two properties that make the
+import safe: a non-owner is refused with `42501`, and a failure induced *after*
+the deletes have been applied rolls back completely, leaving the original menu
+intact.
+
+### Not covered
+
+Server actions that only orchestrate Supabase calls, the dashboard editor
+components, and RLS policies have no automated tests — the first two are thin,
+and RLS needs a real Supabase project to exercise meaningfully.
 
 ---
 
