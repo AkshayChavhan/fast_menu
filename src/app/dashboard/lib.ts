@@ -47,3 +47,39 @@ export async function getActiveContext(): Promise<{
     restaurant: restaurant as Restaurant,
   };
 }
+
+// Uniform result shape for every dashboard server action.
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
+// Assert the signed-in user owns `restaurantId`, returning a client for the
+// follow-up mutation. RLS enforces ownership too; this exists so actions can
+// fail with a friendly message instead of an empty update, and so every
+// dashboard action guards the same way.
+export type OwnedRestaurant =
+  | { ok: false; error: string }
+  | {
+      ok: true;
+      supabase: Awaited<ReturnType<typeof createClient>>;
+      userId: string;
+    };
+
+export async function requireOwnedRestaurant(
+  restaurantId: string,
+): Promise<OwnedRestaurant> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated" };
+
+  const { data: restaurant } = await supabase
+    .from("restaurants")
+    .select("id, owner_id")
+    .eq("id", restaurantId)
+    .maybeSingle();
+
+  if (!restaurant || restaurant.owner_id !== user.id) {
+    return { ok: false, error: "Restaurant not found" };
+  }
+  return { ok: true, supabase, userId: user.id };
+}
