@@ -270,3 +270,125 @@ create policy "menu_images_auth_update" on storage.objects
 drop policy if exists "menu_images_auth_delete" on storage.objects;
 create policy "menu_images_auth_delete" on storage.objects
   for delete to authenticated using (bucket_id = 'menu-images');
+
+-- ============================================================================
+-- Guest reviews
+--
+-- Two tables:
+--   review_forms — per-restaurant settings for the public review page. The
+--     star-rated prompts live in a `questions` jsonb array rather than their
+--     own table: they are always read and written as a whole form, and a
+--     submitted review snapshots the wording it was answered against, so
+--     there is nothing to join back to.
+--   reviews — one guest submission. Lands as 'pending' and only becomes
+--     visible on the public menu once the owner approves it.
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- review_forms — 1:1 with restaurants. Created on first save from the
+-- dashboard; the app falls back to defaults when the row is absent.
+-- ---------------------------------------------------------------------------
+create table if not exists public.review_forms (
+  id            uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null unique references public.restaurants (id) on delete cascade,
+  -- Master switch. When false the public review page 404s and the review QR
+  -- stops resolving, without deleting any settings.
+  is_enabled    boolean not null default true,
+  headline      text not null default 'How was your visit?',
+  intro         text,
+  -- [{ "id": "<uuid>", "prompt": "How was the food?" }, ...] — order is the
+  -- display order. Ids are generated client-side and are stable across edits
+  -- so historical reviews keep pointing at the right prompt.
+  questions     jsonb not null default '[]'::jsonb,
+  ask_name      boolean not null default true,
+  ask_comment   boolean not null default true,
+  comment_label text not null default 'Anything else you''d like to share?',
+  thank_you_message text not null default 'Thank you for your feedback!',
+  -- Whether approved reviews drift across the bottom of the public menu.
+  show_on_menu  boolean not null default true,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists review_forms_restaurant_id_idx on public.review_forms (restaurant_id);
+
+-- ---------------------------------------------------------------------------
+-- reviews — a guest submission, awaiting approval by default.
+-- ---------------------------------------------------------------------------
+create table if not exists public.reviews (
+  id             uuid primary key default gen_random_uuid(),
+  restaurant_id  uuid not null references public.restaurants (id) on delete cascade,
+  guest_name     text,
+  comment        text,
+  -- [{ "question_id": "<uuid>", "prompt": "How was the food?", "rating": 5 }]
+  -- `prompt` is snapshotted so an owner editing the form later doesn't rewrite
+  -- history on reviews that were answered against the old wording.
+  ratings        jsonb not null default '[]'::jsonb,
+  -- Mean of the star answers, for display and sorting. Null when the form had
+  -- no questions (comment-only submission).
+  overall_rating numeric(2,1),
+  status         text not null default 'pending'
+                 check (status in ('pending', 'approved', 'hidden')),
+  created_at     timestamptz not null default now()
+);
+create index if not exists reviews_restaurant_id_idx on public.reviews (restaurant_id);
+create index if not exists reviews_status_idx on public.reviews (restaurant_id, status, created_at desc);
+
+drop trigger if exists review_forms_set_updated_at on public.review_forms;
+create trigger review_forms_set_updated_at
+  before update on public.review_forms
+  for each row execute function public.set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Can anonymous guests post a review to this restaurant right now?
+-- Stricter than restaurant_is_published(): an expired trial or a disabled
+-- review form must block *writes*, not just hide reads. security definer so
+-- the policy can read restaurants/review_forms without recursing into RLS.
+-- ---------------------------------------------------------------------------
+create or replace function public.restaurant_accepts_reviews(rid uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1
+    from public.restaurants r
+    left join public.review_forms f on f.restaurant_id = r.id
+    where r.id = rid
+      and r.is_published = true
+      and r.trial_ends_at > now()
+      and coalesce(f.is_enabled, true) = true
+  );
+$$;
+
+alter table public.review_forms enable row level security;
+alter table public.reviews      enable row level security;
+
+-- review_forms: owner manages; public reads it to render the review page.
+drop policy if exists "review_forms_owner_all" on public.review_forms;
+create policy "review_forms_owner_all" on public.review_forms
+  for all using (public.owns_restaurant(restaurant_id))
+  with check (public.owns_restaurant(restaurant_id));
+
+drop policy if exists "review_forms_public_read" on public.review_forms;
+create policy "review_forms_public_read" on public.review_forms
+  for select using (public.restaurant_is_published(restaurant_id));
+
+-- reviews: owner sees and moderates everything.
+drop policy if exists "reviews_owner_all" on public.reviews;
+create policy "reviews_owner_all" on public.reviews
+  for all using (public.owns_restaurant(restaurant_id))
+  with check (public.owns_restaurant(restaurant_id));
+
+-- Anyone who can reach the review page may submit, but only ever as 'pending'
+-- — pinning status in the policy stops a crafted request self-approving.
+drop policy if exists "reviews_public_insert" on public.reviews;
+create policy "reviews_public_insert" on public.reviews
+  for insert to anon, authenticated
+  with check (
+    public.restaurant_accepts_reviews(restaurant_id)
+    and status = 'pending'
+  );
+
+-- Only approved reviews are publicly readable (the floating words on the menu).
+drop policy if exists "reviews_public_read" on public.reviews;
+create policy "reviews_public_read" on public.reviews
+  for select using (
+    status = 'approved' and public.restaurant_is_published(restaurant_id)
+  );

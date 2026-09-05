@@ -8,10 +8,14 @@ import type {
   Category,
   Dish,
   DishPairing,
+  Review,
+  ReviewForm,
 } from "@/types/db";
+import { normalizeRatings } from "@/lib/reviews";
 import { MenuHeader } from "@/components/menu/MenuHeader";
 import { MenuHero } from "@/components/menu/MenuHero";
 import { MenuBrowser } from "@/components/menu/MenuBrowser";
+import { FloatingReviews } from "@/components/menu/FloatingReviews";
 import type {
   CategoryView,
   DishView,
@@ -29,7 +33,13 @@ type LoadedMenu = {
   categories: Category[];
   dishes: Dish[];
   pairings: DishPairing[];
+  /** Approved reviews with something to say, for the floating strip. */
+  reviews: Review[];
 };
+
+// Only comments make sense as "floating words", and only so many fit before
+// the loop gets tediously long.
+const MAX_FLOATING_REVIEWS = 20;
 
 // ---------------------------------------------------------------------------
 // Data loading — SERVER anon client. RLS returns the restaurant (and its child
@@ -46,7 +56,8 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
 
   if (!restaurant) return null;
 
-  const [categoriesRes, dishesRes, pairingsRes] = await Promise.all([
+  const [categoriesRes, dishesRes, pairingsRes, formRes, reviewsRes] =
+    await Promise.all([
     supabase
       .from("categories")
       .select("*")
@@ -63,13 +74,37 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
       .from("dish_pairings")
       .select("*")
       .eq("restaurant_id", restaurant.id),
+    supabase
+      .from("review_forms")
+      .select("show_on_menu")
+      .eq("restaurant_id", restaurant.id)
+      .maybeSingle<Pick<ReviewForm, "show_on_menu">>(),
+    // RLS already limits this to approved reviews on published restaurants.
+    supabase
+      .from("reviews")
+      .select("*")
+      .eq("restaurant_id", restaurant.id)
+      .not("comment", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(MAX_FLOATING_REVIEWS),
   ]);
+
+  // No form row yet means the feature is on by default (see DEFAULT_REVIEW_SETTINGS).
+  const showOnMenu = formRes.data?.show_on_menu ?? true;
+
+  const reviews = showOnMenu
+    ? ((reviewsRes.data as Review[] | null) ?? [])
+        .map((r) => ({ ...r, ratings: normalizeRatings(r.ratings) }))
+        // A comment of only whitespace would render as an empty bubble.
+        .filter((r) => (r.comment ?? "").trim().length > 0)
+    : [];
 
   return {
     restaurant,
     categories: (categoriesRes.data as Category[] | null) ?? [],
     dishes: (dishesRes.data as Dish[] | null) ?? [],
     pairings: (pairingsRes.data as DishPairing[] | null) ?? [],
+    reviews,
   };
 }
 
@@ -276,6 +311,8 @@ export default async function PublicMenuPage({
           </p>
         </div>
       )}
+
+      <FloatingReviews reviews={menu.reviews} />
 
       <footer className="border-t border-neutral-200/70 py-8 text-center dark:border-neutral-800/70">
         <p className="text-xs text-neutral-400 dark:text-neutral-500">
