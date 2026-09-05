@@ -62,3 +62,21 @@ export const CURRENCIES = [
   "AUD",
   "JPY",
 ] as const;
+
+// Starting point for a restaurant's review form, used until the owner saves
+// their own set. The ids are stable slugs (not uuids) so that a restaurant
+// which never customises its form still produces reviews that all reference
+// the same questions. Questions added in the dashboard get a uuid instead.
+export const DEFAULT_REVIEW_QUESTIONS = [
+  { id: "food", prompt: "How was the food?" },
+  { id: "service", prompt: "How was the service?" },
+  { id: "ambience", prompt: "How was the ambience?" },
+  { id: "value", prompt: "How was the value for money?" },
+] as const;
+
+export const REVIEW_MAX_STARS = 5;
+
+// Guardrails for the form builder and the public submit action.
+export const REVIEW_MAX_QUESTIONS = 10;
+export const REVIEW_MAX_COMMENT_LENGTH = 600;
+export const REVIEW_MAX_NAME_LENGTH = 60;

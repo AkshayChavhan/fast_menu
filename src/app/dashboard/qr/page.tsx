@@ -2,7 +2,11 @@ import { QrCode } from "lucide-react";
 
 import { getActiveContext } from "../lib";
 import { getSiteOrigin, publicMenuPath } from "@/lib/site";
+import { publicReviewPath } from "@/lib/reviews";
+import { createClient } from "@/lib/supabase/server";
+import type { ReviewForm } from "@/types/db";
 import QrStudio from "@/components/qr/QrStudio";
+import { ReviewQrCard } from "@/components/qr/ReviewQrCard";
 
 export const metadata = {
   title: "QR code & share assets — fast_menu",
@@ -19,6 +23,15 @@ export default async function QrPage() {
   const origin = await getSiteOrigin();
   const menuPath = publicMenuPath(restaurant.slug);
   const menuUrl = `${origin}${menuPath}`;
+  const reviewUrl = `${origin}${publicReviewPath(restaurant.slug)}`;
+
+  // No row until Review Settings is saved; the review page is on by default.
+  const supabase = await createClient();
+  const { data: reviewForm } = await supabase
+    .from("review_forms")
+    .select("is_enabled")
+    .eq("restaurant_id", restaurant.id)
+    .maybeSingle<Pick<ReviewForm, "is_enabled">>();
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
@@ -49,6 +62,13 @@ export default async function QrPage() {
         menuPath={menuPath}
         hasAbsoluteUrl={true}
         restaurantName={restaurant.name}
+      />
+
+      <ReviewQrCard
+        reviewUrl={reviewUrl}
+        restaurantName={restaurant.name}
+        isEnabled={reviewForm?.is_enabled ?? true}
+        isPublished={restaurant.is_published}
       />
     </div>
   );

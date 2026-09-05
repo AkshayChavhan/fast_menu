@@ -12,8 +12,10 @@ import { PublishToggle } from "@/components/dashboard/PublishToggle";
 import {
   updateRestaurantSettings,
   updateLogo,
-  type ActionResult,
 } from "@/app/dashboard/settings/actions";
+// `import type` is erased at compile time, so pulling this from the server-only
+// dashboard lib doesn't drag any of it into the client bundle.
+import type { ActionResult } from "@/app/dashboard/lib";
 
 const LOCALE_LABEL = new Map<string, string>(
   SUPPORTED_LOCALES.map((l) => [l.code, l.label]),

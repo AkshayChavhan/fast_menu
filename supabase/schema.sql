@@ -270,3 +270,248 @@ create policy "menu_images_auth_update" on storage.objects
 drop policy if exists "menu_images_auth_delete" on storage.objects;
 create policy "menu_images_auth_delete" on storage.objects
   for delete to authenticated using (bucket_id = 'menu-images');
+
+-- ============================================================================
+-- Guest reviews
+--
+-- Two tables:
+--   review_forms — per-restaurant settings for the public review page. The
+--     star-rated prompts live in a `questions` jsonb array rather than their
+--     own table: they are always read and written as a whole form, and a
+--     submitted review snapshots the wording it was answered against, so
+--     there is nothing to join back to.
+--   reviews — one guest submission. Lands as 'pending' and only becomes
+--     visible on the public menu once the owner approves it.
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- review_forms — 1:1 with restaurants. Created on first save from the
+-- dashboard; the app falls back to defaults when the row is absent.
+-- ---------------------------------------------------------------------------
+create table if not exists public.review_forms (
+  id            uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null unique references public.restaurants (id) on delete cascade,
+  -- Master switch. When false the public review page 404s and the review QR
+  -- stops resolving, without deleting any settings.
+  is_enabled    boolean not null default true,
+  headline      text not null default 'How was your visit?',
+  intro         text,
+  -- [{ "id": "<uuid>", "prompt": "How was the food?" }, ...] — order is the
+  -- display order. Ids are generated client-side and are stable across edits
+  -- so historical reviews keep pointing at the right prompt.
+  questions     jsonb not null default '[]'::jsonb,
+  ask_name      boolean not null default true,
+  ask_comment   boolean not null default true,
+  comment_label text not null default 'Anything else you''d like to share?',
+  thank_you_message text not null default 'Thank you for your feedback!',
+  -- Whether approved reviews drift across the bottom of the public menu.
+  show_on_menu  boolean not null default true,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists review_forms_restaurant_id_idx on public.review_forms (restaurant_id);
+
+-- ---------------------------------------------------------------------------
+-- reviews — a guest submission, awaiting approval by default.
+-- ---------------------------------------------------------------------------
+create table if not exists public.reviews (
+  id             uuid primary key default gen_random_uuid(),
+  restaurant_id  uuid not null references public.restaurants (id) on delete cascade,
+  guest_name     text,
+  comment        text,
+  -- [{ "question_id": "<uuid>", "prompt": "How was the food?", "rating": 5 }]
+  -- `prompt` is snapshotted so an owner editing the form later doesn't rewrite
+  -- history on reviews that were answered against the old wording.
+  ratings        jsonb not null default '[]'::jsonb,
+  -- Mean of the star answers, for display and sorting. Null when the form had
+  -- no questions (comment-only submission).
+  overall_rating numeric(2,1),
+  status         text not null default 'pending'
+                 check (status in ('pending', 'approved', 'hidden')),
+  created_at     timestamptz not null default now()
+);
+create index if not exists reviews_restaurant_id_idx on public.reviews (restaurant_id);
+create index if not exists reviews_status_idx on public.reviews (restaurant_id, status, created_at desc);
+
+drop trigger if exists review_forms_set_updated_at on public.review_forms;
+create trigger review_forms_set_updated_at
+  before update on public.review_forms
+  for each row execute function public.set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Can anonymous guests post a review to this restaurant right now?
+-- Stricter than restaurant_is_published(): an expired trial or a disabled
+-- review form must block *writes*, not just hide reads. security definer so
+-- the policy can read restaurants/review_forms without recursing into RLS.
+-- ---------------------------------------------------------------------------
+create or replace function public.restaurant_accepts_reviews(rid uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1
+    from public.restaurants r
+    left join public.review_forms f on f.restaurant_id = r.id
+    where r.id = rid
+      and r.is_published = true
+      and r.trial_ends_at > now()
+      and coalesce(f.is_enabled, true) = true
+  );
+$$;
+
+alter table public.review_forms enable row level security;
+alter table public.reviews      enable row level security;
+
+-- review_forms: owner manages; public reads it to render the review page.
+drop policy if exists "review_forms_owner_all" on public.review_forms;
+create policy "review_forms_owner_all" on public.review_forms
+  for all using (public.owns_restaurant(restaurant_id))
+  with check (public.owns_restaurant(restaurant_id));
+
+drop policy if exists "review_forms_public_read" on public.review_forms;
+create policy "review_forms_public_read" on public.review_forms
+  for select using (public.restaurant_is_published(restaurant_id));
+
+-- reviews: owner sees and moderates everything.
+drop policy if exists "reviews_owner_all" on public.reviews;
+create policy "reviews_owner_all" on public.reviews
+  for all using (public.owns_restaurant(restaurant_id))
+  with check (public.owns_restaurant(restaurant_id));
+
+-- Anyone who can reach the review page may submit, but only ever as 'pending'
+-- — pinning status in the policy stops a crafted request self-approving.
+drop policy if exists "reviews_public_insert" on public.reviews;
+create policy "reviews_public_insert" on public.reviews
+  for insert to anon, authenticated
+  with check (
+    public.restaurant_accepts_reviews(restaurant_id)
+    and status = 'pending'
+  );
+
+-- Only approved reviews are publicly readable (the floating words on the menu).
+drop policy if exists "reviews_public_read" on public.reviews;
+create policy "reviews_public_read" on public.reviews
+  for select using (
+    status = 'approved' and public.restaurant_is_published(restaurant_id)
+  );
+
+-- ============================================================================
+-- Menu import
+--
+-- Replaces a restaurant's entire menu from a JSON payload in one transaction.
+-- This has to be a database function rather than a sequence of client calls:
+-- the import deletes everything first, so a network failure halfway through
+-- the re-insert would leave the restaurant with an empty menu. A plpgsql
+-- function is atomic, so it either fully lands or fully rolls back.
+--
+-- `payload` is already normalised and validated by the app (prices in cents,
+-- arrays present, unknown allergens dropped) — this function does no coercion
+-- beyond reading the jsonb.
+--
+-- Note: deleting the dishes cascades to dish_pairings, so an import clears any
+-- "goes well with" links. The dashboard warns about this before applying.
+-- ============================================================================
+create or replace function public.import_menu(rid uuid, payload jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  cat        jsonb;
+  dish       jsonb;
+  new_cat_id uuid;
+  cat_idx    int := 0;
+  dish_idx   int;
+  n_cats     int := 0;
+  n_dishes   int := 0;
+begin
+  -- security definer bypasses RLS, so ownership is checked explicitly here.
+  if not public.owns_restaurant(rid) then
+    raise exception 'Not authorised for restaurant %', rid using errcode = '42501';
+  end if;
+
+  delete from public.dishes where restaurant_id = rid;
+  delete from public.categories where restaurant_id = rid;
+
+  for cat in
+    select value from jsonb_array_elements(coalesce(payload -> 'categories', '[]'::jsonb))
+  loop
+    insert into public.categories (restaurant_id, name, name_i18n, description, sort_order)
+    values (
+      rid,
+      cat ->> 'name',
+      coalesce(cat -> 'name_i18n', '{}'::jsonb),
+      nullif(cat ->> 'description', ''),
+      cat_idx
+    )
+    returning id into new_cat_id;
+
+    n_cats  := n_cats + 1;
+    cat_idx := cat_idx + 1;
+
+    dish_idx := 0;
+    for dish in
+      select value from jsonb_array_elements(coalesce(cat -> 'dishes', '[]'::jsonb))
+    loop
+      insert into public.dishes (
+        restaurant_id, category_id, name, name_i18n, description, description_i18n,
+        price_cents, image_url, allergens, dietary_tags,
+        is_available, is_featured, sort_order
+      )
+      values (
+        rid,
+        new_cat_id,
+        dish ->> 'name',
+        coalesce(dish -> 'name_i18n', '{}'::jsonb),
+        nullif(dish ->> 'description', ''),
+        coalesce(dish -> 'description_i18n', '{}'::jsonb),
+        coalesce((dish ->> 'price_cents')::int, 0),
+        nullif(dish ->> 'image_url', ''),
+        array(select jsonb_array_elements_text(coalesce(dish -> 'allergens', '[]'::jsonb))),
+        array(select jsonb_array_elements_text(coalesce(dish -> 'dietary_tags', '[]'::jsonb))),
+        coalesce((dish ->> 'is_available')::boolean, true),
+        coalesce((dish ->> 'is_featured')::boolean, false),
+        dish_idx
+      );
+
+      n_dishes := n_dishes + 1;
+      dish_idx := dish_idx + 1;
+    end loop;
+  end loop;
+
+  -- Dishes with no category, kept so an export/import round-trip doesn't
+  -- silently drop the "More" bucket the public menu renders.
+  dish_idx := 0;
+  for dish in
+    select value from jsonb_array_elements(coalesce(payload -> 'dishes', '[]'::jsonb))
+  loop
+    insert into public.dishes (
+      restaurant_id, category_id, name, name_i18n, description, description_i18n,
+      price_cents, image_url, allergens, dietary_tags,
+      is_available, is_featured, sort_order
+    )
+    values (
+      rid,
+      null,
+      dish ->> 'name',
+      coalesce(dish -> 'name_i18n', '{}'::jsonb),
+      nullif(dish ->> 'description', ''),
+      coalesce(dish -> 'description_i18n', '{}'::jsonb),
+      coalesce((dish ->> 'price_cents')::int, 0),
+      nullif(dish ->> 'image_url', ''),
+      array(select jsonb_array_elements_text(coalesce(dish -> 'allergens', '[]'::jsonb))),
+      array(select jsonb_array_elements_text(coalesce(dish -> 'dietary_tags', '[]'::jsonb))),
+      coalesce((dish ->> 'is_available')::boolean, true),
+      coalesce((dish ->> 'is_featured')::boolean, false),
+      dish_idx
+    );
+
+    n_dishes := n_dishes + 1;
+    dish_idx := dish_idx + 1;
+  end loop;
+
+  return jsonb_build_object('categories', n_cats, 'dishes', n_dishes);
+end;
+$$;
+
+revoke all on function public.import_menu(uuid, jsonb) from public, anon;
+grant execute on function public.import_menu(uuid, jsonb) to authenticated;

@@ -2,46 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { requireOwnedRestaurant, type ActionResult } from "../lib";
 import { slugify } from "@/lib/utils";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/lib/constants";
 
 const CURRENCY_VALUES = CURRENCIES as readonly string[];
 const LOCALE_VALUES = SUPPORTED_LOCALES.map((l) => l.code);
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
-
-// Resolve the current user and assert they own the given restaurant. Returns
-// the supabase client for the follow-up mutation. RLS also enforces ownership;
-// this gives us friendlier errors and an explicit guard.
-type OwnedRestaurant =
-  | { ok: false; error: string }
-  | {
-      ok: true;
-      supabase: Awaited<ReturnType<typeof createClient>>;
-      userId: string;
-    };
-
-async function requireOwnedRestaurant(
-  restaurantId: string,
-): Promise<OwnedRestaurant> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not authenticated" };
-
-  const { data: restaurant } = await supabase
-    .from("restaurants")
-    .select("id, owner_id")
-    .eq("id", restaurantId)
-    .maybeSingle();
-
-  if (!restaurant || restaurant.owner_id !== user.id) {
-    return { ok: false, error: "Restaurant not found" };
-  }
-  return { ok: true, supabase, userId: user.id };
-}
 
 const settingsSchema = z.object({
   restaurantId: z.string().uuid(),
