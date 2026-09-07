@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { cn, formatPrice, slugify, localized } from "@/lib/utils";
+import { cn, formatPrice, slugify, localized, localeDir } from "@/lib/utils";
 
 describe("cn", () => {
   it("joins class names", () => {
@@ -86,5 +86,30 @@ describe("localized", () => {
 
   it("falls back when the translation is an empty string", () => {
     expect(localized("Lentils", { hi: "" }, "hi")).toBe("Lentils");
+  });
+});
+
+describe("localeDir", () => {
+  it("reports rtl for Arabic and Urdu", () => {
+    expect(localeDir("ar")).toBe("rtl");
+    expect(localeDir("ur")).toBe("rtl");
+  });
+
+  it("reports ltr for everything else we offer", () => {
+    for (const code of ["en", "es", "hi", "ta", "zh", "ja"]) {
+      expect(localeDir(code)).toBe("ltr");
+    }
+  });
+
+  it("resolves regional variants and odd casing from ?lang=", () => {
+    expect(localeDir("ar-AE")).toBe("rtl");
+    expect(localeDir("ur_PK")).toBe("rtl");
+    expect(localeDir("AR")).toBe("rtl");
+    expect(localeDir("en-GB")).toBe("ltr");
+  });
+
+  it("defaults to ltr for an unknown locale", () => {
+    expect(localeDir("")).toBe("ltr");
+    expect(localeDir("xx")).toBe("ltr");
   });
 });

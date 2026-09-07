@@ -71,7 +71,10 @@ function PairingGroup({
               <p className="truncate text-xs font-semibold text-neutral-800 dark:text-neutral-100">
                 {p.name}
               </p>
-              <p className="text-xs font-bold text-brand-600 dark:text-brand-400">
+              <p
+                translate="no"
+                className="text-xs font-bold text-brand-600 dark:text-brand-400"
+              >
                 {p.priceLabel}
               </p>
             </div>

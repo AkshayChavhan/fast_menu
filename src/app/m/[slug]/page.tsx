@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { UtensilsCrossed } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { formatPrice, localized } from "@/lib/utils";
+import { formatPrice, localized, localeDir } from "@/lib/utils";
 import type {
   Restaurant,
   Category,
@@ -16,6 +16,7 @@ import { MenuHeader } from "@/components/menu/MenuHeader";
 import { MenuHero } from "@/components/menu/MenuHero";
 import { MenuBrowser } from "@/components/menu/MenuBrowser";
 import { FloatingReviews } from "@/components/menu/FloatingReviews";
+import { DocumentLocale } from "@/components/menu/DocumentLocale";
 import type {
   CategoryView,
   DishView,
@@ -284,9 +285,19 @@ export default async function PublicMenuPage({
   const description = restaurant.description;
 
   const { categories, anyDishes } = buildView(menu, locale);
+  const dir = localeDir(locale);
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    // `dir` is repeated on the wrapper rather than left to DocumentLocale
+    // alone: it keeps the menu correct when the inline script is blocked (a
+    // strict CSP) and makes the direction part of the server-rendered HTML.
+    <div
+      lang={locale}
+      dir={dir}
+      className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
+    >
+      <DocumentLocale locale={locale} dir={dir} />
+
       <MenuHeader
         name={name}
         logoUrl={restaurant.logo_url}
@@ -317,7 +328,9 @@ export default async function PublicMenuPage({
       <footer className="border-t border-neutral-200/70 py-8 text-center dark:border-neutral-800/70">
         <p className="text-xs text-neutral-400 dark:text-neutral-500">
           {name} · Digital menu powered by{" "}
-          <span className="font-semibold text-brand-500">fast_menu</span>
+          <span translate="no" className="font-semibold text-brand-500">
+            fast_menu
+          </span>
         </p>
       </footer>
     </div>

@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+import { RTL_LOCALES } from "@/lib/constants";
+
 // Tailwind-aware className combiner.
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -41,4 +43,12 @@ export function localized(
 ): string {
   if (i18n && i18n[locale]) return i18n[locale];
   return base;
+}
+
+// Writing direction for a locale, for the `dir` attribute.
+export function localeDir(locale: string): "ltr" | "rtl" {
+  // Match on the base subtag so regional variants ("ar-AE", "ur_PK") resolve
+  // too, and be case-insensitive — locales can arrive from a ?lang= param.
+  const base = locale.toLowerCase().split(/[-_]/)[0];
+  return RTL_LOCALES.has(base) ? "rtl" : "ltr";
 }

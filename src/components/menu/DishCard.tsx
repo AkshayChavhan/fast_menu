@@ -62,7 +62,10 @@ export function DishCard({ dish }: { dish: DishView }) {
               </span>
             )}
           </h3>
-          <div className="shrink-0 whitespace-nowrap rounded-full bg-brand-50 px-3 py-1 text-sm font-extrabold text-brand-700 dark:bg-brand-950/50 dark:text-brand-300">
+          <div
+            translate="no"
+            className="shrink-0 whitespace-nowrap rounded-full bg-brand-50 px-3 py-1 text-sm font-extrabold text-brand-700 dark:bg-brand-950/50 dark:text-brand-300"
+          >
             {dish.priceLabel}
           </div>
         </div>

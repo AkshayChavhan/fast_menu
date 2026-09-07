@@ -52,6 +52,10 @@ export const SUPPORTED_LOCALES = [
   { code: "ur", label: "اردو" },
 ] as const;
 
+// The locales above that read right-to-left. Used to set `dir` on the public
+// menu so the layout mirrors correctly for Arabic and Urdu guests.
+export const RTL_LOCALES = new Set<string>(["ar", "ur"]);
+
 export const CURRENCIES = [
   "USD",
   "EUR",
