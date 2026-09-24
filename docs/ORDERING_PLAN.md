@@ -118,7 +118,7 @@ Tick a box when the phase is merged into this branch.
       navigation, Realtime.
 - [x] **6 Kitchen** — toggle, kitchen role and screen, item states, ready
       notifications, ticket print.
-- [ ] **7 Quality and launch** — Sentry, Playwright in CI, expiry cleanup,
+- [x] **7 Quality and launch** — Sentry, Playwright in CI, expiry cleanup,
       docs, demo seed, accessibility and performance pass.
 
 ## Decisions log
@@ -134,3 +134,16 @@ Tick a box when the phase is merged into this branch.
   they may change (pause ordering) go through role-checked functions.
 - 2026-09-24 — Sentry is wired in phase 7 rather than phase 0 so the build
   pipeline stays simple while the schema is changing fast.
+- 2026-09-24 — Payment methods, discounts and tax are out of scope: Mark paid
+  records the total only. `table_sessions.payment_method` exists for later.
+- 2026-09-24 — Guests never get direct policies on order tables; every write
+  is a security-definer function that re-reads prices. Staff have read
+  policies only, and write through role-checked functions, so there is no
+  update policy to get wrong.
+- 2026-09-24 — Joined tables that already sit on two separate open bills are
+  refused rather than merged; the waiter picks one.
+- 2026-09-24 — The kitchen and the waiter's "Mark served" both move items;
+  states only go forward except ready → preparing for a mistake.
+- 2026-09-24 — End-to-end tests run in CI against `supabase start`; locally
+  they need a running stack and the same env. Phone verification is switched
+  to `none` on the test stack.

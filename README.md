@@ -158,6 +158,7 @@ an owner.)
 | `pnpm test`          | Unit tests (Vitest), once                   |
 | `pnpm test:watch`    | Unit tests in watch mode                    |
 | `pnpm test:sql`      | SQL tests against a throwaway Postgres      |
+| `pnpm test:e2e`      | Playwright end-to-end (needs a Supabase stack) |
 
 ---
 
@@ -230,11 +231,22 @@ clearing. `billing.test.sql` covers settling a bill, the freeze that follows,
 reopening and roles. `kitchen.test.sql` covers item and ticket states and their
 allowed transitions.
 
+### `pnpm test:e2e` — Playwright
+
+`e2e/` drives the real app in Chromium (desktop and a Pixel-sized phone):
+a guest orders from a table QR, a waiter approves it onto the table, the
+counter settles the bill, and the guest is thanked; plus role landing and the
+health endpoint. `e2e/global-setup.ts` builds a small restaurant with the
+service-role key, so the tests need a Supabase stack: in CI
+(`.github/workflows/ci.yml`) that is `supabase start` with the migrations
+applied; locally, run `supabase start`, point `.env.local` at it, and
+`pnpm test:e2e`.
+
 ### Not covered
 
-Server actions that only orchestrate Supabase calls, the dashboard editor
-components, and RLS policies have no automated tests — the first two are thin,
-and RLS needs a real Supabase project to exercise meaningfully.
+Server actions that only orchestrate Supabase calls and the dashboard editor
+components have no unit tests — they are thin. RLS policies are exercised
+indirectly by the end-to-end run.
 
 ---
 
@@ -308,6 +320,17 @@ Deploy to [Vercel](https://vercel.com): import the repo, add the four
 environment variables above (set `NEXT_PUBLIC_SITE_URL` to your production URL),
 and ship. Point your Supabase Auth **Site URL** / redirect URLs at the deployed
 domain.
+
+Optional extras, all off until their env is set (see `.env.example`):
+
+- **Push notifications** — VAPID keys for the waiter bell.
+- **Error monitoring** — `NEXT_PUBLIC_SENTRY_DSN` sends server and browser
+  errors to Sentry, tagged with restaurant and role, never with personal data.
+  `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` upload source maps.
+- **Uptime** — point a monitor at `/api/health`; it answers 503 when the
+  database is unreachable.
+- **Housekeeping** — enable the `pg_cron` extension and the migrations schedule
+  `expire_placed_orders()` every ten minutes.
 
 ---
 
