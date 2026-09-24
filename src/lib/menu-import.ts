@@ -775,6 +775,8 @@ export function sampleMenuFile(currency: string): Record<string, unknown> {
       },
       {
         name: "Mains",
+        // Shows the link: this names the "Lunch" window defined above.
+        schedule: "Lunch",
         dishes: [
           {
             name: "Dal Makhani",
