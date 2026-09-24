@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { requireRestaurantAccess, type ActionResult } from "../lib";
 
-export const TABLES_MAX = 300;
+const TABLES_MAX = 300;
 const LABEL_MAX = 40;
 
 function revalidateTableSurfaces() {

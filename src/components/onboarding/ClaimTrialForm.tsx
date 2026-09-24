@@ -5,11 +5,8 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, Clock, Loader2, ShieldAlert, Smartphone } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import {
-  claimTrial,
-  CLAIM_MESSAGES,
-  type ClaimResult,
-} from "@/app/onboarding/claim/actions";
+import { claimTrial, type ClaimResult } from "@/app/onboarding/claim/actions";
+import { CLAIM_MESSAGES } from "@/lib/trial-messages";
 import type { TrialStatus } from "@/types/db";
 
 type Step = "details" | "otp";
