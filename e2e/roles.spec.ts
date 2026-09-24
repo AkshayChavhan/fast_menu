@@ -20,7 +20,7 @@ test("a waiter lands in the waiter app and is kept out of the dashboard", async 
 test("the owner lands in the dashboard and sees the billing counter", async ({ page }) => {
   await login(page, E2E.owner.email, E2E.owner.password);
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("link", { name: "Orders" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Orders", exact: true })).toBeVisible();
 });
 
 test("the health endpoint reports the database", async ({ request }) => {

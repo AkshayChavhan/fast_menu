@@ -25,5 +25,9 @@ export default defineConfig({
     url: "http://localhost:3000/api/health",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // The app's own log lines (place_order failed: …) are the fastest way
+    // to read a failure from a CI run.
+    stdout: "pipe",
+    stderr: "pipe",
   },
 });

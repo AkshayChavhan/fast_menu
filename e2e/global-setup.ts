@@ -32,6 +32,8 @@ export default async function globalSetup() {
       email,
       password,
       email_confirm: true,
+      // Both fields, exactly as createStaff() does (see that comment).
+      user_metadata: appRole ? { app_role: appRole } : {},
       app_metadata: appRole ? { app_role: appRole } : {},
     });
     if (error || !data.user) throw error ?? new Error("could not create user");
@@ -40,6 +42,8 @@ export default async function globalSetup() {
 
   const ownerId = await ensureUser(E2E.owner.email, E2E.owner.password);
   const waiterId = await ensureUser(E2E.waiter.email, E2E.waiter.password, "waiter");
+  // A waiter who owns a restaurant is routed as an owner; make sure of it.
+  await admin.from("restaurants").delete().eq("owner_id", waiterId);
 
   // The signup trigger gave the owner a starter restaurant; take it over as
   // the e2e restaurant and reset it.

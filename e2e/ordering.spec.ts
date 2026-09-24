@@ -33,7 +33,8 @@ test.describe.serial("guest → waiter → billing", () => {
 
     // A refused order stays on the cart with a banner; fail with its text so
     // a CI run says why instead of just "wrong URL".
-    const alert = page.getByRole("alert");
+    // Next adds its own role="alert" route announcer; only the page's banner counts.
+    const alert = page.locator('[role="alert"]:not(#__next-route-announcer__)');
     await expect
       .poll(
         async () =>
