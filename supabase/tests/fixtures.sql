@@ -90,6 +90,11 @@ create table public.restaurants (
   is_published      boolean not null default false,
   trial_ends_at     timestamptz not null default now() + interval '15 days',
   timezone          text not null default 'UTC',
+  currency          text not null default 'INR',
+  ordering_enabled  boolean not null default false,
+  ordering_paused   boolean not null default false,
+  pause_message     text,
+  allow_takeaway    boolean not null default false,
   phone             text,
   phone_verified_at timestamptz,
   gstin             text,
@@ -168,4 +173,110 @@ create table public.menu_schedules (
   is_active     boolean not null default true,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- Ordering (place_order, get_order_by_code, cancel_order_by_code,
+-- create_service_request, check_rate_limit and the total triggers).
+-- ---------------------------------------------------------------------------
+create table public.tables (
+  id            uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null references public.restaurants (id) on delete cascade,
+  label         text not null,
+  qr_token      text not null default encode(gen_random_bytes(6), 'hex'),
+  capacity      integer,
+  sort_order    integer not null default 0,
+  is_active     boolean not null default true,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  unique (restaurant_id, qr_token),
+  unique (restaurant_id, label)
+);
+create table public.table_sessions (
+  id                uuid primary key default gen_random_uuid(),
+  restaurant_id     uuid not null references public.restaurants (id) on delete cascade,
+  status            text not null default 'open' check (status in ('open', 'bill_requested', 'closed')),
+  service_type      text not null default 'dine_in' check (service_type in ('dine_in', 'takeaway')),
+  guest_label       text,
+  opened_by         uuid,
+  opened_at         timestamptz not null default now(),
+  bill_requested_at timestamptz,
+  closed_at         timestamptz,
+  closed_by         uuid,
+  total_cents       integer not null default 0,
+  payment_method    text,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+create table public.table_session_tables (
+  session_id uuid not null references public.table_sessions (id) on delete cascade,
+  table_id   uuid not null references public.tables (id) on delete cascade,
+  primary key (session_id, table_id)
+);
+create table public.orders (
+  id              uuid primary key default gen_random_uuid(),
+  restaurant_id   uuid not null references public.restaurants (id) on delete cascade,
+  code            text not null,
+  status          text not null default 'placed' check (status in ('placed', 'approved', 'settled', 'rejected', 'cancelled')),
+  source          text not null default 'customer' check (source in ('customer', 'waiter')),
+  service_type    text not null default 'dine_in' check (service_type in ('dine_in', 'takeaway')),
+  table_id        uuid references public.tables (id) on delete set null,
+  session_id      uuid references public.table_sessions (id) on delete set null,
+  note            text,
+  subtotal_cents  integer not null default 0,
+  currency        text not null,
+  locale          text,
+  device_key      text,
+  created_by      uuid,
+  approved_by     uuid,
+  approved_at     timestamptz,
+  last_edited_by  uuid,
+  last_edited_at  timestamptz,
+  rejected_reason text,
+  expires_at      timestamptz not null default now() + interval '2 hours',
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  unique (restaurant_id, code)
+);
+create table public.order_items (
+  id               uuid primary key default gen_random_uuid(),
+  order_id         uuid not null references public.orders (id) on delete cascade,
+  restaurant_id    uuid not null,
+  dish_id          uuid references public.dishes (id) on delete set null,
+  name             text not null,
+  unit_price_cents integer not null check (unit_price_cents >= 0),
+  quantity         integer not null check (quantity between 1 and 99),
+  line_total_cents integer generated always as (unit_price_cents * quantity) stored,
+  variant          jsonb,
+  addons           jsonb not null default '[]'::jsonb,
+  note             text,
+  kds_status       text,
+  sort_order       integer not null default 0,
+  created_at       timestamptz not null default now()
+);
+create table public.order_events (
+  id            uuid primary key default gen_random_uuid(),
+  order_id      uuid not null references public.orders (id) on delete cascade,
+  restaurant_id uuid not null,
+  actor_id      uuid,
+  kind          text not null,
+  details       jsonb not null default '{}'::jsonb,
+  created_at    timestamptz not null default now()
+);
+create table public.service_requests (
+  id            uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null,
+  table_id      uuid references public.tables (id) on delete set null,
+  session_id    uuid references public.table_sessions (id) on delete set null,
+  kind          text not null check (kind in ('call_waiter', 'request_bill')),
+  status        text not null default 'open' check (status in ('open', 'done')),
+  device_key    text,
+  created_at    timestamptz not null default now(),
+  resolved_at   timestamptz,
+  resolved_by   uuid
+);
+create table public.rate_limit_buckets (
+  key          text primary key,
+  window_start timestamptz not null,
+  count        integer not null default 0
 );

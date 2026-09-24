@@ -251,3 +251,155 @@ export type ReviewFormSettings = Pick<
   | "thank_you_message"
   | "show_on_menu"
 >;
+
+// --- Ordering ----------------------------------------------------------------
+
+export type OrderStatus = "placed" | "approved" | "settled" | "rejected" | "cancelled";
+export type OrderSource = "customer" | "waiter";
+export type ServiceType = "dine_in" | "takeaway";
+export type SessionStatus = "open" | "bill_requested" | "closed";
+export type KdsStatus = "queued" | "preparing" | "ready" | "served";
+
+// One seating: opened on the first approved order for a table (or when a
+// waiter seats a walk-in), closed when billing marks it paid.
+export interface TableSession {
+  id: string;
+  restaurant_id: string;
+  status: SessionStatus;
+  service_type: ServiceType;
+  guest_label: string | null;
+  opened_by: string | null;
+  opened_at: string;
+  bill_requested_at: string | null;
+  closed_at: string | null;
+  closed_by: string | null;
+  /** Sum of approved and settled orders, kept by trigger. */
+  total_cents: number;
+  payment_method: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Order {
+  id: string;
+  restaurant_id: string;
+  /** Six unambiguous characters, unique per restaurant. */
+  code: string;
+  status: OrderStatus;
+  source: OrderSource;
+  service_type: ServiceType;
+  table_id: string | null;
+  session_id: string | null;
+  note: string | null;
+  /** Sum of line totals, kept by trigger. */
+  subtotal_cents: number;
+  currency: string;
+  locale: string | null;
+  device_key: string | null;
+  created_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  last_edited_by: string | null;
+  last_edited_at: string | null;
+  rejected_reason: string | null;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Snapshots taken when the line was written.
+export interface OrderItemVariant {
+  option_id: string;
+  group: string;
+  name: string;
+  price_cents: number;
+}
+
+export interface OrderItemAddon {
+  option_id: string;
+  group_id: string;
+  group: string;
+  name: string;
+  price_cents: number;
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  restaurant_id: string;
+  dish_id: string | null;
+  name: string;
+  unit_price_cents: number;
+  quantity: number;
+  line_total_cents: number;
+  variant: OrderItemVariant | null;
+  addons: OrderItemAddon[];
+  note: string | null;
+  kds_status: KdsStatus | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface OrderEvent {
+  id: string;
+  order_id: string;
+  restaurant_id: string;
+  actor_id: string | null;
+  kind: string;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export type ServiceRequestKind = "call_waiter" | "request_bill";
+
+export interface ServiceRequest {
+  id: string;
+  restaurant_id: string;
+  table_id: string | null;
+  session_id: string | null;
+  kind: ServiceRequestKind;
+  status: "open" | "done";
+  device_key: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
+// What get_order_by_code() hands the guest's order page.
+export interface PublicOrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit_price_cents: number;
+  line_total_cents: number;
+  variant: OrderItemVariant | null;
+  addons: OrderItemAddon[];
+  note: string | null;
+}
+
+export interface PublicOrder {
+  id: string;
+  code: string;
+  status: OrderStatus;
+  service_type: ServiceType;
+  table_label: string | null;
+  note: string | null;
+  subtotal_cents: number;
+  currency: string;
+  created_at: string;
+  approved_at: string | null;
+  expires_at: string;
+  rejected_reason: string | null;
+  session_status: SessionStatus | null;
+  session_total_cents: number | null;
+  items: PublicOrderItem[];
+}
+
+// One line as the guest (or waiter) submits it; the database re-prices it.
+export interface OrderLineInput {
+  dish_id: string;
+  quantity: number;
+  note: string | null;
+  variant_option_id: string | null;
+  addon_option_ids: string[];
+}
