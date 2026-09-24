@@ -109,7 +109,17 @@ export async function setPublished(
     .update({ is_published: isPublished })
     .eq("id", restaurantId);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    // P0001 is the restaurants_enforce_trial trigger.
+    if (error.code === "P0001") {
+      return {
+        ok: false,
+        error:
+          "Publishing is switched off until your trial is approved. You can keep editing the menu.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/settings");

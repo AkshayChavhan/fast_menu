@@ -5,7 +5,7 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 // Areas that need a session. Which role may use each one is decided by the
 // area's own layout; here we only know whether someone is signed in.
-const PROTECTED_PREFIXES = ["/dashboard", "/waiter", "/kitchen"];
+const PROTECTED_PREFIXES = ["/dashboard", "/waiter", "/kitchen", "/onboarding", "/admin"];
 
 // Refreshes the Supabase auth session on every request and guards the
 // signed-in areas (dashboard, waiter app, kitchen screen). Called from the root proxy.ts (Next.js 16 renamed the

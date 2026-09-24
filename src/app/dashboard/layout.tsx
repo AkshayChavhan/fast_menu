@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { Clock, LogOut } from "lucide-react";
 import { getActiveContext } from "./lib";
 import { homeFor, ROLE_LABELS } from "@/lib/permissions";
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
@@ -60,6 +60,14 @@ export default async function DashboardLayout({
           </form>
         </div>
       </header>
+
+      {restaurant.trial_status === "needs_review" ? (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <Clock className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />
+          We&apos;re checking your hotel. Keep building; publishing switches on once the
+          check is done.
+        </div>
+      ) : null}
 
       <div className="mx-auto flex w-full max-w-7xl">
         {/* Static sidebar (desktop) */}

@@ -15,6 +15,18 @@ export interface ActiveContext extends Membership {
   email: string | null;
 }
 
+export interface RequireOptions {
+  // The trial claim page opts out of the "owner must claim first" redirect.
+  allowUnclaimedTrial?: boolean;
+}
+
+// Owners must claim their one-time trial before the dashboard opens, and a
+// denied claim locks it. needs_review is allowed in (publishing is blocked
+// separately) so a hotel under review can keep building its menu.
+export function trialBlocksAccess(status: Restaurant["trial_status"]): boolean {
+  return status === "pending" || status === "denied";
+}
+
 // Where does this user work, and as what? Owners first (their first
 // restaurant by creation date), then an active staff row. Shared by every
 // signed-in area and by the post-login router.
@@ -61,11 +73,13 @@ export async function resolveMembership(
 // The signed-in user's context for a page, or a redirect:
 //   - not signed in            → /login
 //   - no active membership     → /auth/home (signs out with an explanation)
+//   - owner, trial unclaimed   → /onboarding/claim
 //   - lacks `capability`       → the role's own home
 // The proxy already gates the signed-in areas, but pages re-check so Server
 // Components can rely on a non-null user/restaurant without extra guards.
 export async function requireContext(
   capability?: Capability,
+  options: RequireOptions = {},
 ): Promise<ActiveContext> {
   const supabase = await createClient();
   const {
@@ -75,6 +89,14 @@ export async function requireContext(
 
   const membership = await resolveMembership(supabase, user.id);
   if (!membership) redirect("/auth/home");
+
+  if (
+    !options.allowUnclaimedTrial &&
+    membership.role === "owner" &&
+    trialBlocksAccess(membership.restaurant.trial_status)
+  ) {
+    redirect("/onboarding/claim");
+  }
 
   if (capability && !can(membership.role, capability)) {
     redirect(homeFor(membership.role));
