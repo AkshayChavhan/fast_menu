@@ -49,14 +49,19 @@ npm install
 
 ### 3. Configure the database
 
-In your Supabase project's **SQL Editor**, run the schema:
+In your Supabase project's **SQL Editor**, run every file in
+`supabase/migrations/` in filename order (or `supabase db push` with the
+Supabase CLI):
 
 ```
-supabase/schema.sql
+supabase/migrations/20260924000000_baseline.sql
+supabase/migrations/<later files, in order>
 ```
 
-This creates the tables, Row-Level Security policies, the `menu-images` storage
-bucket, and a trigger that provisions a starter restaurant for every new user.
+The baseline creates the tables, Row-Level Security policies, the `menu-images`
+storage bucket, and a trigger that provisions a starter restaurant for every
+new user. Each later file is a forward-only migration that adds one feature and
+is safe to run once on an existing database.
 
 ### 4. Environment variables
 
@@ -150,7 +155,7 @@ What's covered:
 real rather than mocked. `scripts/test-sql.sh` spins up a throwaway PostgreSQL
 cluster in a temp directory, mirrors the tables the function touches
 (`supabase/tests/fixtures.sql`), extracts the function **straight out of
-`supabase/schema.sql`** so the tests can't drift from the shipped code, and runs
+`supabase/migrations/`** so the tests can't drift from the shipped code, and runs
 `supabase/tests/import_menu.test.sql`. The cluster is deleted on exit and your
 own PostgreSQL is never started.
 
@@ -200,7 +205,7 @@ src/
     constants.ts          Allergens, dietary tags, locales, currencies
   types/db.ts             Domain types mirroring the schema
 supabase/
-  schema.sql              Tables, RLS, storage bucket, triggers
+  migrations/             Versioned schema: baseline + one file per feature
   seed.sql                Demo restaurant for /m/demo
 ```
 

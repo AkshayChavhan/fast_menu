@@ -1,4 +1,4 @@
-// Shared domain types mirroring supabase/schema.sql.
+// Shared domain types mirroring supabase/migrations/.
 // Kept hand-written (rather than generated) so the app has a single, stable
 // contract that every feature imports.
 

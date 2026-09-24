@@ -5,7 +5,7 @@
 -- categories, photographed dishes, allergens, dietary tags, an 86'd dish,
 -- multi-language names, and upsell pairings.
 --
--- Run AFTER schema.sql, and AFTER you have signed up at least one user
+-- Run AFTER the migrations in supabase/migrations/, and AFTER you have signed up at least one user
 -- (restaurants.owner_id references auth.users). Run it in the Supabase SQL
 -- editor or: supabase db execute --file supabase/seed.sql
 --

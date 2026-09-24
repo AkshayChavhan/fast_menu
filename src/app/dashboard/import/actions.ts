@@ -123,7 +123,7 @@ export async function applyImport(
       return {
         ok: false,
         error:
-          "The import_menu database function is missing. Run supabase/schema.sql in the Supabase SQL editor first.",
+          "The import_menu database function is missing. Run the files in supabase/migrations/ in the Supabase SQL editor first.",
       };
     }
     return { ok: false, error: error.message };

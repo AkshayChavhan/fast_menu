@@ -49,13 +49,15 @@ trigger that gives every new signup a starter restaurant.
 
 1. In your project, open the **SQL Editor** (left sidebar, the `</>` icon).
 2. Click **+ New query**.
-3. Open [`supabase/schema.sql`](../supabase/schema.sql) from this repo, copy its
-   **entire** contents, and paste into the editor.
+3. Open [`supabase/migrations/`](../supabase/migrations/) in this repo. Start with
+   the baseline file, copy its **entire** contents, and paste into the editor.
 4. Click **Run** (or press Ctrl/Cmd + Enter).
 5. You should see **Success. No rows returned** — that's correct.
+6. Repeat for every later file in the folder, in filename order. Each one is a
+   forward-only migration that adds a feature on top of the baseline.
 
-> Re-running `schema.sql` later is safe; it uses `create ... if not exists` and
-> `drop policy if exists`.
+> Re-running the baseline later is safe; it uses `create ... if not exists` and
+> `drop policy if exists`. Later migrations are written to be re-runnable too.
 
 **Verify (optional):** open the **Table Editor** — you should now see the
 `profiles`, `restaurants`, `categories`, `dishes`, and `dish_pairings` tables.
@@ -151,7 +153,7 @@ Re-running `seed.sql` resets the demo to a clean state.
 | Pages error / "Invalid API key" | `.env.local` values are wrong or missing. Double-check the URL and anon key, then restart `npm run dev`. |
 | Signup "succeeds" but you're not logged in | Email confirmation is on. Either click the emailed link, or turn off "Confirm email" (step 3). |
 | Public menu shows "menu not found" | The restaurant isn't **published**, or the slug in the URL doesn't match. Publish it under Settings. |
-| Dish photos don't upload | The `menu-images` storage bucket wasn't created — re-run `schema.sql`. |
+| Dish photos don't upload | The `menu-images` storage bucket wasn't created — re-run the baseline migration. |
 | `/m/demo` is empty / errors | You ran `seed.sql` before signing up. Sign up first, then re-run the seed. |
 | Env changes not taking effect | Restart the dev server — Next.js only reads `.env.local` at startup. |
 

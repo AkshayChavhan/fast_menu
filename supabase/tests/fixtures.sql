@@ -1,4 +1,4 @@
--- Test scaffolding for the SQL functions in ../schema.sql.
+-- Test scaffolding for the SQL functions in ../migrations/.
 --
 -- The real schema depends on Supabase-only objects (auth.users, storage
 -- buckets, RLS), so these tests run against a mirror of just the tables the

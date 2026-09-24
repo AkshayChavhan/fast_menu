@@ -1,4 +1,4 @@
--- Tests for public.import_menu(uuid, jsonb) from ../schema.sql.
+-- Tests for public.import_menu(uuid, jsonb) from ../migrations/.
 -- Run with ../../scripts/test-sql.sh.
 
 -- assert() returns void and reports through RAISE NOTICE, so silence the

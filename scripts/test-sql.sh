@@ -2,10 +2,12 @@
 # Run the SQL tests in supabase/tests/ against a throwaway PostgreSQL cluster.
 #
 # The real schema needs Supabase-only objects (auth.users, storage, RLS), so
-# instead of loading it wholesale we mirror the tables the function under test
-# touches (supabase/tests/fixtures.sql) and extract the function itself straight
-# out of supabase/schema.sql — so the tests always run the shipped code, not a
-# copy that can drift.
+# instead of loading it wholesale we mirror the tables the functions under test
+# touch (supabase/tests/fixtures.sql) and extract the functions themselves
+# straight out of supabase/migrations/ — so the tests always run the shipped
+# code, not a copy that can drift. A function that a later migration redefines
+# is taken from the latest file that defines it, exactly as Postgres would end
+# up with after running the migrations in order.
 #
 # Nothing outside the temp directory is touched: your own PostgreSQL is never
 # started, and the cluster is deleted on exit.
@@ -14,7 +16,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCHEMA="$ROOT/supabase/schema.sql"
+MIGRATIONS="$ROOT/supabase/migrations"
+
+# Functions to load, in dependency order, and the test files to run against
+# them. Add to both lists as new database functions gain tests.
+FUNCTIONS=(import_menu)
+TESTS=(import_menu.test.sql)
 
 for bin in initdb pg_ctl psql; do
   if ! command -v "$bin" >/dev/null 2>&1; then
@@ -57,20 +64,39 @@ createdb -h 127.0.0.1 -p "$PORT" -U postgres schematest
 echo "==> loading fixtures"
 psql_run -f "$ROOT/supabase/tests/fixtures.sql" >/dev/null
 
-echo "==> extracting import_menu() from supabase/schema.sql"
-# From the CREATE line up to (not including) the REVOKE that follows it.
-awk '/^create or replace function public\.import_menu/{f=1}
-     /^revoke all on function public\.import_menu/{f=0}
-     f' "$SCHEMA" > "$TMP/import_menu.sql"
+# Print the body of `create or replace function public.<name>(` from the
+# latest migration that defines it: from that line up to and including the
+# closing `$$;` line. If a file defines the function twice, the last wins.
+extract_function() {
+  local fn="$1"
+  local file
+  file="$(grep -l -E "^create or replace function public\.${fn}\(" "$MIGRATIONS"/*.sql | sort | tail -1 || true)"
+  if [ -z "$file" ]; then
+    echo "error: could not find ${fn}() in $MIGRATIONS" >&2
+    exit 1
+  fi
+  echo "==> extracting ${fn}() from ${file#"$ROOT/"}"
+  awk -v fn="$fn" '
+    $0 ~ ("^create or replace function public\\." fn "\\(") { buf = ""; f = 1 }
+    f { buf = buf $0 "\n" }
+    f && /^\$\$;/ { f = 0; out = buf }
+    END { printf "%s", out }
+  ' "$file" > "$TMP/$fn.sql"
+  if [ ! -s "$TMP/$fn.sql" ]; then
+    echo "error: ${fn}() in $file has no terminating \$\$; line" >&2
+    exit 1
+  fi
+  psql_run -f "$TMP/$fn.sql" >/dev/null
+}
 
-if [ ! -s "$TMP/import_menu.sql" ]; then
-  echo "error: could not find import_menu() in $SCHEMA" >&2
-  exit 1
-fi
-psql_run -f "$TMP/import_menu.sql" >/dev/null
+for fn in "${FUNCTIONS[@]}"; do
+  extract_function "$fn"
+done
 
-echo "==> running supabase/tests/import_menu.test.sql"
-# PASS lines are RAISE NOTICE, which psql writes to stderr.
-psql_run -f "$ROOT/supabase/tests/import_menu.test.sql" 2>&1
+for t in "${TESTS[@]}"; do
+  echo "==> running supabase/tests/$t"
+  # PASS lines are RAISE NOTICE, which psql writes to stderr.
+  psql_run -f "$ROOT/supabase/tests/$t" 2>&1
+done
 
 echo "==> ok"
