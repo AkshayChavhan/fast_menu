@@ -89,8 +89,12 @@ create table public.restaurants (
   slug              text not null unique,
   is_published      boolean not null default false,
   trial_ends_at     timestamptz not null default now() + interval '15 days',
-  timezone          text not null default 'UTC',
+  timezone          text not null default 'Asia/Kolkata',
   currency          text not null default 'INR',
+  default_locale    text not null default 'en',
+  locales           text[] not null default array['en'],
+  google_review_url text,
+  table_qr_enabled  boolean not null default false,
   ordering_enabled  boolean not null default false,
   ordering_paused   boolean not null default false,
   pause_message     text,
@@ -103,7 +107,8 @@ create table public.restaurants (
   pincode           text,
   trial_status      text not null default 'pending'
                     check (trial_status in ('pending', 'active', 'needs_review', 'denied')),
-  created_at        timestamptz not null default now()
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
 );
 
 create table public.platform_settings (
