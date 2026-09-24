@@ -116,7 +116,7 @@ Tick a box when the phase is merged into this branch.
       attach, push notifications.
 - [x] **5 Billing counter** — sessions by table, Mark paid, history, cashier
       navigation, Realtime.
-- [ ] **6 Kitchen** — toggle, kitchen role and screen, item states, ready
+- [x] **6 Kitchen** — toggle, kitchen role and screen, item states, ready
       notifications, ticket print.
 - [ ] **7 Quality and launch** — Sentry, Playwright in CI, expiry cleanup,
       docs, demo seed, accessibility and performance pass.

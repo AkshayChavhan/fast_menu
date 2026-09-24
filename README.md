@@ -56,6 +56,9 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
   first, mark them paid, and see today's paid bills and takings by the
   restaurant's own calendar; managers can reopen a mistake. Screens refresh
   through Supabase Realtime with a slow poll as fallback.
+- **Kitchen screen** (`/kitchen`, optional) — a dark tablet board of tickets,
+  oldest first; lines move queued → cooking → ready → served, a ready ticket
+  pushes the approving waiter, and any ticket prints at receipt width.
 
 ---
 
@@ -224,7 +227,8 @@ cancellation, session totals, service requests and the rate limiter.
 sessions, joined tables, takeaway sessions, reject and cancel, waiter-taken
 orders, replacing items with an audit event, moving tables, seating and
 clearing. `billing.test.sql` covers settling a bill, the freeze that follows,
-reopening and roles.
+reopening and roles. `kitchen.test.sql` covers item and ticket states and their
+allowed transitions.
 
 ### Not covered
 
@@ -248,7 +252,7 @@ src/
     m/[slug]/             Public customer-facing menu, cart and live order page
     api/qr/               PNG QR-code endpoint
     waiter/               Waiter app: home, scan, order review, composer, tables, bills
-    kitchen/              Kitchen screen shell (tablet)
+    kitchen/              Kitchen ticket screen (tablet)
     onboarding/claim/     One-time trial claim (phone OTP, GSTIN, pincode)
     admin/trials/         Platform-admin review of flagged trials
   components/
