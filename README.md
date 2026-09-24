@@ -32,6 +32,14 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
 - **One trial per hotel** — a 15-day trial claimed once with a verified mobile
   number, GSTIN and name + pincode checks, and a platform-admin review queue
   for look-alikes.
+- **Sizes, variants & add-ons** — half / full plates, spice levels, extra
+  toppings, defined per dish by the owner; the public menu shows "from" prices.
+- **Schedules & daily specials** — breakfast / lunch / happy-hour windows in
+  the restaurant's timezone, and date-limited specials highlighted on the menu.
+- **Tables & per-table QR** — a floor plan with a stable code per table, so
+  guests scan the table they sit at and the label can change without reprints.
+- **Ordering switches** — accept orders, takeaway, per-table QR, kitchen screen
+  and a one-tap pause with a message guests see.
 
 ---
 
@@ -146,7 +154,11 @@ What's covered:
 
 | Area | File |
 | ---- | ---- |
-| Menu import/export parsing, normalisation, round-trip | `src/lib/menu-import.test.ts` |
+| Menu import/export parsing, normalisation, round-trip (incl. modifiers, specials, schedules) | `src/lib/menu-import.test.ts` |
+| Variant / add-on pricing and validation | `src/lib/modifiers.test.ts` |
+| Schedule windows and special dates in a timezone | `src/lib/schedule.test.ts` |
+| Table label ranges and ordering | `src/lib/tables.test.ts` |
+| Google review link validation | `src/lib/google-review.test.ts` |
 | Review settings + rating normalisation | `src/lib/reviews.test.ts` |
 | Price, slug and translation helpers | `src/lib/utils.test.ts` |
 | Site origin resolution | `src/lib/site.test.ts` |
@@ -183,7 +195,9 @@ intact.
 `supabase/tests/claim_trial.test.sql` covers the one-trial-per-hotel rules the
 same way: phone and GSTIN duplicates are refused, a look-alike name in the same
 pincode is parked for review, publishing is blocked until the trial is active,
-and only platform admins can approve or deny.
+and only platform admins can approve or deny. `set_dish_modifiers.test.sql`
+and `schedules.test.sql` do the same for variants / add-ons and for schedule
+windows, including overnight and timezone edges.
 
 ### Not covered
 
@@ -201,7 +215,7 @@ src/
     page.tsx              Marketing landing page
     (auth)/               Login & signup (route group)
     auth/                 Signout + email-confirm route handlers
-    dashboard/            Back office: overview, menu, staff, settings, QR
+    dashboard/            Back office: overview, menu, schedules, tables, staff, settings, QR
       menu/actions.ts     Server Actions (category/dish CRUD, 86 toggle)
       settings/actions.ts Server Actions (restaurant settings, publish)
     m/[slug]/             Public customer-facing menu

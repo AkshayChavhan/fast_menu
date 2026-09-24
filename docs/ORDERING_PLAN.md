@@ -105,7 +105,7 @@ Tick a box when the phase is merged into this branch.
       dashboard context by membership, 15-day trial.
 - [x] **1 Accounts and trial** — staff management for all roles, role-based
       login routing, waiter/kitchen shells, phone OTP, trial claims + review.
-- [ ] **2 Admin menu upgrades** — tables + per-table QR, variants and
+- [x] **2 Admin menu upgrades** — tables + per-table QR, variants and
       add-ons in the dish form, schedules and specials, pause ordering,
       Google review link, import/export updated.
 - [ ] **3 Customer ordering** — cart, modifier sheet, item notes, dine-in or
