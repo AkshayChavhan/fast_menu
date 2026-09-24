@@ -8,10 +8,13 @@ import type {
   Category,
   Dish,
   DishPairing,
+  ModifierGroup,
+  ModifierOption,
   Review,
   ReviewForm,
 } from "@/types/db";
 import { normalizeRatings } from "@/lib/reviews";
+import { dishPriceRange, groupModifiersByDish, needsChoice } from "@/lib/modifiers";
 import { MenuHeader } from "@/components/menu/MenuHeader";
 import { MenuHero } from "@/components/menu/MenuHero";
 import { MenuBrowser } from "@/components/menu/MenuBrowser";
@@ -34,6 +37,9 @@ type LoadedMenu = {
   categories: Category[];
   dishes: Dish[];
   pairings: DishPairing[];
+  /** Variants and add-ons for every dish, joined in buildView. */
+  modifierGroups: ModifierGroup[];
+  modifierOptions: ModifierOption[];
   /** Approved reviews with something to say, for the floating strip. */
   reviews: Review[];
 };
@@ -57,8 +63,15 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
 
   if (!restaurant) return null;
 
-  const [categoriesRes, dishesRes, pairingsRes, formRes, reviewsRes] =
-    await Promise.all([
+  const [
+    categoriesRes,
+    dishesRes,
+    pairingsRes,
+    groupsRes,
+    optionsRes,
+    formRes,
+    reviewsRes,
+  ] = await Promise.all([
     supabase
       .from("categories")
       .select("*")
@@ -73,6 +86,14 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
       .order("created_at", { ascending: true }),
     supabase
       .from("dish_pairings")
+      .select("*")
+      .eq("restaurant_id", restaurant.id),
+    supabase
+      .from("modifier_groups")
+      .select("*")
+      .eq("restaurant_id", restaurant.id),
+    supabase
+      .from("modifier_options")
       .select("*")
       .eq("restaurant_id", restaurant.id),
     supabase
@@ -105,6 +126,8 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
     categories: (categoriesRes.data as Category[] | null) ?? [],
     dishes: (dishesRes.data as Dish[] | null) ?? [],
     pairings: (pairingsRes.data as DishPairing[] | null) ?? [],
+    modifierGroups: (groupsRes.data as ModifierGroup[] | null) ?? [],
+    modifierOptions: (optionsRes.data as ModifierOption[] | null) ?? [],
     reviews,
   };
 }
@@ -129,6 +152,7 @@ function buildView(
   const { restaurant, categories, dishes, pairings } = menu;
 
   const dishById = new Map(dishes.map((d) => [d.id, d]));
+  const modifiersByDish = groupModifiersByDish(menu.modifierGroups, menu.modifierOptions);
 
   const priceLabel = (cents: number) =>
     formatPrice(cents, restaurant.currency, locale);
@@ -159,11 +183,20 @@ function buildView(
       dish.description_i18n,
       locale,
     );
+    const groups = modifiersByDish.get(dish.id) ?? [];
+    const range = dishPriceRange(dish, groups);
     return {
       id: dish.id,
       name,
       description: description || null,
-      priceLabel: priceLabel(dish.price_cents),
+      // Sizes priced differently read as "from <lowest>".
+      priceLabel:
+        range.from === range.to
+          ? priceLabel(range.from)
+          : `from ${priceLabel(range.from)}`,
+      priceCents: dish.price_cents,
+      hasChoices: needsChoice(groups),
+      modifierGroups: groups,
       imageUrl: dish.image_url,
       allergens: dish.allergens,
       dietaryTags: dish.dietary_tags,
