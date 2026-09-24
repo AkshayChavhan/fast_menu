@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
   Check,
+  ChefHat,
   Loader2,
   Pencil,
   Store,
@@ -19,11 +20,12 @@ import {
   moveOrder,
   rejectOrder,
 } from "@/app/waiter/actions";
+import { setOrderStatus } from "@/app/kitchen/actions";
 import type { OrderDetail } from "@/app/waiter/data";
 import { useRealtimeRefresh } from "@/lib/realtime";
 import { timeAgo } from "@/lib/time";
 import { formatPrice, cn } from "@/lib/utils";
-import type { RestaurantTable, ServiceType } from "@/types/db";
+import type { KdsStatus, RestaurantTable, ServiceType } from "@/types/db";
 import { TablePicker } from "./TablePicker";
 
 const POLL_MS = 6000;
@@ -51,6 +53,7 @@ export function OrderReview({
   occupied,
   currency,
   locale,
+  kdsEnabled = false,
 }: {
   restaurantId: string;
   order: OrderDetail;
@@ -58,6 +61,7 @@ export function OrderReview({
   occupied: Record<string, string>;
   currency: string;
   locale: string;
+  kdsEnabled?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -111,6 +115,9 @@ export function OrderReview({
     );
 
   const needsTable = serviceType === "dine_in" && tableIds.length === 0;
+  const anyReady = kdsEnabled && order.items.some((i) => i.kds_status === "ready");
+  const markServed = () =>
+    run(() => setOrderStatus({ orderId: order.id, status: "served", code: order.code }));
 
   return (
     <div className="space-y-5 pb-28">
@@ -155,6 +162,7 @@ export function OrderReview({
                   </p>
                 ) : null}
                 {item.note ? <p className="text-xs font-medium text-amber-700 dark:text-amber-300">“{item.note}”</p> : null}
+                {kdsEnabled && item.kds_status ? <KdsChip status={item.kds_status} /> : null}
               </div>
               <span translate="no" className="text-sm font-semibold tabular-nums">{price(item.line_total_cents)}</span>
             </li>
@@ -242,6 +250,16 @@ export function OrderReview({
       {/* Secondary actions for approved orders */}
       {order.status === "approved" && !moving ? (
         <div className="flex flex-wrap gap-2">
+          {anyReady ? (
+            <button
+              type="button"
+              onClick={markServed}
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 rounded-full bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+            >
+              <ChefHat className="h-4 w-4" aria-hidden /> Mark served
+            </button>
+          ) : null}
           <Link
             href={`/waiter/orders/${order.code}/edit`}
             className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
@@ -318,5 +336,31 @@ export function OrderReview({
         </div>
       ) : null}
     </div>
+  );
+}
+
+const KDS_LABEL: Record<KdsStatus, string> = {
+  queued: "In the queue",
+  preparing: "Cooking",
+  ready: "Ready to serve",
+  served: "Served",
+};
+
+function KdsChip({ status }: { status: KdsStatus }) {
+  return (
+    <span
+      className={cn(
+        "mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold",
+        status === "ready"
+          ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
+          : status === "preparing"
+            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+            : status === "served"
+              ? "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
+              : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300",
+      )}
+    >
+      {KDS_LABEL[status]}
+    </span>
   );
 }

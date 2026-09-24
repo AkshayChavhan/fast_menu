@@ -45,6 +45,7 @@ export default async function WaiterOrderPage({
         occupied={occupied}
         currency={restaurant.currency}
         locale={restaurant.default_locale}
+        kdsEnabled={restaurant.kds_enabled}
       />
     </div>
   );
