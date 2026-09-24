@@ -56,6 +56,7 @@ describe("SidebarNav — top-level items", () => {
       "Menu",
       "Preview & QR",
       "Import / Export",
+      "Tables",
       "Staff",
       "Settings",
     ]) {
@@ -173,6 +174,7 @@ describe("SidebarNav — roles", () => {
       "Menu",
       "Preview & QR",
       "Import / Export",
+      "Tables",
       "Staff",
       "Settings",
       "Review",
@@ -184,6 +186,7 @@ describe("SidebarNav — roles", () => {
     expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
     screen.getByRole("link", { name: "Menu" });
     screen.getByRole("link", { name: "Import / Export" });
+    screen.getByRole("link", { name: "Tables" });
     screen.getByRole("link", { name: "Staff" });
     screen.getByRole("button", { name: /Review/ });
   });

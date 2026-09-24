@@ -11,6 +11,7 @@ import {
   Star,
   FileUp,
   Users,
+  LayoutGrid,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -69,6 +70,12 @@ const NAV: NavItem[] = [
       { href: "/dashboard/reviews", label: "Reviews", exact: true },
       { href: "/dashboard/reviews/settings", label: "Review Settings" },
     ],
+  },
+  {
+    href: "/dashboard/tables",
+    label: "Tables",
+    icon: LayoutGrid,
+    capability: "tables:manage",
   },
   {
     href: "/dashboard/staff",

@@ -19,6 +19,8 @@ export const CAPABILITIES = [
   "ordering:pause",
   // Add, deactivate and remove staff below the actor's own level.
   "staff:manage",
+  // The floor plan: add, rename, retire tables; print per-table QR codes.
+  "tables:manage",
   // Approve / hide guest reviews and edit the review form.
   "reviews:moderate",
   // Billing counter: mark table sessions paid, see the day's history.
@@ -40,6 +42,7 @@ const GRANTS: Record<MemberRole, ReadonlySet<Capability>> = {
     "menu:import",
     "ordering:pause",
     "staff:manage",
+    "tables:manage",
     "reviews:moderate",
     "billing:settle",
     "reports:view",

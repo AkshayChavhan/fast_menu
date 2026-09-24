@@ -28,6 +28,7 @@ describe("can()", () => {
       "menu:import",
       "ordering:pause",
       "staff:manage",
+      "tables:manage",
       "reviews:moderate",
       "billing:settle",
       "reports:view",

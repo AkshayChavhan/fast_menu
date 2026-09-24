@@ -67,6 +67,22 @@ export interface RestaurantStaff {
   updated_at: string;
 }
 
+// --- Tables ----------------------------------------------------------------
+
+// A physical table. `qr_token` is what the printed per-table QR encodes, so
+// `label` can change without a reprint.
+export interface RestaurantTable {
+  id: string;
+  restaurant_id: string;
+  label: string;
+  qr_token: string;
+  capacity: number | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Category {
   id: string;
   restaurant_id: string;

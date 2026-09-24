@@ -4,9 +4,11 @@ import { requireCapability } from "../lib";
 import { getSiteOrigin, publicMenuPath } from "@/lib/site";
 import { publicReviewPath } from "@/lib/reviews";
 import { createClient } from "@/lib/supabase/server";
-import type { ReviewForm } from "@/types/db";
+import { sortByLabel } from "@/lib/tables";
+import type { RestaurantTable, ReviewForm } from "@/types/db";
 import QrStudio from "@/components/qr/QrStudio";
 import { ReviewQrCard } from "@/components/qr/ReviewQrCard";
+import { TableQrSheet } from "@/components/qr/TableQrSheet";
 
 export const metadata = {
   title: "QR code & share assets — fast_menu",
@@ -27,11 +29,22 @@ export default async function QrPage() {
 
   // No row until Review Settings is saved; the review page is on by default.
   const supabase = await createClient();
-  const { data: reviewForm } = await supabase
-    .from("review_forms")
-    .select("is_enabled")
-    .eq("restaurant_id", restaurant.id)
-    .maybeSingle<Pick<ReviewForm, "is_enabled">>();
+  const [{ data: reviewForm }, { data: tableRows }] = await Promise.all([
+    supabase
+      .from("review_forms")
+      .select("is_enabled")
+      .eq("restaurant_id", restaurant.id)
+      .maybeSingle<Pick<ReviewForm, "is_enabled">>(),
+    // Only when per-table codes are on; retired tables are left off the sheet.
+    restaurant.table_qr_enabled
+      ? supabase
+          .from("tables")
+          .select("*")
+          .eq("restaurant_id", restaurant.id)
+          .eq("is_active", true)
+      : Promise.resolve({ data: null }),
+  ]);
+  const tables = sortByLabel((tableRows as RestaurantTable[] | null) ?? []);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
@@ -63,6 +76,15 @@ export default async function QrPage() {
         hasAbsoluteUrl={true}
         restaurantName={restaurant.name}
       />
+
+      {restaurant.table_qr_enabled ? (
+        <TableQrSheet
+          origin={origin}
+          slug={restaurant.slug}
+          restaurantName={restaurant.name}
+          tables={tables}
+        />
+      ) : null}
 
       <ReviewQrCard
         reviewUrl={reviewUrl}
