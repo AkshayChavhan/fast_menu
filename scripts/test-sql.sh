@@ -20,8 +20,8 @@ MIGRATIONS="$ROOT/supabase/migrations"
 
 # Functions to load, in dependency order, and the test files to run against
 # them. Add to both lists as new database functions gain tests.
-FUNCTIONS=(insert_dish_modifiers import_menu is_platform_admin normalize_hotel_name claim_trial enforce_trial_before_publish list_trial_reviews review_trial set_dish_modifiers schedule_is_open category_is_open dish_special_active order_items_recalc orders_recalc_session generate_order_code check_rate_limit insert_order_items place_order get_order_by_code cancel_order_by_code create_service_request session_for_tables approve_order reject_order staff_cancel_order staff_create_order staff_set_order_items staff_move_order open_table_session clear_table_session resolve_service_request)
-TESTS=(import_menu.test.sql claim_trial.test.sql set_dish_modifiers.test.sql schedules.test.sql orders.test.sql staff_orders.test.sql)
+FUNCTIONS=(insert_dish_modifiers import_menu is_platform_admin normalize_hotel_name claim_trial enforce_trial_before_publish list_trial_reviews review_trial set_dish_modifiers schedule_is_open category_is_open dish_special_active order_items_recalc orders_recalc_session generate_order_code check_rate_limit insert_order_items place_order get_order_by_code cancel_order_by_code create_service_request session_for_tables approve_order reject_order staff_cancel_order staff_create_order staff_set_order_items staff_move_order open_table_session clear_table_session resolve_service_request settle_session reopen_session)
+TESTS=(import_menu.test.sql claim_trial.test.sql set_dish_modifiers.test.sql schedules.test.sql orders.test.sql staff_orders.test.sql billing.test.sql)
 
 for bin in initdb pg_ctl psql; do
   if ! command -v "$bin" >/dev/null 2>&1; then
