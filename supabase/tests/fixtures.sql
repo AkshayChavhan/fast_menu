@@ -95,6 +95,7 @@ create table public.restaurants (
   ordering_paused   boolean not null default false,
   pause_message     text,
   allow_takeaway    boolean not null default false,
+  kds_enabled       boolean not null default false,
   phone             text,
   phone_verified_at timestamptz,
   gstin             text,
