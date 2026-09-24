@@ -33,11 +33,11 @@ create table public.dishes (
   updated_at    timestamptz not null default now()
 );
 
--- Stand-in for the RLS helper. Flipped by the ownership test.
+-- Stand-in for the RLS role helper. Flipped by the authorisation test.
 create table public.test_flags (owns boolean not null);
 insert into public.test_flags values (true);
 
-create or replace function public.owns_restaurant(rid uuid)
+create or replace function public.has_role(rid uuid, roles text[])
 returns boolean language sql stable as $$
   select owns from public.test_flags limit 1
 $$;

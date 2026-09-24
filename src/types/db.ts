@@ -35,6 +35,26 @@ export interface Restaurant {
   updated_at: string;
 }
 
+// --- Staff -----------------------------------------------------------------
+
+// Everyone who works at a restaurant other than its owner. The owner is
+// restaurants.owner_id and reads as role "owner" through member_role().
+export const STAFF_ROLES = ["manager", "cashier", "waiter", "kitchen"] as const;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+export type MemberRole = "owner" | StaffRole;
+
+export interface RestaurantStaff {
+  id: string;
+  restaurant_id: string;
+  user_id: string;
+  role: StaffRole;
+  display_name: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Category {
   id: string;
   restaurant_id: string;
