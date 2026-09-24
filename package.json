@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:sql": "./scripts/test-sql.sh",
     "test:e2e": "playwright test",
+    "images:prune": "node --env-file-if-exists=.env.local scripts/prune-images.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },

@@ -150,3 +150,7 @@ Tick a box when the phase is merged into this branch.
 - 2026-09-24 — Staff profile photos live in the public `menu-images` bucket
   like logos and dish photos, and the row stores only the URL. Whoever may
   manage the account may set it, so it needs no new policy.
+- 2026-09-24 — Images are capped at 1 MB and JPG/PNG/WebP, in the upload
+  control and on the bucket. The action that replaces or removes an image
+  deletes the old file once the new URL is stored; `pnpm images:prune` sweeps
+  what slips through (failed saves, cancelled forms, menu imports).

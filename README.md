@@ -163,6 +163,7 @@ an owner.)
 | `pnpm test:watch`    | Unit tests in watch mode                    |
 | `pnpm test:sql`      | SQL tests against a throwaway Postgres      |
 | `pnpm test:e2e`      | Playwright end-to-end (needs a Supabase stack) |
+| `pnpm images:prune`  | List images no row references; `--delete` removes them |
 
 ---
 
