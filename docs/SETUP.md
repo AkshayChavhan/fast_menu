@@ -146,6 +146,43 @@ Re-running `seed.sql` resets the demo to a clean state.
 
 ---
 
+## 6. The free trial, staff logins and platform admins
+
+Every new restaurant claims a **one-time 15-day trial** right after signup.
+The owner enters the hotel's mobile number, city, pincode and (optionally)
+GSTIN; a number or GSTIN that already activated a trial is refused, and a
+look-alike name in the same pincode is parked for a platform admin to review.
+
+**Phone verification.** By default the mobile number must be confirmed by an
+SMS code, which needs a provider:
+
+1. Supabase → **Authentication** → **Sign In / Providers** → **Phone**.
+2. Enable it, pick a provider (Twilio, MessageBird, Textlocal or Vonage) and
+   paste its credentials.
+
+Until that is set up, switch the OTP off (every duplicate check still runs):
+
+```sql
+update public.platform_settings set value = 'none' where key = 'trial_verification';
+```
+
+Set it back to `'phone'` once SMS works.
+
+**Platform admins.** Flagged claims are reviewed at `/admin/trials`. Allow
+yourself in with:
+
+```sql
+insert into public.platform_admins (email) values ('you.com');
+```
+
+**Staff logins.** Owners and managers add managers, cashiers, waiters and
+kitchen staff under **Staff** in the dashboard. Accounts are created with the
+service-role key, so `SUPABASE_SERVICE_ROLE_KEY` must be set. Waiters land in
+`/waiter` and kitchen staff in `/kitchen` when they sign in at the usual
+login page.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Cause & fix |
@@ -155,6 +192,8 @@ Re-running `seed.sql` resets the demo to a clean state.
 | Public menu shows "menu not found" | The restaurant isn't **published**, or the slug in the URL doesn't match. Publish it under Settings. |
 | Dish photos don't upload | The `menu-images` storage bucket wasn't created — re-run the baseline migration. |
 | `/m/demo` is empty / errors | You ran `seed.sql` before signing up. Sign up first, then re-run the seed. |
+| Signup lands on "Activate your free trial" and no SMS arrives | No phone provider is configured. Set `trial_verification` to `none` (section 6) or configure the provider. |
+| "Add staff" fails with a service-role error | `SUPABASE_SERVICE_ROLE_KEY` is missing from `.env.local` (or Vercel). |
 | Env changes not taking effect | Restart the dev server — Next.js only reads `.env.local` at startup. |
 
 ---

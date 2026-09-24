@@ -26,6 +26,12 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
 - **Marketing landing page** (`/`) with a live demo link.
 - **Multi-tenant & secure** — every restaurant is isolated by Postgres
   Row-Level Security; owners can only touch their own data.
+- **Roles & staff logins** — owner, manager, cashier, waiter and kitchen. One
+  login page sends each role to its app; the dashboard shows each role only
+  what it may use.
+- **One trial per hotel** — a 15-day trial claimed once with a verified mobile
+  number, GSTIN and name + pincode checks, and a platform-admin review queue
+  for look-alikes.
 
 ---
 
@@ -147,7 +153,9 @@ What's covered:
 | Blob file downloads | `src/lib/download-file.test.ts` |
 | Public review submission (validation + sanitisation) | `src/app/r/[slug]/actions.test.ts` |
 | Star rating: mouse, keyboard, ARIA | `src/components/reviews/StarRating.test.tsx` |
-| Sidebar navigation + Review submenu | `src/components/dashboard/SidebarNav.test.tsx` |
+| Sidebar navigation, Review submenu, per-role visibility | `src/components/dashboard/SidebarNav.test.tsx` |
+| Role → capability map | `src/lib/permissions.test.ts` |
+| Staff account actions (validation, role rules, cleanup on failure) | `src/app/dashboard/staff/actions.test.ts` |
 
 ### `pnpm test:sql` — database functions
 
@@ -172,6 +180,11 @@ import safe: a non-owner is refused with `42501`, and a failure induced *after*
 the deletes have been applied rolls back completely, leaving the original menu
 intact.
 
+`supabase/tests/claim_trial.test.sql` covers the one-trial-per-hotel rules the
+same way: phone and GSTIN duplicates are refused, a look-alike name in the same
+pincode is parked for review, publishing is blocked until the trial is active,
+and only platform admins can approve or deny.
+
 ### Not covered
 
 Server actions that only orchestrate Supabase calls, the dashboard editor
@@ -188,18 +201,24 @@ src/
     page.tsx              Marketing landing page
     (auth)/               Login & signup (route group)
     auth/                 Signout + email-confirm route handlers
-    dashboard/            Owner app: overview, menu editor, settings, QR
+    dashboard/            Back office: overview, menu, staff, settings, QR
       menu/actions.ts     Server Actions (category/dish CRUD, 86 toggle)
       settings/actions.ts Server Actions (restaurant settings, publish)
     m/[slug]/             Public customer-facing menu
     api/qr/               PNG QR-code endpoint
+    waiter/               Waiter app shell (phone)
+    kitchen/              Kitchen screen shell (tablet)
+    onboarding/claim/     One-time trial claim (phone OTP, GSTIN, pincode)
+    admin/trials/         Platform-admin review of flagged trials
   components/
     menu/                 Public menu UI (dish cards, pairings, language switcher)
     dashboard/            Editor UI (dish form, chips, switch, image upload)
     qr/QrStudio.tsx       QR generation + printable assets
     Wordmark.tsx          Shared logo lockup
   lib/
-    supabase/             Browser / server / middleware clients
+    supabase/             Browser / server / proxy / admin clients
+    membership.ts         Who is signed in, where they work, as what role
+    permissions.ts        Role → capability map (mirrors the RLS rules)
     site.ts               Absolute-URL helpers (origin, public menu path)
     utils.ts              formatPrice, slugify, localized, cn
     constants.ts          Allergens, dietary tags, locales, currencies
@@ -219,6 +238,11 @@ supabase/
   `price_cents`. `is_available = false` is the **86'd** state. Translations live
   in `*_i18n` JSONB columns.
 - **dish_pairings** — the upsell engine ("goes well with" / add-ons).
+- **restaurant_staff** — manager, cashier, waiter and kitchen logins; the owner
+  is `restaurants.owner_id`. `member_role()` answers role questions inside RLS.
+- **trial_claims** — one row per hotel that activated its trial (phone hash,
+  GSTIN, normalised name + pincode), so a second email cannot earn a second
+  trial.
 
 All access is enforced by Postgres RLS: owners manage their own rows; the public
 can only read rows belonging to a **published** restaurant.
