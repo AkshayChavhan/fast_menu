@@ -40,6 +40,12 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
   guests scan the table they sit at and the label can change without reprints.
 - **Ordering switches** — accept orders, takeaway, per-table QR, kitchen screen
   and a one-tap pause with a message guests see.
+- **Guest ordering** (`/m/<slug>/cart`, `/m/<slug>/order/<code>`) — no login:
+  add dishes with sizes and add-ons, notes, dine-in or parcel, place the order
+  and show its QR to the waiter; the page tracks approval, the table and the
+  bill, then points at Google reviews. Call a waiter or ask for the bill from
+  a table QR. Every price is re-read by the database; anonymous writes go
+  through security-definer functions and are rate-limited.
 
 ---
 
@@ -159,6 +165,7 @@ What's covered:
 | Schedule windows and special dates in a timezone | `src/lib/schedule.test.ts` |
 | Table label ranges and ordering | `src/lib/tables.test.ts` |
 | Google review link validation | `src/lib/google-review.test.ts` |
+| Guest cart: line keys, merging, quantities, totals, order payload | `src/lib/cart.test.ts` |
 | Review settings + rating normalisation | `src/lib/reviews.test.ts` |
 | Price, slug and translation helpers | `src/lib/utils.test.ts` |
 | Site origin resolution | `src/lib/site.test.ts` |
@@ -197,7 +204,10 @@ same way: phone and GSTIN duplicates are refused, a look-alike name in the same
 pincode is parked for review, publishing is blocked until the trial is active,
 and only platform admins can approve or deny. `set_dish_modifiers.test.sql`
 and `schedules.test.sql` do the same for variants / add-ons and for schedule
-windows, including overnight and timezone edges.
+windows, including overnight and timezone edges. `orders.test.sql` exercises the
+guest ordering functions: price snapshots, size and add-on validation, refusals
+when paused or unavailable, one unapproved order per device, expiry, guest
+cancellation, session totals, service requests and the rate limiter.
 
 ### Not covered
 
@@ -218,7 +228,7 @@ src/
     dashboard/            Back office: overview, menu, schedules, tables, staff, settings, QR
       menu/actions.ts     Server Actions (category/dish CRUD, 86 toggle)
       settings/actions.ts Server Actions (restaurant settings, publish)
-    m/[slug]/             Public customer-facing menu
+    m/[slug]/             Public customer-facing menu, cart and live order page
     api/qr/               PNG QR-code endpoint
     waiter/               Waiter app shell (phone)
     kitchen/              Kitchen screen shell (tablet)
