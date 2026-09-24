@@ -2,21 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Armchair, PauseCircle, UtensilsCrossed } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { formatPrice, localized, localeDir } from "@/lib/utils";
-import type {
-  Restaurant,
-  Category,
-  Dish,
-  DishPairing,
-  MenuSchedule,
-  ModifierGroup,
-  ModifierOption,
-  Review,
-  ReviewForm,
-} from "@/types/db";
+import { localeDir } from "@/lib/utils";
+import type { Restaurant, Review, ReviewForm } from "@/types/db";
 import { normalizeRatings } from "@/lib/reviews";
-import { dishPriceRange, groupModifiersByDish, needsChoice } from "@/lib/modifiers";
-import { isScheduleOpen, isSpecial, isSpecialActive, localClock } from "@/lib/schedule";
+import { buildMenuView, loadMenuData, type MenuData } from "@/lib/menu-view";
 import { MenuHeader } from "@/components/menu/MenuHeader";
 import { MenuHero } from "@/components/menu/MenuHero";
 import { MenuBrowser } from "@/components/menu/MenuBrowser";
@@ -25,12 +14,7 @@ import { DocumentLocale } from "@/components/menu/DocumentLocale";
 import { CartProvider } from "@/components/ordering/CartProvider";
 import { CartBar } from "@/components/ordering/CartBar";
 import { ServiceButtons } from "@/components/ordering/ServiceButtons";
-import type {
-  CategoryView,
-  DishView,
-  OrderingInfo,
-  PairingView,
-} from "@/components/menu/types";
+import type { OrderingInfo } from "@/components/menu/types";
 
 // Public menus change when the owner edits/publishes; keep them fresh but cheap.
 export const revalidate = 60;
@@ -38,16 +22,8 @@ export const revalidate = 60;
 // 86'd dishes are hidden by default. Flip to false to show them dimmed.
 const HIDE_UNAVAILABLE = true;
 
-type LoadedMenu = {
+type LoadedMenu = MenuData & {
   restaurant: Restaurant;
-  categories: Category[];
-  dishes: Dish[];
-  pairings: DishPairing[];
-  /** Variants and add-ons for every dish, joined in buildView. */
-  modifierGroups: ModifierGroup[];
-  modifierOptions: ModifierOption[];
-  /** Weekly windows that categories may be restricted to. */
-  schedules: MenuSchedule[];
   /** Approved reviews with something to say, for the floating strip. */
   reviews: Review[];
 };
@@ -71,44 +47,8 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
 
   if (!restaurant) return null;
 
-  const [
-    categoriesRes,
-    dishesRes,
-    pairingsRes,
-    groupsRes,
-    optionsRes,
-    schedulesRes,
-    formRes,
-    reviewsRes,
-  ] = await Promise.all([
-    supabase
-      .from("categories")
-      .select("*")
-      .eq("restaurant_id", restaurant.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("dishes")
-      .select("*")
-      .eq("restaurant_id", restaurant.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("dish_pairings")
-      .select("*")
-      .eq("restaurant_id", restaurant.id),
-    supabase
-      .from("modifier_groups")
-      .select("*")
-      .eq("restaurant_id", restaurant.id),
-    supabase
-      .from("modifier_options")
-      .select("*")
-      .eq("restaurant_id", restaurant.id),
-    supabase
-      .from("menu_schedules")
-      .select("*")
-      .eq("restaurant_id", restaurant.id),
+  const [menu, formRes, reviewsRes] = await Promise.all([
+    loadMenuData(supabase, restaurant.id),
     supabase
       .from("review_forms")
       .select("show_on_menu")
@@ -134,16 +74,7 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
         .filter((r) => (r.comment ?? "").trim().length > 0)
     : [];
 
-  return {
-    restaurant,
-    categories: (categoriesRes.data as Category[] | null) ?? [],
-    dishes: (dishesRes.data as Dish[] | null) ?? [],
-    pairings: (pairingsRes.data as DishPairing[] | null) ?? [],
-    modifierGroups: (groupsRes.data as ModifierGroup[] | null) ?? [],
-    modifierOptions: (optionsRes.data as ModifierOption[] | null) ?? [],
-    schedules: (schedulesRes.data as MenuSchedule[] | null) ?? [],
-    reviews,
-  };
+  return { restaurant, ...menu, reviews };
 }
 
 // The table behind a per-table QR code (?t=<token>). Only active tables on a
@@ -172,144 +103,6 @@ function resolveLocale(
 ): string {
   if (requested && restaurant.locales.includes(requested)) return requested;
   return restaurant.default_locale;
-}
-
-// ---------------------------------------------------------------------------
-// View-model assembly — localize strings, format prices, resolve pairings.
-// ---------------------------------------------------------------------------
-function buildView(
-  menu: LoadedMenu,
-  locale: string,
-): { categories: CategoryView[]; anyDishes: boolean } {
-  const { restaurant, categories, pairings } = menu;
-
-  // What is on right now, by the restaurant's own clock: categories outside
-  // their schedule and specials outside their dates are left off entirely.
-  const clock = localClock(new Date(), restaurant.timezone);
-  const scheduleById = new Map(menu.schedules.map((s) => [s.id, s]));
-  const openCategories = categories.filter((cat) =>
-    isScheduleOpen(cat.schedule_id ? (scheduleById.get(cat.schedule_id) ?? null) : null, clock),
-  );
-  const closedCategoryIds = new Set(
-    categories.filter((c) => !openCategories.includes(c)).map((c) => c.id),
-  );
-  const dishes = menu.dishes.filter(
-    (d) =>
-      isSpecialActive(d, clock.date) &&
-      !(d.category_id && closedCategoryIds.has(d.category_id)),
-  );
-
-  const dishById = new Map(dishes.map((d) => [d.id, d]));
-  const modifiersByDish = groupModifiersByDish(menu.modifierGroups, menu.modifierOptions);
-
-  const priceLabel = (cents: number) =>
-    formatPrice(cents, restaurant.currency, locale);
-
-  // Group pairings by source dish, resolving the paired dish's display data.
-  const pairingsByDish = new Map<string, PairingView[]>();
-  for (const p of pairings) {
-    const paired = dishById.get(p.paired_dish_id);
-    if (!paired) continue;
-    // Don't upsell something that's currently 86'd.
-    if (!paired.is_available) continue;
-    const view: PairingView = {
-      id: p.id,
-      name: localized(paired.name, paired.name_i18n, locale),
-      imageUrl: paired.image_url,
-      priceLabel: priceLabel(paired.price_cents),
-      kind: p.kind,
-    };
-    const list = pairingsByDish.get(p.dish_id);
-    if (list) list.push(view);
-    else pairingsByDish.set(p.dish_id, [view]);
-  }
-
-  const toDishView = (dish: Dish): DishView => {
-    const name = localized(dish.name, dish.name_i18n, locale);
-    const description = localized(
-      dish.description ?? "",
-      dish.description_i18n,
-      locale,
-    );
-    const groups = modifiersByDish.get(dish.id) ?? [];
-    const range = dishPriceRange(dish, groups);
-    return {
-      id: dish.id,
-      name,
-      description: description || null,
-      // Sizes priced differently read as "from <lowest>".
-      priceLabel:
-        range.from === range.to
-          ? priceLabel(range.from)
-          : `from ${priceLabel(range.from)}`,
-      priceCents: dish.price_cents,
-      hasChoices: needsChoice(groups),
-      modifierGroups: groups,
-      imageUrl: dish.image_url,
-      allergens: dish.allergens,
-      dietaryTags: dish.dietary_tags,
-      isAvailable: dish.is_available,
-      isFeatured: dish.is_featured || dish.dietary_tags.includes("chef-special"),
-      isChefSpecial: dish.dietary_tags.includes("chef-special"),
-      searchText: `${name} ${description}`.toLowerCase(),
-      pairings: pairingsByDish.get(dish.id) ?? [],
-    };
-  };
-
-  const dishesByCategory = new Map<string | null, Dish[]>();
-  for (const dish of dishes) {
-    const key = dish.category_id;
-    const list = dishesByCategory.get(key);
-    if (list) list.push(dish);
-    else dishesByCategory.set(key, [dish]);
-  }
-
-  const categoryViews: CategoryView[] = [];
-
-  // Specials first: every visible dish with a date window, in menu order.
-  const specials = dishes.filter(isSpecial);
-  if (specials.length > 0) {
-    categoryViews.push({
-      id: "__specials",
-      name: "Today's specials",
-      description: null,
-      anchor: "cat-specials",
-      dishes: specials.map(toDishView),
-    });
-  }
-
-  for (const cat of openCategories) {
-    const catDishes = dishesByCategory.get(cat.id) ?? [];
-    if (catDishes.length === 0) continue;
-    categoryViews.push({
-      id: cat.id,
-      name: localized(cat.name, cat.name_i18n, locale),
-      description: cat.description,
-      anchor: `cat-${cat.id}`,
-      dishes: catDishes.map(toDishView),
-    });
-  }
-
-  // Uncategorized dishes (category_id null, or pointing at a deleted category)
-  // are surfaced under a friendly catch-all so nothing silently disappears.
-  const knownCategoryIds = new Set(openCategories.map((c) => c.id));
-  const orphans = dishes.filter(
-    (d) => d.category_id === null || !knownCategoryIds.has(d.category_id),
-  );
-  if (orphans.length > 0) {
-    categoryViews.push({
-      id: "__uncategorized",
-      name: "More",
-      description: null,
-      anchor: "cat-more",
-      dishes: orphans.map(toDishView),
-    });
-  }
-
-  return {
-    categories: categoryViews,
-    anyDishes: dishes.length > 0,
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -392,7 +185,7 @@ export default async function PublicMenuPage({
   const name = restaurant.name;
   const description = restaurant.description;
 
-  const { categories, anyDishes } = buildView(menu, locale);
+  const { categories, anyDishes } = buildMenuView(restaurant, menu, locale);
   const dir = localeDir(locale);
 
   return (
