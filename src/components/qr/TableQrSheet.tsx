@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import Link from "next/link";
 import { LayoutGrid, Printer } from "lucide-react";
 
-import { tableMenuPath } from "@/lib/site";
+import { tableMenuPath } from "@/lib/paths";
 import type { RestaurantTable } from "@/types/db";
 
 // One printable card per table. Each QR encodes /m/<slug>?t=<token>, so the
