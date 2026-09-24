@@ -9,7 +9,7 @@
 alter table public.restaurants
   -- IANA zone name (e.g. 'Asia/Kolkata'). Menu schedules, "today's specials"
   -- and day-end reports are all evaluated in this zone, never the server's.
-  add column if not exists timezone          text    not null default 'UTC',
+  add column if not exists timezone          text    not null default 'Asia/Kolkata',
   -- Master switch: customers can build a cart and place orders.
   add column if not exists ordering_enabled  boolean not null default false,
   -- Temporary stop ("kitchen closed") without unpublishing the menu.

@@ -190,7 +190,7 @@ export async function updateOrderingSettings(
     allow_takeaway: asBool(formData.get("allow_takeaway")),
     table_qr_enabled: asBool(formData.get("table_qr_enabled")),
     kds_enabled: asBool(formData.get("kds_enabled")),
-    timezone: String(formData.get("timezone") ?? "UTC"),
+    timezone: String(formData.get("timezone") ?? "Asia/Kolkata"),
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
