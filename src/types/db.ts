@@ -21,6 +21,16 @@ export interface Restaurant {
   default_locale: string;
   locales: string[];
   is_published: boolean;
+  trial_ends_at: string;
+  // Table-ordering switches (see migrations/20260924000100). All default off.
+  timezone: string;
+  ordering_enabled: boolean;
+  ordering_paused: boolean;
+  pause_message: string | null;
+  table_qr_enabled: boolean;
+  kds_enabled: boolean;
+  allow_takeaway: boolean;
+  google_review_url: string | null;
   created_at: string;
   updated_at: string;
 }
