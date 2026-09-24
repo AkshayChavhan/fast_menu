@@ -11,7 +11,7 @@ export function cn(...inputs: ClassValue[]) {
 // Format a price stored in minor units (cents) for display.
 export function formatPrice(
   cents: number,
-  currency = "USD",
+  currency = "INR",
   locale = "en",
 ): string {
   try {

@@ -33,7 +33,7 @@ create table if not exists public.restaurants (
   slug          text not null unique,
   description   text,
   logo_url      text,
-  currency      text not null default 'USD',        -- ISO 4217
+  currency      text not null default 'INR',        -- ISO 4217
   default_locale text not null default 'en',
   locales       text[] not null default array['en'],-- languages the menu is offered in
   is_published  boolean not null default false,

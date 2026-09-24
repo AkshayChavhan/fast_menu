@@ -42,7 +42,7 @@ function parseForm(formData: FormData) {
     name: String(formData.get("name") ?? ""),
     slug: String(formData.get("slug") ?? ""),
     description: String(formData.get("description") ?? ""),
-    currency: String(formData.get("currency") ?? "USD"),
+    currency: String(formData.get("currency") ?? "INR"),
     default_locale: String(formData.get("default_locale") ?? "en"),
     locales: formData.getAll("locales").map(String),
   };

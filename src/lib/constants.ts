@@ -57,10 +57,10 @@ export const SUPPORTED_LOCALES = [
 export const RTL_LOCALES = new Set<string>(["ar", "ur"]);
 
 export const CURRENCIES = [
+  "INR",
   "USD",
   "EUR",
   "GBP",
-  "INR",
   "AED",
   "CAD",
   "AUD",
