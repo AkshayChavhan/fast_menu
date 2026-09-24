@@ -53,6 +53,7 @@ describe("SidebarNav — top-level items", () => {
     renderAt("/dashboard");
     for (const label of [
       "Overview",
+      "Orders",
       "Menu",
       "Schedules",
       "Preview & QR",
@@ -172,6 +173,7 @@ describe("SidebarNav — roles", () => {
     renderAt("/dashboard", undefined, "owner");
     expect(labels()).toEqual([
       "Overview",
+      "Orders",
       "Menu",
       "Schedules",
       "Preview & QR",
@@ -193,8 +195,8 @@ describe("SidebarNav — roles", () => {
     screen.getByRole("button", { name: /Review/ });
   });
 
-  it("leaves a cashier with Overview only", () => {
+  it("leaves a cashier with Overview and Orders", () => {
     renderAt("/dashboard", undefined, "cashier");
-    expect(labels()).toEqual(["Overview"]);
+    expect(labels()).toEqual(["Overview", "Orders"]);
   });
 });

@@ -5,6 +5,7 @@ import {
   QrCode,
   ExternalLink,
   Pencil,
+  Receipt,
   Star,
   Ban,
 } from "lucide-react";
@@ -138,6 +139,22 @@ export default async function OverviewPage() {
 
       {/* Quick actions */}
       <section className="grid gap-3 sm:grid-cols-2">
+        {restaurant.ordering_enabled && can(role, "billing:settle") && (
+          <Link
+            href="/dashboard/orders"
+            className="group flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-4 transition-colors hover:border-brand-300 hover:bg-brand-50/40 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-brand-700"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+              <Receipt className="h-5 w-5" />
+            </span>
+            <span>
+              <span className="block text-sm font-semibold">Orders &amp; billing</span>
+              <span className="block text-xs text-neutral-500">
+                Open bills by table, mark paid, today&apos;s takings
+              </span>
+            </span>
+          </Link>
+        )}
         {can(role, "menu:manage") && (
           <Link
             href="/dashboard/menu"

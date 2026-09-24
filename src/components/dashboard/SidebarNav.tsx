@@ -13,6 +13,7 @@ import {
   Users,
   LayoutGrid,
   Clock,
+  Receipt,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -44,6 +45,12 @@ const isGroup = (item: NavItem): item is NavGroup => "children" in item;
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  {
+    href: "/dashboard/orders",
+    label: "Orders",
+    icon: Receipt,
+    capability: "billing:settle",
+  },
   {
     href: "/dashboard/menu",
     label: "Menu",
