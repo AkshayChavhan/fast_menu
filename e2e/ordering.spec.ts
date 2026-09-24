@@ -11,7 +11,7 @@ const state = JSON.parse(readFileSync(E2E.stateFile, "utf8")) as { tableToken: s
 async function login(page: Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
+  await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 }
@@ -31,7 +31,16 @@ test.describe.serial("guest → waiter → billing", () => {
     await expect(page.getByText("Masala Chai")).toBeVisible();
     await page.getByRole("button", { name: /Place order/ }).click();
 
-    await expect(page).toHaveURL(/\/order\/[A-Z0-9]{6}/);
+    // A refused order stays on the cart with a banner; fail with its text so
+    // a CI run says why instead of just "wrong URL".
+    const alert = page.getByRole("alert");
+    await expect
+      .poll(
+        async () =>
+          (await alert.isVisible()) ? `refused: ${await alert.textContent()}` : page.url(),
+        { timeout: 15_000 },
+      )
+      .toMatch(/\/order\/[A-Z0-9]{6}/);
     await expect(page.getByText("Waiting for your waiter")).toBeVisible();
     code = new URL(page.url()).pathname.split("/").pop() ?? "";
     expect(code).toMatch(/^[A-Z0-9]{6}$/);
