@@ -61,6 +61,8 @@ export interface RestaurantStaff {
   display_name: string | null;
   // Copy of the auth email, for the roster (see migrations/*_staff_email).
   email: string | null;
+  // Public URL of the profile photo in the menu-images bucket, if any.
+  avatar_url: string | null;
   is_active: boolean;
   created_by: string | null;
   created_at: string;

@@ -147,3 +147,6 @@ Tick a box when the phase is merged into this branch.
 - 2026-09-24 — End-to-end tests run in CI against `supabase start`; locally
   they need a running stack and the same env. Phone verification is switched
   to `none` on the test stack.
+- 2026-09-24 — Staff profile photos live in the public `menu-images` bucket
+  like logos and dish photos, and the row stores only the URL. Whoever may
+  manage the account may set it, so it needs no new policy.

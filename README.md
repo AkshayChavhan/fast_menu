@@ -299,8 +299,9 @@ supabase/
   `price_cents`. `is_available = false` is the **86'd** state. Translations live
   in `*_i18n` JSONB columns.
 - **dish_pairings** — the upsell engine ("goes well with" / add-ons).
-- **restaurant_staff** — manager, cashier, waiter and kitchen logins; the owner
-  is `restaurants.owner_id`. `member_role()` answers role questions inside RLS.
+- **restaurant_staff** — manager, cashier, waiter and kitchen logins, each with
+  an optional profile photo (`avatar_url`); the owner is `restaurants.owner_id`.
+  `member_role()` answers role questions inside RLS.
 - **trial_claims** — one row per hotel that activated its trial (phone hash,
   GSTIN, normalised name + pincode), so a second email cannot earn a second
   trial.
