@@ -120,3 +120,33 @@ create table public.trial_claims (
 );
 create unique index trial_claims_phone_hash_key on public.trial_claims (phone_hash) where phone_hash is not null;
 create unique index trial_claims_gstin_key on public.trial_claims (gstin) where gstin is not null;
+
+-- ---------------------------------------------------------------------------
+-- Variants and add-ons (set_dish_modifiers).
+-- ---------------------------------------------------------------------------
+create table public.modifier_groups (
+  id            uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null,
+  dish_id       uuid not null references public.dishes (id) on delete cascade,
+  name          text not null,
+  name_i18n     jsonb not null default '{}'::jsonb,
+  kind          text not null check (kind in ('variant', 'addon')),
+  min_select    integer not null default 0 check (min_select >= 0),
+  max_select    integer check (max_select is null or max_select >= 1),
+  sort_order    integer not null default 0,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create table public.modifier_options (
+  id            uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null,
+  group_id      uuid not null references public.modifier_groups (id) on delete cascade,
+  name          text not null,
+  name_i18n     jsonb not null default '{}'::jsonb,
+  price_cents   integer not null default 0 check (price_cents >= 0),
+  is_available  boolean not null default true,
+  is_default    boolean not null default false,
+  sort_order    integer not null default 0,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);

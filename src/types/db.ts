@@ -83,6 +83,44 @@ export interface RestaurantTable {
   updated_at: string;
 }
 
+// --- Variants and add-ons -------------------------------------------------
+
+export type ModifierKind = "variant" | "addon";
+
+// A choice on a dish. variant: pick exactly one, its price replaces the dish
+// price. addon: pick min..max, each price is added.
+export interface ModifierGroup {
+  id: string;
+  restaurant_id: string;
+  dish_id: string;
+  name: string;
+  name_i18n: Record<string, string>;
+  kind: ModifierKind;
+  min_select: number;
+  max_select: number | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModifierOption {
+  id: string;
+  restaurant_id: string;
+  group_id: string;
+  name: string;
+  name_i18n: Record<string, string>;
+  price_cents: number;
+  is_available: boolean;
+  is_default: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModifierGroupWithOptions extends ModifierGroup {
+  options: ModifierOption[];
+}
+
 export interface Category {
   id: string;
   restaurant_id: string;
