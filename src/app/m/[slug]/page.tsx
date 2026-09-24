@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { UtensilsCrossed } from "lucide-react";
+import { Armchair, PauseCircle, UtensilsCrossed } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatPrice, localized, localeDir } from "@/lib/utils";
 import type {
@@ -22,9 +22,12 @@ import { MenuHero } from "@/components/menu/MenuHero";
 import { MenuBrowser } from "@/components/menu/MenuBrowser";
 import { FloatingReviews } from "@/components/menu/FloatingReviews";
 import { DocumentLocale } from "@/components/menu/DocumentLocale";
+import { CartProvider } from "@/components/ordering/CartProvider";
+import { CartBar } from "@/components/ordering/CartBar";
 import type {
   CategoryView,
   DishView,
+  OrderingInfo,
   PairingView,
 } from "@/components/menu/types";
 
@@ -140,6 +143,24 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
     schedules: (schedulesRes.data as MenuSchedule[] | null) ?? [],
     reviews,
   };
+}
+
+// The table behind a per-table QR code (?t=<token>). Only active tables on a
+// published menu are readable, so a retired code reads as no table.
+async function resolveTable(
+  restaurantId: string,
+  token: string | undefined,
+): Promise<{ label: string; token: string } | null> {
+  if (!token) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tables")
+    .select("label, qr_token")
+    .eq("restaurant_id", restaurantId)
+    .eq("qr_token", token)
+    .eq("is_active", true)
+    .maybeSingle<{ label: string; qr_token: string }>();
+  return data ? { label: data.label, token: data.qr_token } : null;
 }
 
 // Resolve the active locale from ?lang=, constrained to the restaurant's
@@ -342,16 +363,30 @@ export default async function PublicMenuPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ lang?: string }>;
+  searchParams: Promise<{ lang?: string; t?: string }>;
 }) {
   const { slug } = await params;
-  const { lang } = await searchParams;
+  const { lang, t } = await searchParams;
 
   const menu = await loadMenu(slug);
   if (!menu) notFound();
 
   const { restaurant } = menu;
   const locale = resolveLocale(restaurant, lang);
+
+  const table = restaurant.ordering_enabled ? await resolveTable(restaurant.id, t) : null;
+  const ordering: OrderingInfo | null = restaurant.ordering_enabled
+    ? {
+        enabled: true,
+        paused: restaurant.ordering_paused,
+        pauseMessage: restaurant.pause_message,
+        allowTakeaway: restaurant.allow_takeaway,
+        slug: restaurant.slug,
+        currency: restaurant.currency,
+        locale,
+        table,
+      }
+    : null;
 
   const name = restaurant.name;
   const description = restaurant.description;
@@ -379,8 +414,47 @@ export default async function PublicMenuPage({
 
       <MenuHero name={name} description={description} logoUrl={restaurant.logo_url} />
 
+      {ordering?.paused ? (
+        <div className="mx-auto max-w-5xl px-4 pt-4">
+          <p className="flex items-start gap-2 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            <PauseCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span>
+              <span className="font-semibold">Ordering is paused.</span>{" "}
+              {ordering.pauseMessage ?? "You can still browse; please ask a member of staff to order."}
+            </span>
+          </p>
+        </div>
+      ) : null}
+
+      {ordering?.table ? (
+        <div className="mx-auto max-w-5xl px-4 pt-4">
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-950/50 dark:text-brand-300">
+            <Armchair className="h-3.5 w-3.5" aria-hidden />
+            You&apos;re at {ordering.table.label}
+          </p>
+        </div>
+      ) : null}
+
       {anyDishes ? (
-        <MenuBrowser categories={categories} hideUnavailable={HIDE_UNAVAILABLE} />
+        ordering ? (
+          <CartProvider slug={restaurant.slug}>
+            <div className="pb-24">
+              <MenuBrowser
+                categories={categories}
+                hideUnavailable={HIDE_UNAVAILABLE}
+                ordering={ordering}
+              />
+            </div>
+            <CartBar
+              slug={restaurant.slug}
+              currency={restaurant.currency}
+              locale={locale}
+              tableToken={ordering.table?.token ?? null}
+            />
+          </CartProvider>
+        ) : (
+          <MenuBrowser categories={categories} hideUnavailable={HIDE_UNAVAILABLE} />
+        )
       ) : (
         <div className="mx-auto flex max-w-md flex-col items-center px-4 py-24 text-center">
           <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-brand-500 dark:bg-brand-950/50">

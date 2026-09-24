@@ -43,3 +43,17 @@ export interface CategoryView {
   anchor: string;
   dishes: DishView[];
 }
+
+// Everything the ordering UI on the public menu needs from the restaurant.
+// Null when the menu is read-only.
+export interface OrderingInfo {
+  enabled: boolean;
+  paused: boolean;
+  pauseMessage: string | null;
+  allowTakeaway: boolean;
+  slug: string;
+  currency: string;
+  locale: string;
+  /** The table from a per-table QR code, when one was scanned. */
+  table: { label: string; token: string } | null;
+}

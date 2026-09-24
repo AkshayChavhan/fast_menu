@@ -3,12 +3,19 @@ import { UtensilsCrossed, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AllergenBadge, DietaryBadge } from "./badges";
 import { PairingRow } from "./PairingRow";
-import type { DishView } from "./types";
+import { AddToOrderButton } from "@/components/ordering/AddToOrderButton";
+import type { DishView, OrderingInfo } from "./types";
 
 // A single dish. Photo-forward, appetizing, generous spacing. Featured dishes
 // get a warm brand-tinted frame and a "Chef's Special" ribbon; 86'd dishes are
 // dimmed with an "Unavailable" overlay but remain visible for transparency.
-export function DishCard({ dish }: { dish: DishView }) {
+export function DishCard({
+  dish,
+  ordering = null,
+}: {
+  dish: DishView;
+  ordering?: OrderingInfo | null;
+}) {
   // Non chef-special dietary tags render as badges; chef-special is shown as a
   // ribbon on the photo instead, so we filter it out of the badge row.
   const dietaryBadges = dish.dietaryTags.filter((t) => t !== "chef-special");
@@ -95,6 +102,17 @@ export function DishCard({ dish }: { dish: DishView }) {
         )}
 
         <PairingRow pairings={dish.pairings} />
+
+        {ordering?.enabled && dish.isAvailable ? (
+          <div className="mt-4 flex justify-end">
+            <AddToOrderButton
+              dish={dish}
+              currency={ordering.currency}
+              locale={ordering.locale}
+              disabled={ordering.paused}
+            />
+          </div>
+        ) : null}
       </div>
     </article>
   );

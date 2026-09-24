@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { DishCard } from "./DishCard";
 import { DietaryBadge } from "./badges";
 import { CategoryNav } from "./CategoryNav";
-import type { CategoryView, DishView } from "./types";
+import type { CategoryView, DishView, OrderingInfo } from "./types";
 
 // Client-side orchestrator: search box + dietary-tag filter chips + the
 // category quick-nav + rendered sections. All data arrives pre-resolved from
@@ -14,10 +14,13 @@ import type { CategoryView, DishView } from "./types";
 export function MenuBrowser({
   categories,
   hideUnavailable,
+  ordering = null,
 }: {
   categories: CategoryView[];
   /** When true, 86'd dishes are hidden entirely instead of shown dimmed. */
   hideUnavailable: boolean;
+  /** Present when guests can order from this menu. */
+  ordering?: OrderingInfo | null;
 }) {
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<string[]>([]);
@@ -183,7 +186,7 @@ export function MenuBrowser({
               </div>
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {cat.dishes.map((dish) => (
-                  <DishCard key={dish.id} dish={dish} />
+                  <DishCard key={dish.id} dish={dish} ordering={ordering} />
                 ))}
               </div>
             </section>
