@@ -222,3 +222,138 @@ export async function loadOccupiedTables(restaurantId: string): Promise<Map<stri
   }
   return occupied;
 }
+
+// --- Table board -----------------------------------------------------------
+
+export interface BoardTable extends RestaurantTable {
+  /** The open session on this table, if any. */
+  session: (TableSession & { tables: RestaurantTable[]; orderCount: number }) | null;
+  /** An unresolved call-waiter / bill request from this table. */
+  attention: ServiceRequestKind | null;
+}
+
+type ServiceRequestKind = ServiceRequest["kind"];
+
+export async function loadTableBoard(restaurantId: string): Promise<BoardTable[]> {
+  const supabase = await createClient();
+  const [tablesRes, sessionsRes, requestsRes] = await Promise.all([
+    supabase.from("tables").select("*").eq("restaurant_id", restaurantId).eq("is_active", true),
+    supabase
+      .from("table_sessions")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .in("status", ["open", "bill_requested"]),
+    supabase
+      .from("service_requests")
+      .select("table_id, kind")
+      .eq("restaurant_id", restaurantId)
+      .eq("status", "open"),
+  ]);
+
+  const tables = sortByLabel((tablesRes.data as RestaurantTable[] | null) ?? []);
+  const sessions = (sessionsRes.data as TableSession[] | null) ?? [];
+  const tableById = new Map(tables.map((t) => [t.id, t]));
+
+  const [linksRes, countsRes] = await Promise.all([
+    sessions.length
+      ? supabase
+          .from("table_session_tables")
+          .select("session_id, table_id")
+          .in("session_id", sessions.map((s) => s.id))
+      : Promise.resolve({ data: [] as { session_id: string; table_id: string }[] }),
+    sessions.length
+      ? supabase
+          .from("orders")
+          .select("session_id")
+          .in("session_id", sessions.map((s) => s.id))
+          .in("status", ["approved", "settled"])
+      : Promise.resolve({ data: [] as { session_id: string }[] }),
+  ]);
+
+  const tablesBySession = new Map<string, RestaurantTable[]>();
+  const sessionByTable = new Map<string, string>();
+  for (const link of (linksRes.data as { session_id: string; table_id: string }[] | null) ?? []) {
+    const t = tableById.get(link.table_id);
+    if (!t) continue;
+    sessionByTable.set(link.table_id, link.session_id);
+    const list = tablesBySession.get(link.session_id);
+    if (list) list.push(t);
+    else tablesBySession.set(link.session_id, [t]);
+  }
+  const orderCount = new Map<string, number>();
+  for (const row of (countsRes.data as { session_id: string }[] | null) ?? []) {
+    orderCount.set(row.session_id, (orderCount.get(row.session_id) ?? 0) + 1);
+  }
+  const attention = new Map<string, ServiceRequestKind>();
+  for (const r of (requestsRes.data as { table_id: string | null; kind: ServiceRequestKind }[] | null) ?? []) {
+    if (r.table_id && !attention.has(r.table_id)) attention.set(r.table_id, r.kind);
+  }
+
+  const sessionById = new Map(sessions.map((s) => [s.id, s]));
+  return tables.map((t) => {
+    const sid = sessionByTable.get(t.id);
+    const s = sid ? sessionById.get(sid) : undefined;
+    return {
+      ...t,
+      session: s
+        ? { ...s, tables: sortByLabel(tablesBySession.get(s.id) ?? []), orderCount: orderCount.get(s.id) ?? 0 }
+        : null,
+      attention: attention.get(t.id) ?? null,
+    };
+  });
+}
+
+export interface SessionDetail extends TableSession {
+  tables: RestaurantTable[];
+  orders: OrderWithItems[];
+  requests: RequestWithTable[];
+}
+
+export async function loadSession(restaurantId: string, sessionId: string): Promise<SessionDetail | null> {
+  const supabase = await createClient();
+  const { data: session } = await supabase
+    .from("table_sessions")
+    .select("*")
+    .eq("restaurant_id", restaurantId)
+    .eq("id", sessionId)
+    .maybeSingle<TableSession>();
+  if (!session) return null;
+
+  const [linksRes, ordersRes, requestsRes] = await Promise.all([
+    supabase.from("table_session_tables").select("table_id").eq("session_id", session.id),
+    supabase
+      .from("orders")
+      .select("*")
+      .eq("session_id", session.id)
+      .order("approved_at", { ascending: true }),
+    supabase
+      .from("service_requests")
+      .select("*")
+      .eq("session_id", session.id)
+      .eq("status", "open"),
+  ]);
+
+  const tableIds = ((linksRes.data as { table_id: string }[] | null) ?? []).map((l) => l.table_id);
+  const { data: tableRows } = tableIds.length
+    ? await supabase.from("tables").select("*").in("id", tableIds)
+    : { data: [] as RestaurantTable[] };
+  const tables = sortByLabel((tableRows as RestaurantTable[] | null) ?? []);
+  const tableById = new Map(tables.map((t) => [t.id, t]));
+
+  const orders = (ordersRes.data as Order[] | null) ?? [];
+  const items = await itemsFor(supabase, orders.map((o) => o.id));
+
+  return {
+    ...session,
+    tables,
+    orders: orders.map((o) => ({
+      ...o,
+      items: items.get(o.id) ?? [],
+      table_label: o.table_id ? (tableById.get(o.table_id)?.label ?? null) : null,
+    })),
+    requests: ((requestsRes.data as ServiceRequest[] | null) ?? []).map((r) => ({
+      ...r,
+      table_label: r.table_id ? (tableById.get(r.table_id)?.label ?? null) : null,
+    })),
+  };
+}

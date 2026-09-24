@@ -30,6 +30,7 @@ export function OrderComposer({
   ordering,
   tables,
   occupied,
+  initialTableIds = [],
 }: {
   mode: ComposerMode;
   cartSlug: string;
@@ -37,6 +38,7 @@ export function OrderComposer({
   ordering: OrderingInfo;
   tables: RestaurantTable[];
   occupied: Record<string, string>;
+  initialTableIds?: string[];
 }) {
   const router = useRouter();
   const cart = useCart();
@@ -44,7 +46,7 @@ export function OrderComposer({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [tableIds, setTableIds] = useState<string[]>([]);
+  const [tableIds, setTableIds] = useState<string[]>(initialTableIds);
   const [serviceType, setServiceType] = useState<ServiceType>("dine_in");
   const [guestLabel, setGuestLabel] = useState("");
   const [note, setNote] = useState("");

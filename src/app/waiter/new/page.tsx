@@ -12,8 +12,18 @@ export const dynamic = "force-dynamic";
 
 // A waiter takes an order at the table: pick dishes, pick the table (or
 // parcel), send it straight to billing.
-export default async function NewOrderPage() {
+export default async function NewOrderPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tables?: string }>;
+}) {
   const { restaurant } = await requireContext("orders:serve");
+  // "Add an order" from a bill preselects that bill's tables.
+  const { tables: preselect } = await searchParams;
+  const initialTableIds = (preselect ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => /^[0-9a-f-]{36}$/i.test(s));
 
   if (!restaurant.ordering_enabled) {
     return (
@@ -60,6 +70,7 @@ export default async function NewOrderPage() {
           ordering={ordering}
           tables={tables}
           occupied={occupied}
+          initialTableIds={initialTableIds.filter((id) => tables.some((t) => t.id === id))}
         />
       </CartProvider>
     </div>
