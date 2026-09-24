@@ -1,17 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Star } from "lucide-react";
-import type { Category, Dish } from "@/types/db";
+import { Loader2, SlidersHorizontal, Star } from "lucide-react";
+import type { Category, Dish, ModifierGroupWithOptions } from "@/types/db";
 import { ALLERGENS, DIETARY_TAGS } from "@/lib/constants";
 import { Modal } from "@/components/dashboard/Modal";
 import { ChipSelect } from "@/components/dashboard/ChipSelect";
 import { Switch } from "@/components/dashboard/Switch";
 import { ImageUpload } from "@/components/dashboard/ImageUpload";
 import {
+  ModifierGroupsEditor,
+  draftsFromGroups,
+  draftsToPayload,
+  type DraftGroup,
+} from "./ModifierGroupsEditor";
+import {
   createDish,
   updateDish,
-  type ActionResult,
+  setDishModifiers,
 } from "@/app/dashboard/menu/actions";
 
 // Payload the form submits; kept aligned with the create/update server actions.
@@ -37,6 +43,7 @@ export function DishForm({
   categories,
   dish,
   defaultCategoryId,
+  modifierGroups,
 }: {
   open: boolean;
   onClose: () => void;
@@ -44,6 +51,8 @@ export function DishForm({
   categories: Category[];
   dish?: Dish | null;
   defaultCategoryId?: string | null;
+  /** Existing variants and add-ons of `dish`, when editing. */
+  modifierGroups?: ModifierGroupWithOptions[];
 }) {
   const editing = !!dish;
 
@@ -63,9 +72,14 @@ export function DishForm({
   const [imageUrl, setImageUrl] = useState<string | null>(
     dish?.image_url ?? null,
   );
+  const [groups, setGroups] = useState<DraftGroup[]>(() =>
+    draftsFromGroups(modifierGroups ?? []),
+  );
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const hasVariants = groups.some((g) => g.kind === "variant");
 
   async function submit() {
     setError(null);
@@ -86,18 +100,40 @@ export function DishForm({
       imageUrl,
     };
 
-    let res: ActionResult;
+    let dishId: string;
     if (editing && dish) {
-      res = await updateDish({ dishId: dish.id, ...payload });
+      const res = await updateDish({ dishId: dish.id, ...payload });
+      if (!res.ok) {
+        setSubmitting(false);
+        setError(res.error);
+        return;
+      }
+      dishId = dish.id;
     } else {
-      res = await createDish({ restaurantId, ...payload });
+      const res = await createDish({ restaurantId, ...payload });
+      if (!res.ok) {
+        setSubmitting(false);
+        setError(res.error);
+        return;
+      }
+      dishId = res.data.id;
+    }
+
+    // Variants and add-ons are saved as a whole once the dish exists. A new
+    // dish with no groups skips the call entirely.
+    if (editing || groups.length > 0) {
+      const mods = await setDishModifiers({
+        dishId,
+        groups: draftsToPayload(groups),
+      });
+      if (!mods.ok) {
+        setSubmitting(false);
+        setError(`The dish was saved, but not its options: ${mods.error}`);
+        return;
+      }
     }
 
     setSubmitting(false);
-    if (!res.ok) {
-      setError(res.error);
-      return;
-    }
     onClose();
   }
 
@@ -154,7 +190,7 @@ export function DishForm({
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Price">
+          <Field label={hasVariants ? "Price (unused with sizes)" : "Price"}>
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400">
                 $
@@ -224,6 +260,20 @@ export function DishForm({
             label="Feature this dish"
           />
         </label>
+
+        <div>
+          <div className="mb-1 flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-neutral-400" aria-hidden />
+            <span className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+              Sizes, variants &amp; add-ons
+            </span>
+          </div>
+          <p className="mb-2 text-[11px] text-neutral-400">
+            Only what you add here is offered. Half / full plates, spice level,
+            extra toppings — leave empty for a dish that is ordered as is.
+          </p>
+          <ModifierGroupsEditor value={groups} onChange={setGroups} />
+        </div>
       </div>
     </Modal>
   );

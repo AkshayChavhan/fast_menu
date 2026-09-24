@@ -145,3 +145,20 @@ export function describeModifiers(groups: ModifierGroupWithOptions[]): string | 
   if (a > 0) parts.push(`${a} ${a === 1 ? "add-on" : "add-ons"}`);
   return parts.length ? parts.join(" · ") : null;
 }
+
+// What the dish form submits for one group (prices as typed; the server
+// converts to cents). Mirrors the payload set_dish_modifiers() accepts.
+export interface ModifierOptionInput {
+  name: string;
+  price: string;
+  is_available: boolean;
+  is_default: boolean;
+}
+
+export interface ModifierGroupInput {
+  name: string;
+  kind: "variant" | "addon";
+  min_select: number;
+  max_select: number | null;
+  options: ModifierOptionInput[];
+}

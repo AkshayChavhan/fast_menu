@@ -12,7 +12,7 @@ import {
   Loader2,
   GripVertical,
 } from "lucide-react";
-import type { Category, Dish } from "@/types/db";
+import type { Category, Dish, ModifierGroupWithOptions } from "@/types/db";
 import { cn } from "@/lib/utils";
 import { DishCard } from "./DishCard";
 import {
@@ -23,6 +23,7 @@ import {
 export function CategorySection({
   category,
   dishes,
+  modifiersByDish,
   currency,
   locale,
   isFirst,
@@ -34,6 +35,7 @@ export function CategorySection({
 }: {
   category: Category | null; // null = the "Uncategorized" bucket
   dishes: Dish[];
+  modifiersByDish: Map<string, ModifierGroupWithOptions[]>;
   currency: string;
   locale: string;
   isFirst: boolean;
@@ -211,6 +213,7 @@ export function CategorySection({
             <DishCard
               key={dish.id}
               dish={dish}
+              modifierGroups={modifiersByDish.get(dish.id) ?? []}
               currency={currency}
               locale={locale}
               onEdit={() => onEditDish(dish)}

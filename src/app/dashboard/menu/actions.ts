@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ALLERGENS, DIETARY_TAGS } from "@/lib/constants";
 import { can } from "@/lib/permissions";
+import type { ModifierGroupInput } from "@/lib/modifiers";
 import { getMemberRole } from "../lib";
 
 const ALLERGEN_VALUES = ALLERGENS as readonly string[];
@@ -277,7 +278,7 @@ export async function createDish(input: {
   dietaryTags: string[];
   isFeatured: boolean;
   imageUrl: string | null;
-}): Promise<ActionResult> {
+}): Promise<ActionResult<{ id: string }>> {
   const parsed = createDishSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
   const d = parsed.data;
@@ -303,23 +304,28 @@ export async function createDish(input: {
     .maybeSingle();
   const nextOrder = (last?.sort_order ?? -1) + 1;
 
-  const { error } = await supabase.from("dishes").insert({
-    restaurant_id: d.restaurantId,
-    category_id: d.categoryId,
-    name: d.name,
-    description: d.description,
-    price_cents: d.price,
-    allergens: d.allergens,
-    dietary_tags: d.dietaryTags,
-    is_featured: d.isFeatured,
-    image_url: d.imageUrl,
-    sort_order: nextOrder,
-  });
-  if (error) return { ok: false, error: error.message };
+  // The id comes back so the form can attach variants and add-ons next.
+  const { data: created, error } = await supabase
+    .from("dishes")
+    .insert({
+      restaurant_id: d.restaurantId,
+      category_id: d.categoryId,
+      name: d.name,
+      description: d.description,
+      price_cents: d.price,
+      allergens: d.allergens,
+      dietary_tags: d.dietaryTags,
+      is_featured: d.isFeatured,
+      image_url: d.imageUrl,
+      sort_order: nextOrder,
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !created) return { ok: false, error: error?.message ?? "Could not create the dish" };
 
   revalidatePath("/dashboard/menu");
   revalidatePath("/dashboard");
-  return { ok: true };
+  return { ok: true, data: { id: created.id } };
 }
 
 const updateDishSchema = z.object({
@@ -421,5 +427,88 @@ export async function deleteDish(input: {
 
   revalidatePath("/dashboard/menu");
   revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// ===========================================================================
+// Variants and add-ons
+// ===========================================================================
+
+const MODIFIER_MAX_GROUPS = 10;
+const MODIFIER_MAX_OPTIONS = 30;
+
+const modifierOptionSchema = z.object({
+  name: z.string().trim().min(1, "Every option needs a name").max(80),
+  price: priceField,
+  is_available: z.boolean(),
+  is_default: z.boolean(),
+});
+
+const modifierGroupSchema = z
+  .object({
+    name: z.string().trim().min(1, "Every group needs a name").max(80),
+    kind: z.enum(["variant", "addon"]),
+    min_select: z.number().int().min(0).max(20),
+    max_select: z.number().int().min(1).max(20).nullable(),
+    options: z.array(modifierOptionSchema).max(MODIFIER_MAX_OPTIONS),
+  })
+  .refine((g) => g.kind !== "variant" || g.options.length > 0, {
+    message: "A size / variant group needs at least one option",
+  })
+  .refine((g) => g.max_select === null || g.max_select >= g.min_select, {
+    message: "'At most' can't be smaller than 'at least'",
+  });
+
+const setModifiersSchema = z.object({
+  dishId: z.string().uuid(),
+  groups: z.array(modifierGroupSchema).max(MODIFIER_MAX_GROUPS),
+});
+
+// Replace a dish's variants and add-ons as a whole. Runs after the dish
+// itself is saved; set_dish_modifiers() does the write in one transaction.
+export async function setDishModifiers(input: {
+  dishId: string;
+  groups: ModifierGroupInput[];
+}): Promise<ActionResult> {
+  const parsed = setModifiersSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const { dishId, groups } = parsed.data;
+
+  const { supabase, user } = await auth();
+  if (!user) return { ok: false, error: "Not authenticated" };
+  if (!(await managedDishRestaurant(supabase, dishId)))
+    return { ok: false, error: "Dish not found" };
+
+  const payload = groups.map((g) => ({
+    name: g.name,
+    kind: g.kind,
+    min_select: g.min_select,
+    max_select: g.max_select,
+    options: g.options.map((o) => ({
+      name: o.name,
+      price_cents: o.price,
+      is_available: o.is_available,
+      is_default: o.is_default,
+    })),
+  }));
+
+  const { error } = await supabase.rpc("set_dish_modifiers", {
+    p_dish_id: dishId,
+    payload,
+  });
+  if (error) {
+    // 22023 is the function's own validation.
+    if (error.code === "22023") return { ok: false, error: error.message };
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        error:
+          "The set_dish_modifiers database function is missing. Run the files in supabase/migrations/ first.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard/menu");
   return { ok: true };
 }

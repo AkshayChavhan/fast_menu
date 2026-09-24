@@ -10,8 +10,15 @@ import {
   Check,
   UtensilsCrossed,
 } from "lucide-react";
-import type { Category, Dish } from "@/types/db";
+import type {
+  Category,
+  Dish,
+  ModifierGroup,
+  ModifierGroupWithOptions,
+  ModifierOption,
+} from "@/types/db";
 import { cn } from "@/lib/utils";
+import { groupModifiersByDish } from "@/lib/modifiers";
 import { CategorySection } from "./CategorySection";
 import { DishForm } from "./DishForm";
 import {
@@ -27,14 +34,23 @@ export function MenuEditor({
   defaultLocale,
   initialCategories,
   initialDishes,
+  initialModifierGroups,
+  initialModifierOptions,
 }: {
   restaurantId: string;
   currency: string;
   defaultLocale: string;
   initialCategories: Category[];
   initialDishes: Dish[];
+  initialModifierGroups: ModifierGroup[];
+  initialModifierOptions: ModifierOption[];
 }) {
   const router = useRouter();
+
+  const modifiersByDish = useMemo<Map<string, ModifierGroupWithOptions[]>>(
+    () => groupModifiersByDish(initialModifierGroups, initialModifierOptions),
+    [initialModifierGroups, initialModifierOptions],
+  );
 
   // Local order state so category reordering feels instant; server is source of
   // truth on refresh (revalidation reloads the server component).
@@ -257,6 +273,7 @@ export function MenuEditor({
             key={category.id}
             category={category}
             dishes={dishesByCategory.get(category.id) ?? []}
+            modifiersByDish={modifiersByDish}
             currency={currency}
             locale={defaultLocale}
             isFirst={i === 0}
@@ -281,6 +298,7 @@ export function MenuEditor({
           <CategorySection
             category={null}
             dishes={uncategorized}
+            modifiersByDish={modifiersByDish}
             currency={currency}
             locale={defaultLocale}
             isFirst={false}
@@ -314,6 +332,9 @@ export function MenuEditor({
           categories={order}
           dish={dishModal.dish}
           defaultCategoryId={dishModal.defaultCategoryId}
+          modifierGroups={
+            dishModal.dish ? (modifiersByDish.get(dishModal.dish.id) ?? []) : []
+          }
         />
       )}
     </div>

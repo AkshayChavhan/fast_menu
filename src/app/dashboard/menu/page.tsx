@@ -1,13 +1,13 @@
 import { requireCapability } from "../lib";
 import { createClient } from "@/lib/supabase/server";
-import type { Category, Dish } from "@/types/db";
+import type { Category, Dish, ModifierGroup, ModifierOption } from "@/types/db";
 import { MenuEditor } from "@/components/dashboard/menu/MenuEditor";
 
 export default async function MenuPage() {
   const { restaurant } = await requireCapability("menu:manage");
   const supabase = await createClient();
 
-  const [categoriesRes, dishesRes] = await Promise.all([
+  const [categoriesRes, dishesRes, groupsRes, optionsRes] = await Promise.all([
     supabase
       .from("categories")
       .select("*")
@@ -18,10 +18,20 @@ export default async function MenuPage() {
       .select("*")
       .eq("restaurant_id", restaurant.id)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("modifier_groups")
+      .select("*")
+      .eq("restaurant_id", restaurant.id),
+    supabase
+      .from("modifier_options")
+      .select("*")
+      .eq("restaurant_id", restaurant.id),
   ]);
 
   const categories = (categoriesRes.data ?? []) as Category[];
   const dishes = (dishesRes.data ?? []) as Dish[];
+  const modifierGroups = (groupsRes.data ?? []) as ModifierGroup[];
+  const modifierOptions = (optionsRes.data ?? []) as ModifierOption[];
 
   return (
     <MenuEditor
@@ -30,6 +40,8 @@ export default async function MenuPage() {
       defaultLocale={restaurant.default_locale}
       initialCategories={categories}
       initialDishes={dishes}
+      initialModifierGroups={modifierGroups}
+      initialModifierOptions={modifierOptions}
     />
   );
 }
