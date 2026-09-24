@@ -90,10 +90,13 @@ import {
   deleteStaff,
   resetStaffPassword,
   setStaffActive,
+  setStaffAvatar,
 } from "@/app/dashboard/staff/actions";
 
 const RID = "11111111-1111-1111-1111-111111111111";
 const SID = "22222222-2222-2222-2222-222222222222";
+
+const PHOTO = "https://abc.supabase.co/storage/v1/object/public/menu-images/r/staff/a.jpg";
 
 const validCreate = {
   restaurantId: RID,
@@ -161,9 +164,20 @@ describe("createStaff()", () => {
         role: "waiter",
         display_name: "Ravi",
         email: "ravi@example.com",
+        avatar_url: null,
         created_by: "actor-1",
       },
     ]);
+  });
+
+  it("keeps a photo chosen while creating the account", async () => {
+    const res = await createStaff({ ...validCreate, avatarUrl: PHOTO });
+    expect(res).toEqual({ ok: true });
+    expect(state.inserted[0].avatar_url).toBe(PHOTO);
+
+    const bad = await createStaff({ ...validCreate, avatarUrl: "not a url" });
+    expect(bad.ok).toBe(false);
+    expect(state.createdUsers).toHaveLength(1);
   });
 
   it("deletes the new login again if the staff row cannot be written", async () => {
@@ -200,6 +214,40 @@ describe("setStaffActive()", () => {
     state.target = null;
     const res = await setStaffActive({ restaurantId: RID, staffId: SID, isActive: true });
     expect(res).toEqual({ ok: false, error: "Staff member not found" });
+  });
+});
+
+describe("setStaffAvatar()", () => {
+  it("stores the photo URL on a manageable target", async () => {
+    const res = await setStaffAvatar({ restaurantId: RID, staffId: SID, avatarUrl: PHOTO });
+    expect(res).toEqual({ ok: true });
+    expect(state.updated).toEqual([{ avatar_url: PHOTO }]);
+  });
+
+  it("clears the photo with null", async () => {
+    const res = await setStaffAvatar({ restaurantId: RID, staffId: SID, avatarUrl: null });
+    expect(res).toEqual({ ok: true });
+    expect(state.updated).toEqual([{ avatar_url: null }]);
+  });
+
+  it("rejects anything that is not a URL", async () => {
+    const res = await setStaffAvatar({ restaurantId: RID, staffId: SID, avatarUrl: "ravi.jpg" });
+    expect(res).toEqual({ ok: false, error: "Invalid photo URL" });
+    expect(state.updated).toHaveLength(0);
+  });
+
+  it("stops a manager from changing another manager's photo", async () => {
+    state.actorRole = "manager";
+    state.target = { id: SID, user_id: "user-9", role: "manager" };
+    const res = await setStaffAvatar({ restaurantId: RID, staffId: SID, avatarUrl: PHOTO });
+    expect(res).toEqual({ ok: false, error: "Only the owner can change a manager" });
+    expect(state.updated).toHaveLength(0);
+  });
+
+  it("refuses when the actor lacks staff:manage", async () => {
+    state.guardError = "You don't have permission to do that";
+    const res = await setStaffAvatar({ restaurantId: RID, staffId: SID, avatarUrl: PHOTO });
+    expect(res).toEqual({ ok: false, error: "You don't have permission to do that" });
   });
 });
 

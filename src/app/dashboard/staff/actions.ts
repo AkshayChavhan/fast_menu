@@ -30,6 +30,9 @@ const createSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
   password: passwordField,
   role: z.enum(STAFF_ROLES),
+  // Public URL from a direct-to-storage upload (see ImageUpload), when the
+  // admin picked a photo while creating the account.
+  avatarUrl: z.string().url().max(2048).nullable().optional(),
 });
 
 export async function createStaff(input: {
@@ -38,12 +41,13 @@ export async function createStaff(input: {
   email: string;
   password: string;
   role: StaffRole;
+  avatarUrl?: string | null;
 }): Promise<ActionResult> {
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { restaurantId, displayName, email, password, role } = parsed.data;
+  const { restaurantId, displayName, email, password, role, avatarUrl } = parsed.data;
 
   const guard = await requireRestaurantAccess(restaurantId, "staff:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
@@ -78,6 +82,7 @@ export async function createStaff(input: {
     role,
     display_name: displayName,
     email,
+    avatar_url: avatarUrl ?? null,
     created_by: guard.userId,
   });
 
@@ -140,6 +145,40 @@ export async function setStaffActive(input: {
   const { error } = await guard.supabase
     .from("restaurant_staff")
     .update({ is_active: isActive })
+    .eq("id", staffId)
+    .eq("restaurant_id", restaurantId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/staff");
+  return { ok: true };
+}
+
+// The photo itself is uploaded straight to Storage by the browser (see
+// ImageUpload); like the logo, the row only stores the resulting public URL.
+// null clears it.
+const avatarSchema = targetSchema.extend({
+  avatarUrl: z.string().url().max(2048).nullable(),
+});
+
+export async function setStaffAvatar(input: {
+  restaurantId: string;
+  staffId: string;
+  avatarUrl: string | null;
+}): Promise<ActionResult> {
+  const parsed = avatarSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid photo URL" };
+  const { restaurantId, staffId, avatarUrl } = parsed.data;
+
+  const guard = await requireRestaurantAccess(restaurantId, "staff:manage");
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const target = await loadManagedStaff(guard, restaurantId, staffId);
+  if (!target.ok) return target;
+
+  const { error } = await guard.supabase
+    .from("restaurant_staff")
+    .update({ avatar_url: avatarUrl })
     .eq("id", staffId)
     .eq("restaurant_id", restaurantId);
 

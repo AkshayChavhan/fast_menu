@@ -9,7 +9,8 @@ const BUCKET = "menu-images";
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
 // Uploads an image to the menu-images bucket at `<pathPrefix>/<uuid>.<ext>` and
-// reports the resulting public URL. Used for both dish photos and the logo.
+// reports the resulting public URL. Used for dish photos, the logo and staff
+// profile photos.
 export function ImageUpload({
   pathPrefix,
   value,
@@ -20,7 +21,7 @@ export function ImageUpload({
   pathPrefix: string;
   value: string | null;
   onChange: (url: string | null) => void;
-  shape?: "square" | "wide";
+  shape?: "square" | "wide" | "round";
   label?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -74,7 +75,11 @@ export function ImageUpload({
   }
 
   const box =
-    shape === "wide" ? "aspect-[3/1] w-full" : "aspect-square w-28";
+    shape === "wide"
+      ? "aspect-[3/1] w-full"
+      : shape === "round"
+        ? "aspect-square w-28 rounded-full"
+        : "aspect-square w-28";
 
   return (
     <div>

@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Camera,
   KeyRound,
   Loader2,
   Plus,
@@ -16,12 +17,15 @@ import {
   deleteStaff,
   resetStaffPassword,
   setStaffActive,
+  setStaffAvatar,
 } from "@/app/dashboard/staff/actions";
 import { canManageRole, ROLE_LABELS } from "@/lib/permissions";
 import { STAFF_ROLES, type MemberRole, type RestaurantStaff, type StaffRole } from "@/types/db";
 import { cn } from "@/lib/utils";
 import { Modal } from "@/components/dashboard/Modal";
 import { Switch } from "@/components/dashboard/Switch";
+import { ImageUpload } from "@/components/dashboard/ImageUpload";
+import { StaffAvatar } from "@/components/dashboard/staff/StaffAvatar";
 
 const ROLE_BLURB: Record<StaffRole, string> = {
   manager: "Menu, staff, billing and the floor. Not settings.",
@@ -56,6 +60,7 @@ export function StaffManager({
 
   const [adding, setAdding] = useState(false);
   const [resetting, setResetting] = useState<RestaurantStaff | null>(null);
+  const [photoFor, setPhotoFor] = useState<RestaurantStaff | null>(null);
 
   const allowedRoles = STAFF_ROLES.filter((r) => canManageRole(actorRole, r));
 
@@ -133,6 +138,10 @@ export function StaffManager({
                 )}
               >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <StaffAvatar
+                    src={member.avatar_url}
+                    name={member.display_name || member.email}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold">
@@ -165,6 +174,14 @@ export function StaffManager({
                         onChange={(next) => toggleActive(member, next)}
                         label={`${member.is_active ? "Deactivate" : "Activate"} ${member.display_name ?? member.email ?? "account"}`}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setPhotoFor(member)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      >
+                        <Camera className="h-3.5 w-3.5" aria-hidden /> Photo
+                      </button>
                       <button
                         type="button"
                         onClick={() => setResetting(member)}
@@ -205,6 +222,12 @@ export function StaffManager({
         onClose={() => setResetting(null)}
         restaurantId={restaurantId}
       />
+
+      <StaffPhotoModal
+        member={photoFor}
+        onClose={() => setPhotoFor(null)}
+        restaurantId={restaurantId}
+      />
     </div>
   );
 }
@@ -237,6 +260,7 @@ function AddStaffModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(() => generatePassword());
   const [role, setRole] = useState<StaffRole>(roles.includes("waiter") ? "waiter" : roles[0]);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
@@ -244,6 +268,7 @@ function AddStaffModal({
     setEmail("");
     setPassword(generatePassword());
     setRole(roles.includes("waiter") ? "waiter" : roles[0]);
+    setAvatarUrl(null);
     setError(null);
   }
 
@@ -256,7 +281,14 @@ function AddStaffModal({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const res = await createStaff({ restaurantId, displayName, email, password, role });
+      const res = await createStaff({
+        restaurantId,
+        displayName,
+        email,
+        password,
+        role,
+        avatarUrl,
+      });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -293,6 +325,19 @@ function AddStaffModal({
       }
     >
       <form id="add-staff-form" onSubmit={submit} className="space-y-4">
+        <div>
+          <p className="mb-1 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+            Photo <span className="font-normal text-neutral-400">(optional)</span>
+          </p>
+          <ImageUpload
+            pathPrefix={`${restaurantId}/staff`}
+            value={avatarUrl}
+            onChange={setAvatarUrl}
+            shape="round"
+            label="photo"
+          />
+        </div>
+
         <Field label="Name" htmlFor="staff-name">
           <input
             id="staff-name"
@@ -478,6 +523,99 @@ function ResetPasswordModal({
         </form>
       )}
     </Modal>
+  );
+}
+
+function StaffPhotoModal({
+  member,
+  onClose,
+  restaurantId,
+}: {
+  member: RestaurantStaff | null;
+  onClose: () => void;
+  restaurantId: string;
+}) {
+  const name = member?.display_name || member?.email || "this account";
+  return (
+    <Modal
+      open={member !== null}
+      onClose={onClose}
+      title={`Photo for ${name}`}
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          Done
+        </button>
+      }
+    >
+      {member ? (
+        // Keyed by member so the preview state starts fresh for each person.
+        <PhotoEditor key={member.id} member={member} restaurantId={restaurantId} />
+      ) : null}
+    </Modal>
+  );
+}
+
+// Each upload or removal saves straight away; there is no separate Save
+// button, so a closed modal never loses a change.
+function PhotoEditor({
+  member,
+  restaurantId,
+}: {
+  member: RestaurantStaff;
+  restaurantId: string;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [url, setUrl] = useState<string | null>(member.avatar_url);
+  const [error, setError] = useState<string | null>(null);
+
+  function save(next: string | null) {
+    setError(null);
+    const previous = url;
+    setUrl(next);
+    startTransition(async () => {
+      const res = await setStaffAvatar({
+        restaurantId,
+        staffId: member.id,
+        avatarUrl: next,
+      });
+      if (!res.ok) {
+        setUrl(previous);
+        setError(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      <ImageUpload
+        pathPrefix={`${restaurantId}/staff/${member.id}`}
+        value={url}
+        onChange={save}
+        shape="round"
+        label="photo"
+      />
+      <p className="flex items-center gap-1.5 text-xs text-neutral-500">
+        {pending ? (
+          <>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Saving…
+          </>
+        ) : (
+          "Shown next to their name on the roster. Changes save straight away."
+        )}
+      </p>
+      {error ? (
+        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
