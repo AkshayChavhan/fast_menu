@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { isValidTimezone } from "@/lib/time";
 import { z } from "zod";
 import { requireRestaurantAccess, type ActionResult } from "../lib";
+import { removeRestaurantImages } from "@/lib/storage-cleanup";
 import { slugify } from "@/lib/utils";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/lib/constants";
 import { normalizeGoogleReviewUrl } from "@/lib/google-review";
@@ -145,12 +146,21 @@ export async function updateLogo(
   const guard = await requireRestaurantAccess(restaurantId, "settings:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
 
+  const { data: current } = await guard.supabase
+    .from("restaurants")
+    .select("logo_url")
+    .eq("id", restaurantId)
+    .maybeSingle<{ logo_url: string | null }>();
+
   const { error } = await guard.supabase
     .from("restaurants")
     .update({ logo_url: logoUrl })
     .eq("id", restaurantId);
 
   if (error) return { ok: false, error: error.message };
+
+  // The old logo is unreferenced now; drop it rather than let it pile up.
+  await removeRestaurantImages(guard.supabase, restaurantId, [current?.logo_url], logoUrl);
 
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");

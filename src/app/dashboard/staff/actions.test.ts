@@ -20,6 +20,8 @@ const state = vi.hoisted(() => ({
   createdUsers: [] as Row[],
   deletedUsers: [] as string[],
   passwordUpdates: [] as { uid: string; password: string }[],
+  // Storage paths handed to remove().
+  removed: [] as string[],
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -56,6 +58,14 @@ vi.mock("@/app/dashboard/lib", () => ({
             return awaitable;
           },
         }),
+        storage: {
+          from: () => ({
+            remove: async (paths: string[]) => {
+              state.removed.push(...paths);
+              return { error: null };
+            },
+          }),
+        },
       },
     };
   },
@@ -97,6 +107,8 @@ const RID = "11111111-1111-1111-1111-111111111111";
 const SID = "22222222-2222-2222-2222-222222222222";
 
 const PHOTO = "https://abc.supabase.co/storage/v1/object/public/menu-images/r/staff/a.jpg";
+const OLD_PATH = "11111111-1111-1111-1111-111111111111/staff/22222222-2222-2222-2222-222222222222/old.jpg";
+const OLD_PHOTO = `https://abc.supabase.co/storage/v1/object/public/menu-images/${OLD_PATH}`;
 
 const validCreate = {
   restaurantId: RID,
@@ -109,7 +121,7 @@ const validCreate = {
 beforeEach(() => {
   state.actorRole = "owner";
   state.guardError = null;
-  state.target = { id: SID, user_id: "user-9", role: "waiter" };
+  state.target = { id: SID, user_id: "user-9", role: "waiter", avatar_url: null };
   state.insertError = null;
   state.inserted = [];
   state.updated = [];
@@ -117,6 +129,7 @@ beforeEach(() => {
   state.createdUsers = [];
   state.deletedUsers = [];
   state.passwordUpdates = [];
+  state.removed = [];
 });
 
 describe("createStaff()", () => {
@@ -230,6 +243,33 @@ describe("setStaffAvatar()", () => {
     expect(state.updated).toEqual([{ avatar_url: null }]);
   });
 
+  it("deletes the previous file once the new URL is stored", async () => {
+    state.target = { id: SID, user_id: "user-9", role: "waiter", avatar_url: OLD_PHOTO };
+    await setStaffAvatar({ restaurantId: RID, staffId: SID, avatarUrl: PHOTO });
+    expect(state.removed).toEqual([OLD_PATH]);
+
+    state.removed = [];
+    await setStaffAvatar({ restaurantId: RID, staffId: SID, avatarUrl: null });
+    expect(state.removed).toEqual([OLD_PATH]);
+  });
+
+  it("leaves the file alone when the URL has not changed", async () => {
+    state.target = { id: SID, user_id: "user-9", role: "waiter", avatar_url: OLD_PHOTO };
+    await setStaffAvatar({ restaurantId: RID, staffId: SID, avatarUrl: OLD_PHOTO });
+    expect(state.removed).toEqual([]);
+  });
+
+  it("never deletes a file outside this restaurant's folder", async () => {
+    state.target = {
+      id: SID,
+      user_id: "user-9",
+      role: "waiter",
+      avatar_url: "https://abc.supabase.co/storage/v1/object/public/menu-images/other/staff/x.jpg",
+    };
+    await setStaffAvatar({ restaurantId: RID, staffId: SID, avatarUrl: PHOTO });
+    expect(state.removed).toEqual([]);
+  });
+
   it("rejects anything that is not a URL", async () => {
     const res = await setStaffAvatar({ restaurantId: RID, staffId: SID, avatarUrl: "ravi.jpg" });
     expect(res).toEqual({ ok: false, error: "Invalid photo URL" });
@@ -270,6 +310,13 @@ describe("deleteStaff()", () => {
     const res = await deleteStaff({ restaurantId: RID, staffId: SID });
     expect(res).toEqual({ ok: true });
     expect(state.deletedUsers).toEqual(["user-9"]);
+    expect(state.removed).toEqual([]);
+  });
+
+  it("removes the photo file along with the account", async () => {
+    state.target = { id: SID, user_id: "user-9", role: "waiter", avatar_url: OLD_PHOTO };
+    await deleteStaff({ restaurantId: RID, staffId: SID });
+    expect(state.removed).toEqual([OLD_PATH]);
   });
 
   it("refuses a manager deleting a manager", async () => {

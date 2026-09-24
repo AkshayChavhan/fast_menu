@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ALLERGENS, DIETARY_TAGS } from "@/lib/constants";
 import { can } from "@/lib/permissions";
 import type { ModifierGroupInput } from "@/lib/modifiers";
+import { removeRestaurantImages } from "@/lib/storage-cleanup";
 import { getMemberRole } from "../lib";
 
 const ALLERGEN_VALUES = ALLERGENS as readonly string[];
@@ -384,6 +385,12 @@ export async function updateDish(input: {
       return { ok: false, error: "Invalid category" };
   }
 
+  const { data: before } = await supabase
+    .from("dishes")
+    .select("image_url")
+    .eq("id", d.dishId)
+    .maybeSingle<{ image_url: string | null }>();
+
   const { error } = await supabase
     .from("dishes")
     .update({
@@ -400,6 +407,9 @@ export async function updateDish(input: {
     })
     .eq("id", d.dishId);
   if (error) return { ok: false, error: error.message };
+
+  // A replaced or removed photo is unreferenced now; drop the file.
+  await removeRestaurantImages(supabase, restaurantId, [before?.image_url], d.imageUrl);
 
   revalidatePath("/dashboard/menu");
   revalidatePath("/dashboard");
@@ -446,11 +456,19 @@ export async function deleteDish(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await managedDishRestaurant(supabase, dishId)))
-    return { ok: false, error: "Dish not found" };
+  const restaurantId = await managedDishRestaurant(supabase, dishId);
+  if (!restaurantId) return { ok: false, error: "Dish not found" };
+
+  const { data: dish } = await supabase
+    .from("dishes")
+    .select("image_url")
+    .eq("id", dishId)
+    .maybeSingle<{ image_url: string | null }>();
 
   const { error } = await supabase.from("dishes").delete().eq("id", dishId);
   if (error) return { ok: false, error: error.message };
+
+  await removeRestaurantImages(supabase, restaurantId, [dish?.image_url]);
 
   revalidatePath("/dashboard/menu");
   revalidatePath("/dashboard");

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { requireRestaurantAccess, type ActionResult } from "../lib";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { removeRestaurantImages } from "@/lib/storage-cleanup";
 import { canManageRole } from "@/lib/permissions";
 import { STAFF_ROLES, type RestaurantStaff, type StaffRole } from "@/types/db";
 
@@ -103,15 +104,15 @@ async function loadManagedStaff(
   restaurantId: string,
   staffId: string,
 ): Promise<
-  | { ok: true; staff: Pick<RestaurantStaff, "id" | "user_id" | "role"> }
+  | { ok: true; staff: Pick<RestaurantStaff, "id" | "user_id" | "role" | "avatar_url"> }
   | { ok: false; error: string }
 > {
   const { data } = await guard.supabase
     .from("restaurant_staff")
-    .select("id, user_id, role")
+    .select("id, user_id, role, avatar_url")
     .eq("id", staffId)
     .eq("restaurant_id", restaurantId)
-    .maybeSingle<Pick<RestaurantStaff, "id" | "user_id" | "role">>();
+    .maybeSingle<Pick<RestaurantStaff, "id" | "user_id" | "role" | "avatar_url">>();
 
   if (!data) return { ok: false, error: "Staff member not found" };
   if (!canManageRole(guard.role, data.role)) {
@@ -184,6 +185,9 @@ export async function setStaffAvatar(input: {
 
   if (error) return { ok: false, error: error.message };
 
+  // The previous photo is unreferenced now; drop it rather than let it pile up.
+  await removeRestaurantImages(guard.supabase, restaurantId, [target.staff.avatar_url], avatarUrl);
+
   revalidatePath("/dashboard/staff");
   return { ok: true };
 }
@@ -234,6 +238,8 @@ export async function deleteStaff(input: {
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.deleteUser(target.staff.user_id);
   if (error) return { ok: false, error: error.message };
+
+  await removeRestaurantImages(guard.supabase, restaurantId, [target.staff.avatar_url]);
 
   revalidatePath("/dashboard/staff");
   return { ok: true };
