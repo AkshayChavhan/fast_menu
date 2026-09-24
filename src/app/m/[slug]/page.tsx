@@ -24,6 +24,7 @@ import { FloatingReviews } from "@/components/menu/FloatingReviews";
 import { DocumentLocale } from "@/components/menu/DocumentLocale";
 import { CartProvider } from "@/components/ordering/CartProvider";
 import { CartBar } from "@/components/ordering/CartBar";
+import { ServiceButtons } from "@/components/ordering/ServiceButtons";
 import type {
   CategoryView,
   DishView,
@@ -427,11 +428,12 @@ export default async function PublicMenuPage({
       ) : null}
 
       {ordering?.table ? (
-        <div className="mx-auto max-w-5xl px-4 pt-4">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 pt-4">
           <p className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-950/50 dark:text-brand-300">
             <Armchair className="h-3.5 w-3.5" aria-hidden />
             You&apos;re at {ordering.table.label}
           </p>
+          <ServiceButtons slug={restaurant.slug} tableToken={ordering.table.token} />
         </div>
       ) : null}
 

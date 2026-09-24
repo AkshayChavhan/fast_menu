@@ -20,6 +20,7 @@ import { formatPrice, cn } from "@/lib/utils";
 import type { PublicOrder } from "@/types/db";
 import { cancelOrder } from "@/app/m/[slug]/cart/actions";
 import { useCart } from "./CartProvider";
+import { ServiceButtons } from "./ServiceButtons";
 
 const POLL_MS = 5000;
 
@@ -98,6 +99,10 @@ export function OrderStatus({
   return (
     <div className="space-y-5">
       <StatusCard order={order} paid={paid} />
+
+      {order.status === "approved" && !paid && tableToken ? (
+        <ServiceButtons slug={slug} tableToken={tableToken} />
+      ) : null}
 
       {order.status === "placed" ? (
         <section className="rounded-3xl border border-neutral-200 bg-white p-5 text-center dark:border-neutral-800 dark:bg-neutral-900">
