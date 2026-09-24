@@ -175,6 +175,21 @@ yourself in with:
 insert into public.platform_admins (email) values ('you.com');
 ```
 
+**Push notifications (optional).** Waiters can get a buzz when a guest orders
+or calls. Generate a key pair once and put it in the env:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+```dotenv
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you.com
+```
+
+Without the keys the bell in the waiter app is hidden and nothing is sent.
+
 **Staff logins.** Owners and managers add managers, cashiers, waiters and
 kitchen staff under **Staff** in the dashboard. Accounts are created with the
 service-role key, so `SUPABASE_SERVICE_ROLE_KEY` must be set. Waiters land in

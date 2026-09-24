@@ -111,7 +111,7 @@ Tick a box when the phase is merged into this branch.
 - [x] **3 Customer ordering** — cart, modifier sheet, item notes, dine-in or
       parcel, `place_order` + validation + rate limits, order page, table
       token, service requests.
-- [ ] **4 Waiter app** — scan, approve, reject, sessions and joined tables,
+- [x] **4 Waiter app** — scan, approve, reject, sessions and joined tables,
       composer for new and edited orders, home board and queues, order-more
       attach, push notifications.
 - [ ] **5 Billing counter** — sessions by table, Mark paid, history, cashier

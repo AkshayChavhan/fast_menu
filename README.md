@@ -46,6 +46,11 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
   bill, then points at Google reviews. Call a waiter or ask for the bill from
   a table QR. Every price is re-read by the database; anonymous writes go
   through security-definer functions and are rate-limited.
+- **Waiter app** (`/waiter`) — phone-first: scan the guest's QR (or type the
+  code), pick the table (or several, joined onto one bill), approve or reject,
+  take an order directly, edit an order's items until it is paid, move it to
+  another table, seat and clear tables on a live board, and get a push
+  notification when a guest orders or calls.
 
 ---
 
@@ -166,6 +171,8 @@ What's covered:
 | Table label ranges and ordering | `src/lib/tables.test.ts` |
 | Google review link validation | `src/lib/google-review.test.ts` |
 | Guest cart: line keys, merging, quantities, totals, order payload | `src/lib/cart.test.ts` |
+| Order code parsing from a scan | `src/lib/order-code.test.ts` |
+| Relative time and clock formatting | `src/lib/time.test.ts` |
 | Review settings + rating normalisation | `src/lib/reviews.test.ts` |
 | Price, slug and translation helpers | `src/lib/utils.test.ts` |
 | Site origin resolution | `src/lib/site.test.ts` |
@@ -208,6 +215,10 @@ windows, including overnight and timezone edges. `orders.test.sql` exercises the
 guest ordering functions: price snapshots, size and add-on validation, refusals
 when paused or unavailable, one unapproved order per device, expiry, guest
 cancellation, session totals, service requests and the rate limiter.
+`staff_orders.test.sql` covers the waiter side: approving onto new or existing
+sessions, joined tables, takeaway sessions, reject and cancel, waiter-taken
+orders, replacing items with an audit event, moving tables, seating and
+clearing.
 
 ### Not covered
 
@@ -230,7 +241,7 @@ src/
       settings/actions.ts Server Actions (restaurant settings, publish)
     m/[slug]/             Public customer-facing menu, cart and live order page
     api/qr/               PNG QR-code endpoint
-    waiter/               Waiter app shell (phone)
+    waiter/               Waiter app: home, scan, order review, composer, tables, bills
     kitchen/              Kitchen screen shell (tablet)
     onboarding/claim/     One-time trial claim (phone OTP, GSTIN, pincode)
     admin/trials/         Platform-admin review of flagged trials
@@ -267,6 +278,14 @@ supabase/
 - **trial_claims** — one row per hotel that activated its trial (phone hash,
   GSTIN, normalised name + pincode), so a second email cannot earn a second
   trial.
+- **tables**, **table_sessions** — the floor plan and one "bill" per seating,
+  which may span joined tables.
+- **orders**, **order_items**, **order_events** — an order with a short code,
+  snapshotted lines (name, price, size, add-ons, note) and an audit trail.
+  Guests never write these directly; `place_order()` and friends do.
+- **service_requests**, **push_subscriptions**, **rate_limit_buckets** —
+  call-waiter / bill requests, staff push endpoints, and the fixed-window
+  counters behind anonymous rate limits.
 
 All access is enforced by Postgres RLS: owners manage their own rows; the public
 can only read rows belonging to a **published** restaurant.
