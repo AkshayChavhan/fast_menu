@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { isValidTimezone } from "@/lib/time";
 import { z } from "zod";
 import { requireRestaurantAccess, type ActionResult } from "../lib";
 import { slugify } from "@/lib/utils";
@@ -163,20 +165,6 @@ export async function updateLogo(
 // Checkboxes/switches are posted as explicit "true"/"false" strings so an
 // unchecked box is a real `false` rather than a missing key.
 const asBool = (v: FormDataEntryValue | null) => String(v ?? "false") === "true";
-
-function isValidTimezone(tz: string): boolean {
-  try {
-    return Intl.supportedValuesOf("timeZone").includes(tz) || tz === "UTC";
-  } catch {
-    // Older runtimes without supportedValuesOf: fall back to a format probe.
-    try {
-      new Intl.DateTimeFormat("en", { timeZone: tz });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
 
 const orderingSchema = z.object({
   restaurantId: z.string().uuid(),

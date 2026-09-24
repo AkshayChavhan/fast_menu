@@ -8,6 +8,7 @@ import type { Restaurant } from "@/types/db";
 import { Switch } from "@/components/dashboard/Switch";
 import { updateOrderingSettings } from "@/app/dashboard/settings/actions";
 import type { ActionResult } from "@/app/dashboard/lib";
+import { canonicalTimezone } from "@/lib/time";
 
 // Zones most of our restaurants live in, pinned to the top of the list.
 const COMMON_TIMEZONES = [
@@ -55,7 +56,13 @@ export function OrderingSettingsCard({ restaurant }: { restaurant: Restaurant })
     } catch {
       all = [];
     }
-    const rest = all.filter((z) => !COMMON_TIMEZONES.includes(z));
+    // Compare canonically so a pinned zone doesn't reappear further down under
+    // its other name — "Asia/Kolkata" is pinned, and the full list calls the
+    // same place "Asia/Calcutta".
+    const pinned = new Set(COMMON_TIMEZONES.map(canonicalTimezone));
+    const rest = all.filter(
+      (z) => !COMMON_TIMEZONES.includes(z) && !pinned.has(canonicalTimezone(z)),
+    );
     return [...COMMON_TIMEZONES, ...rest];
   }, []);
 
