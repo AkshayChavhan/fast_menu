@@ -19,6 +19,8 @@ const state = vi.hoisted(() => ({
   createUserError: null as { message: string } | null,
   createdUsers: [] as Row[],
   deletedUsers: [] as string[],
+  // Owners whose starter restaurant createStaff() removed.
+  starterRestaurantsRemovedFor: [] as string[],
   passwordUpdates: [] as { uid: string; password: string }[],
   // Storage paths handed to remove().
   removed: [] as string[],
@@ -92,6 +94,14 @@ vi.mock("@/lib/supabase/admin", () => ({
         },
       },
     },
+    from: () => ({
+      delete: () => ({
+        eq: async (_column: string, ownerId: string) => {
+          state.starterRestaurantsRemovedFor.push(ownerId);
+          return { error: null };
+        },
+      }),
+    }),
   }),
 }));
 
@@ -129,6 +139,7 @@ beforeEach(() => {
   state.createdUsers = [];
   state.deletedUsers = [];
   state.passwordUpdates = [];
+  state.starterRestaurantsRemovedFor = [];
   state.removed = [];
 });
 
@@ -168,7 +179,7 @@ describe("createStaff()", () => {
     expect(attrs.email).toBe("ravi@example.com");
     expect(attrs.email_confirm).toBe(true);
     expect(attrs.app_metadata).toEqual({ app_role: "waiter" });
-    expect(attrs.user_metadata).toEqual({ full_name: "Ravi" });
+    expect(attrs.user_metadata).toEqual({ full_name: "Ravi", app_role: "waiter" });
 
     expect(state.inserted).toEqual([
       {
@@ -181,6 +192,17 @@ describe("createStaff()", () => {
         created_by: "actor-1",
       },
     ]);
+  });
+
+  // The signup trigger reads the hint from user_metadata because the Auth
+  // server writes app_metadata only after the insert; and whatever the
+  // database did, a staff login must not own a restaurant afterwards.
+  it("marks the login as staff in both metadata fields and removes any starter restaurant", async () => {
+    const res = await createStaff(validCreate);
+    expect(res).toEqual({ ok: true });
+    expect(state.createdUsers[0].user_metadata).toEqual({ full_name: "Ravi", app_role: "waiter" });
+    expect(state.createdUsers[0].app_metadata).toEqual({ app_role: "waiter" });
+    expect(state.starterRestaurantsRemovedFor).toEqual(["new-user-1"]);
   });
 
   it("keeps a photo chosen while creating the account", async () => {

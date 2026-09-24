@@ -63,9 +63,11 @@ export async function createStaff(input: {
     // Staff never receive a confirmation email; the admin sets the password
     // and hands it over.
     email_confirm: true,
-    user_metadata: { full_name: displayName },
-    // Read by handle_new_user() so this account gets no restaurant of its
-    // own. app_metadata is server-controlled, unlike user_metadata.
+    // handle_new_user() reads app_role so this account gets no restaurant
+    // of its own. The Auth server writes app_metadata only after the row
+    // is inserted, so the hint has to travel in user_metadata as well;
+    // the role itself is still trusted from app_metadata only.
+    user_metadata: { full_name: displayName, app_role: role },
     app_metadata: { app_role: role },
   });
 
@@ -76,6 +78,11 @@ export async function createStaff(input: {
     }
     return { ok: false, error: message };
   }
+
+  // Belt and braces: a database that has not run the migration honouring
+  // user_metadata still provisions a starter restaurant, and a staff login
+  // that owns one lands in the dashboard instead of its app.
+  await admin.from("restaurants").delete().eq("owner_id", created.user.id);
 
   const { error: rowError } = await guard.supabase.from("restaurant_staff").insert({
     restaurant_id: restaurantId,
