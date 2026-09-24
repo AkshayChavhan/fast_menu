@@ -8,6 +8,7 @@ import type {
   Category,
   Dish,
   DishPairing,
+  MenuSchedule,
   ModifierGroup,
   ModifierOption,
   Review,
@@ -15,6 +16,7 @@ import type {
 } from "@/types/db";
 import { normalizeRatings } from "@/lib/reviews";
 import { dishPriceRange, groupModifiersByDish, needsChoice } from "@/lib/modifiers";
+import { isScheduleOpen, isSpecial, isSpecialActive, localClock } from "@/lib/schedule";
 import { MenuHeader } from "@/components/menu/MenuHeader";
 import { MenuHero } from "@/components/menu/MenuHero";
 import { MenuBrowser } from "@/components/menu/MenuBrowser";
@@ -40,6 +42,8 @@ type LoadedMenu = {
   /** Variants and add-ons for every dish, joined in buildView. */
   modifierGroups: ModifierGroup[];
   modifierOptions: ModifierOption[];
+  /** Weekly windows that categories may be restricted to. */
+  schedules: MenuSchedule[];
   /** Approved reviews with something to say, for the floating strip. */
   reviews: Review[];
 };
@@ -69,6 +73,7 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
     pairingsRes,
     groupsRes,
     optionsRes,
+    schedulesRes,
     formRes,
     reviewsRes,
   ] = await Promise.all([
@@ -94,6 +99,10 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
       .eq("restaurant_id", restaurant.id),
     supabase
       .from("modifier_options")
+      .select("*")
+      .eq("restaurant_id", restaurant.id),
+    supabase
+      .from("menu_schedules")
       .select("*")
       .eq("restaurant_id", restaurant.id),
     supabase
@@ -128,6 +137,7 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
     pairings: (pairingsRes.data as DishPairing[] | null) ?? [],
     modifierGroups: (groupsRes.data as ModifierGroup[] | null) ?? [],
     modifierOptions: (optionsRes.data as ModifierOption[] | null) ?? [],
+    schedules: (schedulesRes.data as MenuSchedule[] | null) ?? [],
     reviews,
   };
 }
@@ -149,7 +159,23 @@ function buildView(
   menu: LoadedMenu,
   locale: string,
 ): { categories: CategoryView[]; anyDishes: boolean } {
-  const { restaurant, categories, dishes, pairings } = menu;
+  const { restaurant, categories, pairings } = menu;
+
+  // What is on right now, by the restaurant's own clock: categories outside
+  // their schedule and specials outside their dates are left off entirely.
+  const clock = localClock(new Date(), restaurant.timezone);
+  const scheduleById = new Map(menu.schedules.map((s) => [s.id, s]));
+  const openCategories = categories.filter((cat) =>
+    isScheduleOpen(cat.schedule_id ? (scheduleById.get(cat.schedule_id) ?? null) : null, clock),
+  );
+  const closedCategoryIds = new Set(
+    categories.filter((c) => !openCategories.includes(c)).map((c) => c.id),
+  );
+  const dishes = menu.dishes.filter(
+    (d) =>
+      isSpecialActive(d, clock.date) &&
+      !(d.category_id && closedCategoryIds.has(d.category_id)),
+  );
 
   const dishById = new Map(dishes.map((d) => [d.id, d]));
   const modifiersByDish = groupModifiersByDish(menu.modifierGroups, menu.modifierOptions);
@@ -217,7 +243,20 @@ function buildView(
   }
 
   const categoryViews: CategoryView[] = [];
-  for (const cat of categories) {
+
+  // Specials first: every visible dish with a date window, in menu order.
+  const specials = dishes.filter(isSpecial);
+  if (specials.length > 0) {
+    categoryViews.push({
+      id: "__specials",
+      name: "Today's specials",
+      description: null,
+      anchor: "cat-specials",
+      dishes: specials.map(toDishView),
+    });
+  }
+
+  for (const cat of openCategories) {
     const catDishes = dishesByCategory.get(cat.id) ?? [];
     if (catDishes.length === 0) continue;
     categoryViews.push({
@@ -231,7 +270,7 @@ function buildView(
 
   // Uncategorized dishes (category_id null, or pointing at a deleted category)
   // are surfaced under a friendly catch-all so nothing silently disappears.
-  const knownCategoryIds = new Set(categories.map((c) => c.id));
+  const knownCategoryIds = new Set(openCategories.map((c) => c.id));
   const orphans = dishes.filter(
     (d) => d.category_id === null || !knownCategoryIds.has(d.category_id),
   );
