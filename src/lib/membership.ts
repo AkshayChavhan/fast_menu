@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { can, homeFor, type Capability } from "@/lib/permissions";
+import { tagRequest } from "@/lib/monitoring";
 import type { MemberRole, Restaurant, RestaurantStaff } from "@/types/db";
 
 type Db = Awaited<ReturnType<typeof createClient>>;
@@ -101,6 +102,8 @@ export async function requireContext(
   if (capability && !can(membership.role, capability)) {
     redirect(homeFor(membership.role));
   }
+
+  tagRequest({ userId: user.id, restaurantId: membership.restaurant.id, role: membership.role });
 
   return { userId: user.id, email: user.email ?? null, ...membership };
 }
