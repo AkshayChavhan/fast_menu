@@ -368,6 +368,8 @@ export interface ServiceRequest {
 // What get_order_by_code() hands the guest's order page.
 export interface PublicOrderItem {
   id: string;
+  /** Null when the dish was deleted after the order was placed. */
+  dish_id: string | null;
   name: string;
   quantity: number;
   unit_price_cents: number;

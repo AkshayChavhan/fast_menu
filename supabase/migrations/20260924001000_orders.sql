@@ -553,7 +553,7 @@ returns jsonb language sql stable security definer set search_path = public as $
     'session_total_cents', s.total_cents,
     'items', (
       select coalesce(jsonb_agg(jsonb_build_object(
-        'id', i.id, 'name', i.name, 'quantity', i.quantity,
+        'id', i.id, 'dish_id', i.dish_id, 'name', i.name, 'quantity', i.quantity,
         'unit_price_cents', i.unit_price_cents, 'line_total_cents', i.line_total_cents,
         'variant', i.variant, 'addons', i.addons, 'note', i.note
       ) order by i.sort_order), '[]'::jsonb)
