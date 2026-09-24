@@ -4,6 +4,7 @@ import { LogOut } from "lucide-react";
 import { requireContext } from "@/lib/membership";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { WaiterTabs } from "@/components/waiter/WaiterTabs";
+import { PushToggle } from "@/components/waiter/PushToggle";
 
 export const metadata: Metadata = {
   title: "Waiter — fast_menu",
@@ -28,6 +29,7 @@ export default async function WaiterLayout({
           </p>
           <p className="text-[11px] text-neutral-500">{ROLE_LABELS[role]}</p>
         </div>
+        <PushToggle />
         <form action="/auth/signout" method="post">
           <button
             type="submit"

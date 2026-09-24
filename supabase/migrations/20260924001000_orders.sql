@@ -524,7 +524,7 @@ begin
   insert into public.order_events (order_id, restaurant_id, actor_id, kind, details)
   values (oid, r.id, null, 'placed', jsonb_build_object('items', n, 'source', 'customer'));
 
-  return jsonb_build_object('id', oid, 'code', v_code);
+  return jsonb_build_object('id', oid, 'code', v_code, 'restaurant_id', r.id, 'table_label', t.label);
 end;
 $$;
 revoke all on function public.place_order(text, text, text, text, jsonb, text, text) from public;
@@ -633,7 +633,7 @@ begin
      and created_at > now() - interval '15 minutes'
    limit 1;
   if rid is not null then
-    return jsonb_build_object('id', rid, 'existing', true);
+    return jsonb_build_object('id', rid, 'existing', true, 'restaurant_id', r.id, 'table_label', t.label);
   end if;
 
   select s.id into sid
@@ -652,7 +652,7 @@ begin
      where id = sid and status = 'open';
   end if;
 
-  return jsonb_build_object('id', rid, 'existing', false);
+  return jsonb_build_object('id', rid, 'existing', false, 'restaurant_id', r.id, 'table_label', t.label);
 end;
 $$;
 revoke all on function public.create_service_request(text, text, text, text) from public;

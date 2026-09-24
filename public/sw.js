@@ -6,7 +6,7 @@
 //   - Static assets -> stale-while-revalidate (fast, self-healing).
 // Bump CACHE_VERSION whenever the precache list or strategy changes.
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const CACHE_NAME = `fast-menu-${CACHE_VERSION}`;
 
 // App shell + assets safe to precache. Hashed Next.js build assets are cached
@@ -104,4 +104,47 @@ self.addEventListener("fetch", (event) => {
 // Allow the page to trigger an immediate activation after an update.
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
+});
+
+// ---------------------------------------------------------------------------
+// Web Push for staff: a new guest order or a "call waiter" request arrives as
+// a JSON payload {title, body, url, tag}. Tapping the notification focuses an
+// open tab (or opens one) at that URL.
+// ---------------------------------------------------------------------------
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  const title = data.title || "fast_menu";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || "",
+      tag: data.tag || undefined,
+      renotify: Boolean(data.tag),
+      data: { url: data.url || "/waiter" },
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      vibrate: [120, 60, 120],
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/waiter";
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        for (const client of clients) {
+          if ("navigate" in client && "focus" in client) {
+            return client.navigate(url).then((c) => (c || client).focus());
+          }
+        }
+        return self.clients.openWindow(url);
+      }),
+  );
 });

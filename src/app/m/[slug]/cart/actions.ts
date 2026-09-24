@@ -2,9 +2,11 @@
 
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { notifyRestaurant } from "@/lib/push";
 
 // Public, unauthenticated. Everything the browser sends is treated as
 // hostile: the restaurant is resolved from the slug, prices are re-read by
@@ -94,8 +96,27 @@ export async function placeOrder(input: {
 
   if (error) return { ok: false, error: friendlyError(error) };
 
-  const code = (data as { code?: string } | null)?.code;
+  const result = data as
+    | { code?: string; restaurant_id?: string; table_label?: string | null }
+    | null;
+  const code = result?.code;
   if (!code) return { ok: false, error: "We couldn't place your order. Please try again." };
+
+  // Buzz the floor after the response is sent; a slow push must not slow
+  // the guest.
+  if (result.restaurant_id) {
+    const restaurantId = result.restaurant_id;
+    const count = lines.reduce((n, l) => n + l.quantity, 0);
+    const where = result.table_label ?? (serviceType === "takeaway" ? "Parcel" : "No table yet");
+    after(() =>
+      notifyRestaurant(restaurantId, ["manager", "waiter"], {
+        title: `New order ${code}`,
+        body: `${where} · ${count} ${count === 1 ? "item" : "items"}. Tap to approve.`,
+        url: `/waiter/orders/${code}`,
+        tag: `order-${code}`,
+      }),
+    );
+  }
 
   return { ok: true, code };
 }

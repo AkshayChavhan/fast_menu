@@ -2,9 +2,11 @@
 
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { notifyRestaurant } from "@/lib/push";
 
 // "Call a waiter" / "Ask for the bill" from a table QR. Public and
 // unauthenticated; the database requires a valid table code and keeps one
@@ -61,5 +63,24 @@ export async function requestService(input: {
     return { ok: false, error: "We couldn't reach the staff. Please wave to a waiter." };
   }
 
-  return { ok: true, existing: (data as { existing?: boolean } | null)?.existing === true };
+  const result = data as
+    | { existing?: boolean; restaurant_id?: string; table_label?: string | null }
+    | null;
+  const existing = result?.existing === true;
+
+  // A repeat within the window returns the earlier request and buzzes nobody.
+  if (!existing && result?.restaurant_id) {
+    const restaurantId = result.restaurant_id;
+    const table = result.table_label ?? "A table";
+    after(() =>
+      notifyRestaurant(restaurantId, ["manager", "waiter"], {
+        title: kind === "request_bill" ? `${table} wants the bill` : `${table} is calling`,
+        body: "Tap to open the waiter app.",
+        url: "/waiter",
+        tag: `service-${tableToken}-${kind}`,
+      }),
+    );
+  }
+
+  return { ok: true, existing };
 }
