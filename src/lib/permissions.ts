@@ -90,6 +90,10 @@ export function isStaffRole(value: string): value is StaffRole {
   return (STAFF_ROLES as readonly string[]).includes(value);
 }
 
+export function isMemberRole(value: string): value is MemberRole {
+  return value === "owner" || isStaffRole(value);
+}
+
 export const ROLE_LABELS: Record<MemberRole, string> = {
   owner: "Owner",
   manager: "Manager",

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ALLERGENS, DIETARY_TAGS } from "@/lib/constants";
+import { can } from "@/lib/permissions";
+import { getMemberRole } from "../lib";
 
 const ALLERGEN_VALUES = ALLERGENS as readonly string[];
 const DIETARY_VALUES = DIETARY_TAGS as readonly string[];
@@ -13,9 +15,12 @@ export type ActionResult<T = undefined> =
   | { ok: false; error: string };
 
 // ---------------------------------------------------------------------------
-// Ownership guard. RLS enforces tenancy at the DB level; we also verify here so
-// that the app returns friendly errors and never issues a write it can't do.
+// Authorisation. RLS enforces tenancy and roles at the DB level; we also check
+// here so the app returns friendly errors and never issues a write it can't
+// do. Owners and managers may edit the menu (see lib/permissions.ts).
 // ---------------------------------------------------------------------------
+type Db = Awaited<ReturnType<typeof createClient>>;
+
 async function auth() {
   const supabase = await createClient();
   const {
@@ -24,58 +29,44 @@ async function auth() {
   return { supabase, user };
 }
 
-async function assertOwnsRestaurant(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
+async function canManageRestaurant(
+  supabase: Db,
   restaurantId: string,
 ): Promise<boolean> {
-  const { data } = await supabase
-    .from("restaurants")
-    .select("id")
-    .eq("id", restaurantId)
-    .eq("owner_id", userId)
-    .maybeSingle();
-  return !!data;
+  const role = await getMemberRole(supabase, restaurantId);
+  return can(role, "menu:manage");
 }
 
-// The embedded relation can come back typed as an object or an array depending
-// on inference; normalize to the single owner_id either way.
-function relationOwnerId(rel: unknown): string | null {
-  if (!rel) return null;
-  const one = Array.isArray(rel) ? rel[0] : rel;
-  const owner = (one as { owner_id?: string } | undefined)?.owner_id;
-  return owner ?? null;
-}
-
-// Verify ownership by walking from a category id up to its restaurant.
-async function assertOwnsCategory(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
+// Walk from a category id up to its restaurant and check the role there.
+// Returns the restaurant id when the caller may edit it, else null.
+async function managedCategoryRestaurant(
+  supabase: Db,
   categoryId: string,
 ): Promise<string | null> {
   const { data } = await supabase
     .from("categories")
-    .select("restaurant_id, restaurants!inner(owner_id)")
+    .select("restaurant_id")
     .eq("id", categoryId)
-    .maybeSingle();
+    .maybeSingle<{ restaurant_id: string }>();
   if (!data) return null;
-  const owner = relationOwnerId((data as { restaurants: unknown }).restaurants);
-  return owner === userId ? (data.restaurant_id as string) : null;
+  return (await canManageRestaurant(supabase, data.restaurant_id))
+    ? data.restaurant_id
+    : null;
 }
 
-async function assertOwnsDish(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
+async function managedDishRestaurant(
+  supabase: Db,
   dishId: string,
 ): Promise<string | null> {
   const { data } = await supabase
     .from("dishes")
-    .select("restaurant_id, restaurants!inner(owner_id)")
+    .select("restaurant_id")
     .eq("id", dishId)
-    .maybeSingle();
+    .maybeSingle<{ restaurant_id: string }>();
   if (!data) return null;
-  const owner = relationOwnerId((data as { restaurants: unknown }).restaurants);
-  return owner === userId ? (data.restaurant_id as string) : null;
+  return (await canManageRestaurant(supabase, data.restaurant_id))
+    ? data.restaurant_id
+    : null;
 }
 
 function firstIssue(err: z.ZodError): string {
@@ -101,7 +92,7 @@ export async function createCategory(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsRestaurant(supabase, user.id, restaurantId)))
+  if (!(await canManageRestaurant(supabase, restaurantId)))
     return { ok: false, error: "Restaurant not found" };
 
   // Append to the end: sort_order = current max + 1.
@@ -149,7 +140,7 @@ export async function updateCategory(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsCategory(supabase, user.id, categoryId)))
+  if (!(await managedCategoryRestaurant(supabase, categoryId)))
     return { ok: false, error: "Category not found" };
 
   const patch: Record<string, unknown> = { name };
@@ -176,7 +167,7 @@ export async function deleteCategory(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsCategory(supabase, user.id, categoryId)))
+  if (!(await managedCategoryRestaurant(supabase, categoryId)))
     return { ok: false, error: "Category not found" };
 
   // Dishes reference categories with ON DELETE SET NULL, so deleting a category
@@ -207,7 +198,7 @@ export async function reorderCategories(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsRestaurant(supabase, user.id, restaurantId)))
+  if (!(await canManageRestaurant(supabase, restaurantId)))
     return { ok: false, error: "Restaurant not found" };
 
   // Persist each new position. Scoped by restaurant_id so RLS + the filter both
@@ -293,12 +284,12 @@ export async function createDish(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsRestaurant(supabase, user.id, d.restaurantId)))
+  if (!(await canManageRestaurant(supabase, d.restaurantId)))
     return { ok: false, error: "Restaurant not found" };
 
   // If a category was chosen, ensure it belongs to this restaurant.
   if (d.categoryId) {
-    const owned = await assertOwnsCategory(supabase, user.id, d.categoryId);
+    const owned = await managedCategoryRestaurant(supabase, d.categoryId);
     if (owned !== d.restaurantId)
       return { ok: false, error: "Invalid category" };
   }
@@ -353,11 +344,11 @@ export async function updateDish(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  const restaurantId = await assertOwnsDish(supabase, user.id, d.dishId);
+  const restaurantId = await managedDishRestaurant(supabase, d.dishId);
   if (!restaurantId) return { ok: false, error: "Dish not found" };
 
   if (d.categoryId) {
-    const owned = await assertOwnsCategory(supabase, user.id, d.categoryId);
+    const owned = await managedCategoryRestaurant(supabase, d.categoryId);
     if (owned !== restaurantId)
       return { ok: false, error: "Invalid category" };
   }
@@ -397,7 +388,7 @@ export async function toggleDishAvailability(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsDish(supabase, user.id, dishId)))
+  if (!(await managedDishRestaurant(supabase, dishId)))
     return { ok: false, error: "Dish not found" };
 
   const { error } = await supabase
@@ -422,7 +413,7 @@ export async function deleteDish(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsDish(supabase, user.id, dishId)))
+  if (!(await managedDishRestaurant(supabase, dishId)))
     return { ok: false, error: "Dish not found" };
 
   const { error } = await supabase.from("dishes").delete().eq("id", dishId);

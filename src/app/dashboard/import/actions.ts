@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireOwnedRestaurant } from "../lib";
+import { requireRestaurantAccess } from "../lib";
 import {
   parseMenuFile,
   IMPORT_MAX_BYTES,
@@ -36,7 +36,7 @@ async function authorizeAndParse(restaurantId: string, rawText: string) {
     };
   }
 
-  const guard = await requireOwnedRestaurant(restaurantId);
+  const guard = await requireRestaurantAccess(restaurantId, "menu:import");
   if (!guard.ok) return { ok: false as const, error: guard.error };
 
   let raw: unknown;
@@ -115,7 +115,7 @@ export async function applyImport(
   });
 
   if (error) {
-    // 42501 is the ownership guard inside the function.
+    // 42501 is the role guard inside the function.
     if (error.code === "42501") {
       return { ok: false, error: "You don't have access to this restaurant." };
     }

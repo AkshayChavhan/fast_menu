@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireOwnedRestaurant, type ActionResult } from "../lib";
+import { requireRestaurantAccess, type ActionResult } from "../lib";
 import { slugify } from "@/lib/utils";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/lib/constants";
 
@@ -61,7 +61,7 @@ export async function updateRestaurantSettings(
     locales.unshift(data.default_locale);
   }
 
-  const guard = await requireOwnedRestaurant(data.restaurantId);
+  const guard = await requireRestaurantAccess(data.restaurantId, "settings:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
 
   const { error } = await guard.supabase
@@ -101,7 +101,7 @@ export async function setPublished(
   const parsed = publishSchema.safeParse({ restaurantId, isPublished });
   if (!parsed.success) return { ok: false, error: "Invalid input" };
 
-  const guard = await requireOwnedRestaurant(restaurantId);
+  const guard = await requireRestaurantAccess(restaurantId, "settings:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
 
   const { error } = await guard.supabase
@@ -129,7 +129,7 @@ export async function updateLogo(
   const parsed = logoSchema.safeParse({ restaurantId, logoUrl });
   if (!parsed.success) return { ok: false, error: "Invalid logo URL" };
 
-  const guard = await requireOwnedRestaurant(restaurantId);
+  const guard = await requireRestaurantAccess(restaurantId, "settings:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
 
   const { error } = await guard.supabase

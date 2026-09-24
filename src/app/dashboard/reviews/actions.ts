@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireOwnedRestaurant, type ActionResult } from "../lib";
+import { requireRestaurantAccess, type ActionResult } from "../lib";
 import { REVIEW_MAX_QUESTIONS } from "@/lib/constants";
 
 // The public review page and the menu's floating words both read this data,
@@ -83,7 +83,7 @@ export async function saveReviewForm(
 
   const { restaurantId, slug, ...settings } = parsed.data;
 
-  const guard = await requireOwnedRestaurant(restaurantId);
+  const guard = await requireRestaurantAccess(restaurantId, "reviews:moderate");
   if (!guard.ok) return { ok: false, error: guard.error };
 
   // One form per restaurant (unique constraint on restaurant_id), so upsert on
@@ -116,7 +116,7 @@ export async function setReviewStatus(input: {
   const parsed = statusSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input" };
 
-  const guard = await requireOwnedRestaurant(parsed.data.restaurantId);
+  const guard = await requireRestaurantAccess(parsed.data.restaurantId, "reviews:moderate");
   if (!guard.ok) return { ok: false, error: guard.error };
 
   const { error } = await guard.supabase
@@ -143,7 +143,7 @@ export async function deleteReview(input: {
   const parsed = deleteSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input" };
 
-  const guard = await requireOwnedRestaurant(parsed.data.restaurantId);
+  const guard = await requireRestaurantAccess(parsed.data.restaurantId, "reviews:moderate");
   if (!guard.ok) return { ok: false, error: guard.error };
 
   const { error } = await guard.supabase
