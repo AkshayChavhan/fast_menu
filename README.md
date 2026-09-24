@@ -51,6 +51,11 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
   take an order directly, edit an order's items until it is paid, move it to
   another table, seat and clear tables on a live board, and get a push
   notification when a guest orders or calls.
+- **Billing counter** (`/dashboard/orders`) — owners, managers and cashiers see
+  every open bill by table exactly as approved, bills the guest asked for
+  first, mark them paid, and see today's paid bills and takings by the
+  restaurant's own calendar; managers can reopen a mistake. Screens refresh
+  through Supabase Realtime with a slow poll as fallback.
 
 ---
 
@@ -218,7 +223,8 @@ cancellation, session totals, service requests and the rate limiter.
 `staff_orders.test.sql` covers the waiter side: approving onto new or existing
 sessions, joined tables, takeaway sessions, reject and cancel, waiter-taken
 orders, replacing items with an audit event, moving tables, seating and
-clearing.
+clearing. `billing.test.sql` covers settling a bill, the freeze that follows,
+reopening and roles.
 
 ### Not covered
 
@@ -236,7 +242,7 @@ src/
     page.tsx              Marketing landing page
     (auth)/               Login & signup (route group)
     auth/                 Signout + email-confirm route handlers
-    dashboard/            Back office: overview, menu, schedules, tables, staff, settings, QR
+    dashboard/            Back office: overview, orders & billing, menu, schedules, tables, staff, settings, QR
       menu/actions.ts     Server Actions (category/dish CRUD, 86 toggle)
       settings/actions.ts Server Actions (restaurant settings, publish)
     m/[slug]/             Public customer-facing menu, cart and live order page

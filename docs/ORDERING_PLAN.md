@@ -114,7 +114,7 @@ Tick a box when the phase is merged into this branch.
 - [x] **4 Waiter app** — scan, approve, reject, sessions and joined tables,
       composer for new and edited orders, home board and queues, order-more
       attach, push notifications.
-- [ ] **5 Billing counter** — sessions by table, Mark paid, history, cashier
+- [x] **5 Billing counter** — sessions by table, Mark paid, history, cashier
       navigation, Realtime.
 - [ ] **6 Kitchen** — toggle, kitchen role and screen, item states, ready
       notifications, ticket print.
