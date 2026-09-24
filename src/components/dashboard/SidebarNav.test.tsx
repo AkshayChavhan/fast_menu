@@ -51,7 +51,14 @@ const isActive = (el: HTMLElement) =>
 describe("SidebarNav — top-level items", () => {
   it("renders every destination", () => {
     renderAt("/dashboard");
-    for (const label of ["Overview", "Menu", "Preview & QR", "Import / Export", "Settings"]) {
+    for (const label of [
+      "Overview",
+      "Menu",
+      "Preview & QR",
+      "Import / Export",
+      "Staff",
+      "Settings",
+    ]) {
       screen.getByRole("link", { name: label });
     }
   });
@@ -166,6 +173,7 @@ describe("SidebarNav — roles", () => {
       "Menu",
       "Preview & QR",
       "Import / Export",
+      "Staff",
       "Settings",
       "Review",
     ]);
@@ -176,6 +184,7 @@ describe("SidebarNav — roles", () => {
     expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
     screen.getByRole("link", { name: "Menu" });
     screen.getByRole("link", { name: "Import / Export" });
+    screen.getByRole("link", { name: "Staff" });
     screen.getByRole("button", { name: /Review/ });
   });
 

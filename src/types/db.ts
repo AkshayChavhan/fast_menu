@@ -49,6 +49,8 @@ export interface RestaurantStaff {
   user_id: string;
   role: StaffRole;
   display_name: string | null;
+  // Copy of the auth email, for the roster (see migrations/*_staff_email).
+  email: string | null;
   is_active: boolean;
   created_by: string | null;
   created_at: string;

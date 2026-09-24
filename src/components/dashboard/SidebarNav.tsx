@@ -10,6 +10,7 @@ import {
   QrCode,
   Star,
   FileUp,
+  Users,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -68,6 +69,12 @@ const NAV: NavItem[] = [
       { href: "/dashboard/reviews", label: "Reviews", exact: true },
       { href: "/dashboard/reviews/settings", label: "Review Settings" },
     ],
+  },
+  {
+    href: "/dashboard/staff",
+    label: "Staff",
+    icon: Users,
+    capability: "staff:manage",
   },
   {
     href: "/dashboard/settings",
