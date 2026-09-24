@@ -121,6 +121,22 @@ export interface ModifierGroupWithOptions extends ModifierGroup {
   options: ModifierOption[];
 }
 
+// A weekly window in the restaurant's timezone. Categories that point at one
+// are shown (and orderable) only while it is open.
+export interface MenuSchedule {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  /** 0 = Sunday … 6 = Saturday. */
+  days: number[];
+  /** "HH:MM:SS" local time. May be later than ends_at for an overnight window. */
+  starts_at: string;
+  ends_at: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Category {
   id: string;
   restaurant_id: string;
@@ -128,6 +144,8 @@ export interface Category {
   name_i18n: Record<string, string>;
   description: string | null;
   sort_order: number;
+  /** Restrict this category to a schedule; null = always. */
+  schedule_id: string | null;
   created_at: string;
 }
 
@@ -146,6 +164,9 @@ export interface Dish {
   is_available: boolean;
   is_featured: boolean;
   sort_order: number;
+  /** Daily special window (local dates, inclusive). Both null = ordinary dish. */
+  special_from: string | null;
+  special_until: string | null;
   created_at: string;
   updated_at: string;
 }

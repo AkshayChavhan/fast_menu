@@ -11,6 +11,7 @@ create table public.categories (
   name_i18n     jsonb not null default '{}'::jsonb,
   description   text,
   sort_order    integer not null default 0,
+  schedule_id   uuid,
   created_at    timestamptz not null default now()
 );
 
@@ -29,6 +30,8 @@ create table public.dishes (
   is_available  boolean not null default true,
   is_featured   boolean not null default false,
   sort_order    integer not null default 0,
+  special_from  date,
+  special_until date,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -86,6 +89,7 @@ create table public.restaurants (
   slug              text not null unique,
   is_published      boolean not null default false,
   trial_ends_at     timestamptz not null default now() + interval '15 days',
+  timezone          text not null default 'UTC',
   phone             text,
   phone_verified_at timestamptz,
   gstin             text,
@@ -147,6 +151,21 @@ create table public.modifier_options (
   is_available  boolean not null default true,
   is_default    boolean not null default false,
   sort_order    integer not null default 0,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- Menu schedules (schedule_is_open, category_is_open, dish_special_active).
+-- ---------------------------------------------------------------------------
+create table public.menu_schedules (
+  id            uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null references public.restaurants (id) on delete cascade,
+  name          text not null,
+  days          smallint[] not null default '{0,1,2,3,4,5,6}',
+  starts_at     time not null,
+  ends_at       time not null,
+  is_active     boolean not null default true,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );

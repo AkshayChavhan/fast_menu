@@ -218,6 +218,7 @@ describe("serializeMenu", () => {
     name_i18n: { hi: "मुख्य" },
     description: "Big plates",
     sort_order: 0,
+    schedule_id: null,
     created_at: "2026-01-01T00:00:00Z",
   };
 
@@ -236,6 +237,8 @@ describe("serializeMenu", () => {
     is_available: false,
     is_featured: true,
     sort_order: 0,
+    special_from: null,
+    special_until: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...over,
