@@ -36,7 +36,7 @@ export default async function ImportPage() {
         .order("created_at", { ascending: true }),
       supabase.from("modifier_groups").select("*").eq("restaurant_id", restaurant.id),
       supabase.from("modifier_options").select("*").eq("restaurant_id", restaurant.id),
-      supabase.from("menu_schedules").select("id, name").eq("restaurant_id", restaurant.id),
+      supabase.from("menu_schedules").select("*").eq("restaurant_id", restaurant.id).order("name"),
     ]);
 
   const categories = (categoriesRes.data ?? []) as Category[];
@@ -45,12 +45,12 @@ export default async function ImportPage() {
     (groupsRes.data ?? []) as ModifierGroup[],
     (optionsRes.data ?? []) as ModifierOption[],
   );
-  const schedules = (schedulesRes.data ?? []) as Pick<MenuSchedule, "id" | "name">[];
+  const schedules = (schedulesRes.data ?? []) as MenuSchedule[];
 
   // Both files are built server-side and handed to the client as text, so the
   // download buttons are a Blob away and need no extra round-trip.
   const currentMenuJson = JSON.stringify(
-    serializeMenu(categories, dishes, modifiersByDish, schedules),
+    serializeMenu(categories, dishes, modifiersByDish, schedules, restaurant),
     null,
     2,
   );

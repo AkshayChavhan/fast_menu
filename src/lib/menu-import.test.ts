@@ -34,7 +34,7 @@ describe("parseMenuFile", () => {
     });
 
     it("counts categories and dishes, including uncategorized ones", () => {
-      expect(parsed.counts).toEqual({ categories: 2, dishes: 5 });
+      expect(parsed.counts).toEqual({ categories: 2, dishes: 5, schedules: 1 });
       expect(parsed.menu.dishes).toHaveLength(1);
     });
 
@@ -205,7 +205,7 @@ describe("parseMenuFile", () => {
 
     it("accepts a file of only uncategorized dishes", () => {
       const parsed = parseOrThrow({ dishes: [{ name: "Chai", price: 90 }] });
-      expect(parsed.counts).toEqual({ categories: 0, dishes: 1 });
+      expect(parsed.counts).toEqual({ categories: 0, dishes: 1, schedules: 0 });
     });
   });
 });
@@ -460,7 +460,18 @@ describe("modifiers, specials and schedules", () => {
       ],
     ]);
 
-    const file = serializeMenu([category], [dish], modifiers, [{ id: "s1", name: "Morning" }]);
+    const file = serializeMenu([category], [dish], modifiers, [
+      {
+        ...base,
+        id: "s1",
+        restaurant_id: "r1",
+        name: "Morning",
+        days: [1, 2, 3, 4, 5],
+        starts_at: "08:00:00",
+        ends_at: "11:30:00",
+        is_active: true,
+      },
+    ]);
     const parsed = parseOrThrow(file);
     const cat = parsed.menu.categories[0];
     expect(cat.schedule).toBe("Morning");
@@ -481,3 +492,170 @@ describe("modifiers, specials and schedules", () => {
     expect(parsed.warnings).toEqual([]);
   });
 });
+
+describe("settings block", () => {
+  const withSettings = (settings: Record<string, unknown>) =>
+    parseOrThrow({
+      settings,
+      dishes: [{ name: "Chai", price: 1 }],
+    });
+
+  it("is absent when the file has none, so older menu files import unchanged", () => {
+    const parsed = parseOrThrow({ dishes: [{ name: "Chai", price: 1 }] });
+    expect(parsed.menu.settings).toEqual({});
+    expect(parsed.hasSettings).toBe(false);
+  });
+
+  it("carries the allowlisted fields through", () => {
+    const parsed = withSettings({
+      currency: "INR",
+      timezone: "Asia/Kolkata",
+      default_locale: "hi",
+      locales: ["en", "hi"],
+      ordering_enabled: true,
+      allow_takeaway: false,
+      table_qr_enabled: true,
+      kds_enabled: true,
+      google_review_url: "https://g.page/r/abc",
+    });
+    expect(parsed.hasSettings).toBe(true);
+    expect(parsed.menu.settings).toEqual({
+      currency: "INR",
+      timezone: "Asia/Kolkata",
+      default_locale: "hi",
+      locales: ["en", "hi"],
+      ordering_enabled: true,
+      allow_takeaway: false,
+      table_qr_enabled: true,
+      kds_enabled: true,
+      google_review_url: "https://g.page/r/abc",
+    });
+  });
+
+  it("drops a currency the app doesn't support, and says so", () => {
+    const parsed = withSettings({ currency: "XYZ" });
+    expect(parsed.menu.settings.currency).toBeUndefined();
+    expect(parsed.warnings.join(" ")).toContain("XYZ");
+  });
+
+  it("drops an invalid timezone but keeps a valid alias", () => {
+    expect(withSettings({ timezone: "Mars/Olympus" }).menu.settings.timezone).toBeUndefined();
+    // The alias that Intl.supportedValuesOf omits — see isValidTimezone.
+    expect(withSettings({ timezone: "Asia/Kolkata" }).menu.settings.timezone).toBe(
+      "Asia/Kolkata",
+    );
+  });
+
+  it("pulls the default language into the offered list when it's missing", () => {
+    const parsed = withSettings({ default_locale: "ta", locales: ["en"] });
+    expect(parsed.menu.settings.locales).toEqual(["ta", "en"]);
+    expect(parsed.warnings.join(" ")).toContain("ta");
+  });
+
+  it("never lets the offered languages end up empty", () => {
+    const parsed = withSettings({ locales: ["klingon"] });
+    expect(parsed.menu.settings.locales).toBeUndefined();
+  });
+
+  it("ignores keys outside the allowlist", () => {
+    const parsed = withSettings({
+      slug: "stolen",
+      is_published: true,
+      owner_id: "someone-else",
+      currency: "INR",
+    });
+    expect(parsed.menu.settings).toEqual({ currency: "INR" });
+  });
+
+  it("uses the file's own languages to filter translations", () => {
+    // "ta" isn't in LOCALES, so without the settings block it would be dropped.
+    const parsed = parseOrThrow({
+      settings: { locales: ["en", "ta"] },
+      dishes: [{ name: "Chai", price: 1, translations: { name: { ta: "தேநீர்" } } }],
+    });
+    expect(parsed.menu.dishes[0].name_i18n).toEqual({ ta: "தேநீர்" });
+  });
+});
+
+describe("schedules", () => {
+  const withSchedules = (schedules: unknown[], categories: unknown[] = []) =>
+    parseOrThrow({
+      schedules,
+      categories,
+      dishes: [{ name: "Chai", price: 1 }],
+    });
+
+  it("normalises times to HH:MM:SS and sorts the days", () => {
+    const parsed = withSchedules([
+      { name: "Lunch", days: [5, 1, 1], starts_at: "12:00", ends_at: "15:30" },
+    ]);
+    expect(parsed.menu.schedules).toEqual([
+      {
+        name: "Lunch",
+        days: [1, 5],
+        starts_at: "12:00:00",
+        ends_at: "15:30:00",
+        is_active: true,
+      },
+    ]);
+    expect(parsed.counts.schedules).toBe(1);
+  });
+
+  it("keeps an overnight window, where the end is before the start", () => {
+    const parsed = withSchedules([
+      { name: "Late", days: [6], starts_at: "22:00", ends_at: "02:00" },
+    ]);
+    expect(parsed.menu.schedules[0].ends_at).toBe("02:00:00");
+  });
+
+  it("drops a zero-length window", () => {
+    const parsed = withSchedules([
+      { name: "Nothing", days: [1], starts_at: "12:00", ends_at: "12:00" },
+    ]);
+    expect(parsed.menu.schedules).toEqual([]);
+    expect(parsed.warnings.join(" ")).toContain("Nothing");
+  });
+
+  it("drops a duplicate name rather than importing it twice", () => {
+    const parsed = withSchedules([
+      { name: "Lunch", days: [1], starts_at: "12:00", ends_at: "15:00" },
+      { name: "lunch", days: [2], starts_at: "13:00", ends_at: "16:00" },
+    ]);
+    expect(parsed.menu.schedules).toHaveLength(1);
+    expect(parsed.menu.schedules[0].days).toEqual([1]);
+  });
+
+  it("warns when a category names a schedule the file doesn't define", () => {
+    const parsed = withSchedules(
+      [{ name: "Lunch", days: [1], starts_at: "12:00", ends_at: "15:00" }],
+      [{ name: "Thalis", schedule: "Dinner", dishes: [] }],
+    );
+    expect(parsed.menu.categories[0].schedule).toBe("Dinner");
+    expect(parsed.warnings.join(" ")).toContain("Dinner");
+  });
+
+  it("stays quiet when the schedule is defined in the same file", () => {
+    const parsed = withSchedules(
+      [{ name: "Lunch", days: [1], starts_at: "12:00", ends_at: "15:00" }],
+      [{ name: "Thalis", schedule: "lunch", dishes: [] }],
+    );
+    expect(parsed.warnings.join(" ")).not.toContain("lunch");
+  });
+
+  it("rejects a day outside 0-6", () => {
+    const res = parseMenuFile(
+      { schedules: [{ name: "Bad", days: [9], starts_at: "12:00", ends_at: "13:00" }], dishes: [{ name: "Chai", price: 1 }] },
+      LOCALES,
+    );
+    expect(res.ok).toBe(false);
+  });
+
+  it("rejects a malformed time", () => {
+    const res = parseMenuFile(
+      { schedules: [{ name: "Bad", days: [1], starts_at: "noon", ends_at: "13:00" }], dishes: [{ name: "Chai", price: 1 }] },
+      LOCALES,
+    );
+    expect(res.ok).toBe(false);
+  });
+});
+

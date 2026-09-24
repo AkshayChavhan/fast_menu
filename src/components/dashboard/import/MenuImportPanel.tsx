@@ -44,7 +44,11 @@ export function MenuImportPanel({
   const [rawText, setRawText] = useState<string | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ categories: number; dishes: number } | null>(
+  const [done, setDone] = useState<{
+    categories: number;
+    dishes: number;
+    schedules: number;
+  } | null>(
     null,
   );
 
@@ -168,7 +172,11 @@ export function MenuImportPanel({
             <CheckCircle2 className="h-4 w-4" />
             Imported {done.categories} categor
             {done.categories === 1 ? "y" : "ies"} and {done.dishes} dish
-            {done.dishes === 1 ? "" : "es"}.
+            {done.dishes === 1 ? "" : "es"}
+            {done.schedules > 0
+              ? `, and ${done.schedules} schedule${done.schedules === 1 ? "" : "s"}`
+              : ""}
+            .
           </p>
           <button
             type="button"
@@ -196,6 +204,11 @@ export function MenuImportPanel({
               <dd className="mt-0.5 font-semibold">
                 {preview.counts.categories} categories · {preview.counts.dishes}{" "}
                 dishes
+                {preview.counts.schedules > 0
+                  ? ` · ${preview.counts.schedules} schedule${
+                      preview.counts.schedules === 1 ? "" : "s"
+                    }`
+                  : ""}
               </dd>
             </div>
             <div className="rounded-lg bg-white p-3 dark:bg-neutral-900">
@@ -215,6 +228,18 @@ export function MenuImportPanel({
               they link are recreated.
             </span>
           </p>
+
+          {preview.hasSettings ? (
+            <p className="mt-2 flex items-start gap-2 text-xs text-amber-900 dark:text-amber-300">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                This file also carries <strong>settings</strong> — currency,
+                languages, timezone and the ordering switches will be updated to
+                match it. Your menu URL, publish state and billing are never
+                changed by an import.
+              </span>
+            </p>
+          ) : null}
 
           {preview.warnings.length > 0 ? (
             <details className="mt-4 rounded-lg bg-white p-3 dark:bg-neutral-900">

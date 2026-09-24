@@ -10,7 +10,9 @@ import {
 } from "@/lib/menu-import";
 
 export interface ImportPreview {
-  counts: { categories: number; dishes: number };
+  counts: { categories: number; dishes: number; schedules: number };
+  /** The file carries a settings block, so importing also changes settings. */
+  hasSettings: boolean;
   /** What the replace would remove — shown before the user commits. */
   replacing: { categories: number; dishes: number };
   warnings: string[];
@@ -21,7 +23,7 @@ export type PreviewResult =
   | { ok: false; error: string };
 
 export type ApplyResult =
-  | { ok: true; imported: { categories: number; dishes: number } }
+  | { ok: true; imported: { categories: number; dishes: number; schedules: number } }
   | { ok: false; error: string };
 
 // Shared front half of both actions: authorise, read the restaurant's locales,
@@ -88,6 +90,7 @@ export async function previewImport(
     ok: true,
     preview: {
       counts: ready.parsed.counts,
+      hasSettings: ready.parsed.hasSettings,
       replacing: {
         categories: catRes.count ?? 0,
         dishes: dishRes.count ?? 0,
@@ -129,10 +132,15 @@ export async function applyImport(
     return { ok: false, error: error.message };
   }
 
-  const result = (data ?? {}) as { categories?: number; dishes?: number };
+  const result = (data ?? {}) as {
+    categories?: number;
+    dishes?: number;
+    schedules?: number;
+  };
 
   revalidatePath("/dashboard/menu");
   revalidatePath("/dashboard/import");
+  revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");
   revalidatePath(`/m/${slug}`);
 
@@ -141,6 +149,7 @@ export async function applyImport(
     imported: {
       categories: result.categories ?? 0,
       dishes: result.dishes ?? 0,
+      schedules: result.schedules ?? 0,
     },
   };
 }
