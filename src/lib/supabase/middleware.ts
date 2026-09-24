@@ -4,7 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 // Refreshes the Supabase auth session on every request and guards the
-// /dashboard area. Called from the root middleware.ts.
+// /dashboard area. Called from the root proxy.ts (Next.js 16 renamed the
+// middleware convention to proxy; this helper keeps the Supabase docs name).
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
