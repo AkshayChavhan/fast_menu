@@ -4,46 +4,86 @@ import { useRef, useState } from "react";
 import { ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import {
+  IMAGE_BUCKET,
+  IMAGE_MAX_BYTES,
+  IMAGE_MIME_TYPES,
+  imagePathFromUrl,
+} from "@/lib/storage-url";
 
-const BUCKET = "menu-images";
-const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const ACCEPT = IMAGE_MIME_TYPES.join(",");
+const EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+// Delete a file this browser uploaded but nothing ever saved: an upload that
+// was replaced or removed before its form was submitted, or a cancelled form.
+// Images that were saved are cleaned up by the server action that replaces
+// them (lib/storage-cleanup.ts). Best effort; an orphan only costs storage.
+export async function discardImage(url: string | null): Promise<void> {
+  const path = imagePathFromUrl(url);
+  if (!path) return;
+  const { error } = await createClient().storage.from(IMAGE_BUCKET).remove([path]);
+  if (error) console.warn(`Could not remove ${path}: ${error.message}`);
+}
 
 // Uploads an image to the menu-images bucket at `<pathPrefix>/<uuid>.<ext>` and
 // reports the resulting public URL. Used for dish photos, the logo and staff
-// profile photos.
+// profile photos. Type and size are checked here before anything is sent, and
+// the bucket enforces the same limits (migrations/*_image_size_limit.sql).
 export function ImageUpload({
   pathPrefix,
   value,
   onChange,
   shape = "square",
   label = "image",
+  savesLater = false,
 }: {
   pathPrefix: string;
   value: string | null;
   onChange: (url: string | null) => void;
   shape?: "square" | "wide" | "round";
   label?: string;
+  // The parent keeps the URL in form state and saves it on submit. Until
+  // then an upload that is replaced or removed here is deleted, since no row
+  // will ever point at it. Leave off when every change is saved straight
+  // away: the server action then deletes the previous file, and only once
+  // the new URL is safely stored.
+  savesLater?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // URLs this control uploaded that the parent has not saved yet.
+  const unsaved = useRef(new Set<string>());
+
+  function replace(next: string | null) {
+    if (savesLater && value && unsaved.current.has(value)) {
+      unsaved.current.delete(value);
+      void discardImage(value);
+    }
+    if (savesLater && next) unsaved.current.add(next);
+    onChange(next);
+  }
 
   async function handleFile(file: File) {
     setError(null);
 
-    if (!file.type.startsWith("image/")) {
-      setError("Please choose an image file.");
+    if (!(IMAGE_MIME_TYPES as readonly string[]).includes(file.type)) {
+      setError("Please choose a JPG, PNG or WebP image.");
       return;
     }
-    if (file.size > MAX_BYTES) {
-      setError("Image must be under 5 MB.");
+    if (file.size > IMAGE_MAX_BYTES) {
+      setError("Image must be under 1 MB. Try a smaller or more compressed photo.");
       return;
     }
 
     setUploading(true);
     try {
       const supabase = createClient();
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const ext = EXTENSIONS[file.type] ?? "jpg";
       const id =
         typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
@@ -51,7 +91,7 @@ export function ImageUpload({
       const path = `${pathPrefix}/${id}.${ext}`;
 
       const { error: upErr } = await supabase.storage
-        .from(BUCKET)
+        .from(IMAGE_BUCKET)
         .upload(path, file, {
           cacheControl: "3600",
           upsert: false,
@@ -64,8 +104,8 @@ export function ImageUpload({
 
       const {
         data: { publicUrl },
-      } = supabase.storage.from(BUCKET).getPublicUrl(path);
-      onChange(publicUrl);
+      } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+      replace(publicUrl);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -121,13 +161,13 @@ export function ImageUpload({
             <button
               type="button"
               disabled={uploading}
-              onClick={() => onChange(null)}
+              onClick={() => replace(null)}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" /> Remove
             </button>
           )}
-          <p className="text-[11px] text-neutral-400">JPG/PNG/WebP, up to 5 MB.</p>
+          <p className="text-[11px] text-neutral-400">JPG, PNG or WebP, up to 1 MB.</p>
         </div>
       </div>
 
@@ -136,7 +176,7 @@ export function ImageUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={ACCEPT}
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];

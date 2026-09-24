@@ -24,7 +24,7 @@ import { STAFF_ROLES, type MemberRole, type RestaurantStaff, type StaffRole } fr
 import { cn } from "@/lib/utils";
 import { Modal } from "@/components/dashboard/Modal";
 import { Switch } from "@/components/dashboard/Switch";
-import { ImageUpload } from "@/components/dashboard/ImageUpload";
+import { ImageUpload, discardImage } from "@/components/dashboard/ImageUpload";
 import { StaffAvatar } from "@/components/dashboard/staff/StaffAvatar";
 
 const ROLE_BLURB: Record<StaffRole, string> = {
@@ -272,7 +272,10 @@ function AddStaffModal({
     setError(null);
   }
 
-  function close() {
+  // Closing without creating the account throws away an uploaded photo,
+  // since no row will ever point at it.
+  function close(discardPhoto = true) {
+    if (discardPhoto && avatarUrl) void discardImage(avatarUrl);
     reset();
     onClose();
   }
@@ -294,20 +297,20 @@ function AddStaffModal({
         return;
       }
       router.refresh();
-      close();
+      close(false);
     });
   }
 
   return (
     <Modal
       open={open}
-      onClose={close}
+      onClose={() => close()}
       title="Add staff"
       footer={
         <>
           <button
             type="button"
-            onClick={close}
+            onClick={() => close()}
             className="rounded-lg px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
           >
             Cancel
@@ -335,6 +338,7 @@ function AddStaffModal({
             onChange={setAvatarUrl}
             shape="round"
             label="photo"
+            savesLater
           />
         </div>
 

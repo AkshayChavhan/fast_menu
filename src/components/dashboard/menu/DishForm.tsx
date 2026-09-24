@@ -7,7 +7,7 @@ import { ALLERGENS, DIETARY_TAGS } from "@/lib/constants";
 import { Modal } from "@/components/dashboard/Modal";
 import { ChipSelect } from "@/components/dashboard/ChipSelect";
 import { Switch } from "@/components/dashboard/Switch";
-import { ImageUpload } from "@/components/dashboard/ImageUpload";
+import { ImageUpload, discardImage } from "@/components/dashboard/ImageUpload";
 import {
   ModifierGroupsEditor,
   draftsFromGroups,
@@ -143,16 +143,25 @@ export function DishForm({
     onClose();
   }
 
+  // Cancelling throws away a photo uploaded for this form, since no dish will
+  // ever point at it. The saved photo of a dish being edited is left alone.
+  function cancel() {
+    const saved = dish?.image_url ?? null;
+    if (imageUrl && imageUrl !== saved) void discardImage(imageUrl);
+    setImageUrl(saved);
+    onClose();
+  }
+
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={cancel}
       title={editing ? "Edit dish" : "Add dish"}
       footer={
         <>
           <button
             type="button"
-            onClick={onClose}
+            onClick={cancel}
             disabled={submitting}
             className="rounded-lg px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
           >
@@ -182,6 +191,7 @@ export function DishForm({
           value={imageUrl}
           onChange={setImageUrl}
           label="photo"
+          savesLater
         />
 
         <Field label="Name" required>
