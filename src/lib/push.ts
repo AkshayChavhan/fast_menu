@@ -92,3 +92,41 @@ export async function notifyRestaurant(
     await admin.from("push_subscriptions").delete().in("id", dead);
   }
 }
+
+// Send `payload` to every subscribed browser of specific users (for example
+// the waiter who approved an order, when the kitchen marks it ready).
+export async function notifyUsers(userIds: string[], payload: PushPayload): Promise<void> {
+  if (!configured() || userIds.length === 0) return;
+
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT ?? "mailto:hello@example.com",
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!,
+  );
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("push_subscriptions")
+    .select("id, user_id, endpoint, p256dh, auth")
+    .in("user_id", userIds);
+  const subs = (data as SubscriptionRow[] | null) ?? [];
+  if (subs.length === 0) return;
+
+  const body = JSON.stringify(payload);
+  const dead: string[] = [];
+  await Promise.allSettled(
+    subs.map(async (s) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          body,
+          { TTL: 120, urgency: "high" },
+        );
+      } catch (err) {
+        const status = (err as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) dead.push(s.id);
+      }
+    }),
+  );
+  if (dead.length > 0) await admin.from("push_subscriptions").delete().in("id", dead);
+}
