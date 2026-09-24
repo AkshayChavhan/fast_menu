@@ -94,7 +94,18 @@ export async function placeOrder(input: {
     p_locale: locale,
   });
 
-  if (error) return { ok: false, error: friendlyError(error) };
+  if (error) {
+    // Anything but a message written for the guest is a bug or an outage;
+    // the guest sees a generic line, the log keeps the cause.
+    if (error.code !== "P0001" && error.code !== "22023") {
+      console.error(
+        `place_order failed for ${slug}: ${error.code ?? "no code"} ${error.message}`,
+        error.details ?? "",
+        error.hint ?? "",
+      );
+    }
+    return { ok: false, error: friendlyError(error) };
+  }
 
   const result = data as
     | { code?: string; restaurant_id?: string; table_label?: string | null }
