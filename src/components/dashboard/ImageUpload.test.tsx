@@ -4,16 +4,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 
 const store = vi.hoisted(() => ({
-  uploads: [] as { path: string; type: string }[],
+  uploads: [] as { path: string; type: string; size: number }[],
   removed: [] as string[],
 }));
+
+vi.mock("@/lib/image-compress", () => ({ fitImageUnder: vi.fn() }));
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     storage: {
       from: () => ({
-        upload: async (path: string, _file: File, opts: { contentType: string }) => {
-          store.uploads.push({ path, type: opts.contentType });
+        upload: async (path: string, body: Blob, opts: { contentType: string }) => {
+          store.uploads.push({ path, type: opts.contentType, size: body.size });
           return { error: null };
         },
         getPublicUrl: (path: string) => ({
@@ -31,6 +33,7 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 import { ImageUpload } from "@/components/dashboard/ImageUpload";
+import { fitImageUnder } from "@/lib/image-compress";
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -56,12 +59,33 @@ function Form({ savesLater }: { savesLater?: boolean }) {
 }
 
 describe("ImageUpload", () => {
-  it("refuses an image over 1 MB before sending anything", async () => {
+  it("shrinks an image over 1 MB and uploads the smaller copy", async () => {
+    vi.mocked(fitImageUnder).mockResolvedValueOnce({
+      changed: true,
+      blob: new Blob([new Uint8Array(900 * 1024)], { type: "image/jpeg" }),
+      width: 1600,
+      height: 1200,
+      quality: 0.9,
+    });
     const onChange = vi.fn();
     const { container } = render(<ImageUpload pathPrefix="r1" value={null} onChange={onChange} />);
-    pick(container, file("big.jpg", "image/jpeg", MB + 1));
+    pick(container, file("big.jpg", "image/jpeg", 3 * MB));
 
-    expect(await screen.findByText(/under 1 MB/)).toBeTruthy();
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(fitImageUnder).toHaveBeenCalledTimes(1);
+    expect(store.uploads).toEqual([
+      { path: expect.stringMatching(/^r1\/[^/]+\.jpg$/), type: "image/jpeg", size: 900 * 1024 },
+    ]);
+    expect(screen.getByText("Shrunk from 3.0 MB to 900 KB (1600×1200).")).toBeTruthy();
+  });
+
+  it("explains when an image cannot be brought under 1 MB, and sends nothing", async () => {
+    vi.mocked(fitImageUnder).mockResolvedValueOnce(null);
+    const onChange = vi.fn();
+    const { container } = render(<ImageUpload pathPrefix="r1" value={null} onChange={onChange} />);
+    pick(container, file("huge.jpg", "image/jpeg", 30 * MB));
+
+    expect(await screen.findByText(/can't be brought under 1 MB/)).toBeTruthy();
     expect(store.uploads).toHaveLength(0);
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -82,6 +106,7 @@ describe("ImageUpload", () => {
     pick(container, file("ok.png", "image/png", MB));
 
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(fitImageUnder).not.toHaveBeenCalled();
     expect(store.uploads).toHaveLength(1);
     expect(store.uploads[0].path).toMatch(/^r1\/[^/]+\.png$/);
     expect(store.uploads[0].type).toBe("image/png");

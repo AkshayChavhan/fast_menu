@@ -154,3 +154,7 @@ Tick a box when the phase is merged into this branch.
   control and on the bucket. The action that replaces or removes an image
   deletes the old file once the new URL is stored; `pnpm images:prune` sweeps
   what slips through (failed saves, cancelled forms, menu imports).
+- 2026-09-24 — An image over 1 MB is shrunk in the browser before upload
+  rather than refused: resolution first, down to 1024 px, then quality no
+  lower than 0.8 (0.7 once, as a last resort); a PNG gets a lossless pass
+  first so logos stay crisp. Files already under the limit go up untouched.

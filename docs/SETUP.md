@@ -206,7 +206,7 @@ login page.
 | Signup "succeeds" but you're not logged in | Email confirmation is on. Either click the emailed link, or turn off "Confirm email" (step 3). |
 | Public menu shows "menu not found" | The restaurant isn't **published**, or the slug in the URL doesn't match. Publish it under Settings. |
 | Dish photos don't upload | The `menu-images` storage bucket wasn't created — re-run the baseline migration. |
-| Upload fails with "exceeded the maximum allowed size" or "mime type … is not supported" | Images are capped at 1 MB and JPG/PNG/WebP, in the app and on the bucket. Shrink or convert the image. |
+| Upload fails with "exceeded the maximum allowed size" or "mime type … is not supported" | The bucket caps images at 1 MB and JPG/PNG/WebP. The app shrinks larger photos before sending, so this only appears for an upload that bypassed it, or an image that could not be shrunk enough. |
 | `/m/demo` is empty / errors | You ran `seed.sql` before signing up. Sign up first, then re-run the seed. |
 | Signup lands on "Activate your free trial" and no SMS arrives | No phone provider is configured. Set `trial_verification` to `none` (section 6) or configure the provider. |
 | "Add staff" fails with a service-role error | `SUPABASE_SERVICE_ROLE_KEY` is missing from `.env.local` (or Vercel). |
