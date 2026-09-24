@@ -6,17 +6,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  confirmation_failed:
+    "Your confirmation link was invalid or has expired. Please sign in, or request a new link.",
+  no_access:
+    "This account isn't attached to a restaurant any more. Ask your manager to reactivate it.",
+};
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // Surface an email-confirmation failure redirected here by /auth/confirm.
-  const [error, setError] = useState<string | null>(() =>
-    searchParams.get("error") === "confirmation_failed"
-      ? "Your confirmation link was invalid or has expired. Please sign in, or request a new link."
-      : null,
+  // Surface a failure another route redirected here with (/auth/confirm,
+  // /auth/home).
+  const [error, setError] = useState<string | null>(
+    () => ERROR_MESSAGES[searchParams.get("error") ?? ""] ?? null,
   );
   const [pending, setPending] = useState(false);
 
@@ -42,7 +48,7 @@ function LoginForm() {
     const next =
       nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
         ? nextParam
-        : "/dashboard";
+        : "/auth/home";
 
     router.push(next);
     router.refresh();

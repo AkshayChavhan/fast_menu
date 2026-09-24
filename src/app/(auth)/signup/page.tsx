@@ -97,7 +97,7 @@ export default function SignupPage() {
               menu.
             </p>
             <Link
-              href="/dashboard"
+              href="/auth/home"
               className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
             >
               Go to dashboard
