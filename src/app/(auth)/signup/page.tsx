@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2, MailCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState("");
@@ -171,10 +172,9 @@ export default function SignupPage() {
           >
             Password
           </label>
-          <input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="new-password"
             required
             minLength={6}
@@ -183,7 +183,6 @@ export default function SignupPage() {
             disabled={pending}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? "signup-error" : "password-hint"}
-            className="block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-60"
             placeholder="At least 6 characters"
           />
           <p id="password-hint" className="mt-1.5 text-xs text-neutral-400">

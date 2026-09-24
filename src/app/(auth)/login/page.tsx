@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 
 const ERROR_MESSAGES: Record<string, string> = {
   confirmation_failed:
@@ -96,10 +97,9 @@ function LoginForm() {
           >
             Password
           </label>
-          <input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="current-password"
             required
             value={password}
@@ -107,7 +107,6 @@ function LoginForm() {
             disabled={pending}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? "login-error" : undefined}
-            className="block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-60"
             placeholder="••••••••"
           />
         </div>

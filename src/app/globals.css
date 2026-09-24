@@ -59,3 +59,10 @@ input[type="number"]::-webkit-inner-spin-button {
     animation: none;
   }
 }
+
+/* Edge draws its own reveal control inside password fields, which would sit
+   next to ours and show two eyes. PasswordInput owns the toggle. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
