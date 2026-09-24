@@ -13,6 +13,7 @@ import { can } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { getSiteOrigin, publicMenuPath } from "@/lib/site";
 import { PublishToggle } from "@/components/dashboard/PublishToggle";
+import { PauseOrderingCard } from "@/components/dashboard/PauseOrderingCard";
 import { CopyUrl } from "@/components/dashboard/CopyUrl";
 
 export default async function OverviewPage() {
@@ -124,6 +125,15 @@ export default async function OverviewPage() {
             </div>
           </div>
         </section>
+      )}
+
+      {/* Pause ordering — owners and managers, once ordering is on. */}
+      {restaurant.ordering_enabled && can(role, "ordering:pause") && (
+        <PauseOrderingCard
+          restaurantId={restaurant.id}
+          initialPaused={restaurant.ordering_paused}
+          initialMessage={restaurant.pause_message}
+        />
       )}
 
       {/* Quick actions */}

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireRestaurantAccess, type ActionResult } from "../lib";
 import { slugify } from "@/lib/utils";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/lib/constants";
+import { normalizeGoogleReviewUrl } from "@/lib/google-review";
 
 const CURRENCY_VALUES = CURRENCIES as readonly string[];
 const LOCALE_VALUES = SUPPORTED_LOCALES.map((l) => l.code);
@@ -151,5 +152,143 @@ export async function updateLogo(
 
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Ordering switches. Owner-only, like every other restaurants update; the
+// pause switch below is the one thing managers may flip.
+// ---------------------------------------------------------------------------
+
+// Checkboxes/switches are posted as explicit "true"/"false" strings so an
+// unchecked box is a real `false` rather than a missing key.
+const asBool = (v: FormDataEntryValue | null) => String(v ?? "false") === "true";
+
+function isValidTimezone(tz: string): boolean {
+  try {
+    return Intl.supportedValuesOf("timeZone").includes(tz) || tz === "UTC";
+  } catch {
+    // Older runtimes without supportedValuesOf: fall back to a format probe.
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+const orderingSchema = z.object({
+  restaurantId: z.string().uuid(),
+  ordering_enabled: z.boolean(),
+  allow_takeaway: z.boolean(),
+  table_qr_enabled: z.boolean(),
+  kds_enabled: z.boolean(),
+  timezone: z
+    .string()
+    .trim()
+    .min(1, "Pick a timezone")
+    .max(64)
+    .refine(isValidTimezone, "That isn't a valid timezone"),
+});
+
+export async function updateOrderingSettings(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = orderingSchema.safeParse({
+    restaurantId: String(formData.get("restaurantId") ?? ""),
+    ordering_enabled: asBool(formData.get("ordering_enabled")),
+    allow_takeaway: asBool(formData.get("allow_takeaway")),
+    table_qr_enabled: asBool(formData.get("table_qr_enabled")),
+    kds_enabled: asBool(formData.get("kds_enabled")),
+    timezone: String(formData.get("timezone") ?? "UTC"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { restaurantId, ...settings } = parsed.data;
+
+  const guard = await requireRestaurantAccess(restaurantId, "settings:manage");
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const { error } = await guard.supabase
+    .from("restaurants")
+    .update(settings)
+    .eq("id", restaurantId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/qr");
+  revalidatePath("/waiter");
+  revalidatePath("/kitchen");
+  return { ok: true };
+}
+
+const integrationsSchema = z.object({
+  restaurantId: z.string().uuid(),
+  google_review_url: z.string().max(1000),
+});
+
+export async function updateIntegrations(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = integrationsSchema.safeParse({
+    restaurantId: String(formData.get("restaurantId") ?? ""),
+    google_review_url: String(formData.get("google_review_url") ?? ""),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const link = normalizeGoogleReviewUrl(parsed.data.google_review_url);
+  if (!link.ok) return { ok: false, error: link.error };
+
+  const guard = await requireRestaurantAccess(parsed.data.restaurantId, "settings:manage");
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const { error } = await guard.supabase
+    .from("restaurants")
+    .update({ google_review_url: link.url })
+    .eq("id", parsed.data.restaurantId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/settings");
+  return { ok: true };
+}
+
+const pauseSchema = z.object({
+  restaurantId: z.string().uuid(),
+  paused: z.boolean(),
+  message: z.string().trim().max(200, "Keep the message under 200 characters"),
+});
+
+// Owners and managers. Goes through set_ordering_paused() because managers
+// cannot update restaurants directly.
+export async function setOrderingPaused(input: {
+  restaurantId: string;
+  paused: boolean;
+  message: string;
+}): Promise<ActionResult> {
+  const parsed = pauseSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const guard = await requireRestaurantAccess(parsed.data.restaurantId, "ordering:pause");
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const { error } = await guard.supabase.rpc("set_ordering_paused", {
+    rid: parsed.data.restaurantId,
+    paused: parsed.data.paused,
+    message: parsed.data.message,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/waiter");
   return { ok: true };
 }
