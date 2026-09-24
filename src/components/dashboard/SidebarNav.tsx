@@ -12,6 +12,7 @@ import {
   FileUp,
   Users,
   LayoutGrid,
+  Clock,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -47,6 +48,12 @@ const NAV: NavItem[] = [
     href: "/dashboard/menu",
     label: "Menu",
     icon: UtensilsCrossed,
+    capability: "menu:manage",
+  },
+  {
+    href: "/dashboard/schedules",
+    label: "Schedules",
+    icon: Clock,
     capability: "menu:manage",
   },
   {

@@ -54,6 +54,7 @@ describe("SidebarNav — top-level items", () => {
     for (const label of [
       "Overview",
       "Menu",
+      "Schedules",
       "Preview & QR",
       "Import / Export",
       "Tables",
@@ -172,6 +173,7 @@ describe("SidebarNav — roles", () => {
     expect(labels()).toEqual([
       "Overview",
       "Menu",
+      "Schedules",
       "Preview & QR",
       "Import / Export",
       "Tables",

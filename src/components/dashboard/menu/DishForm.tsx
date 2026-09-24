@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, SlidersHorizontal, Star } from "lucide-react";
+import { CalendarRange, Loader2, SlidersHorizontal, Star } from "lucide-react";
 import type { Category, Dish, ModifierGroupWithOptions } from "@/types/db";
 import { ALLERGENS, DIETARY_TAGS } from "@/lib/constants";
 import { Modal } from "@/components/dashboard/Modal";
@@ -30,6 +30,8 @@ type DishInput = {
   dietaryTags: string[];
   isFeatured: boolean;
   imageUrl: string | null;
+  specialFrom: string | null;
+  specialUntil: string | null;
 };
 
 function centsToDollars(cents: number): string {
@@ -75,6 +77,8 @@ export function DishForm({
   const [groups, setGroups] = useState<DraftGroup[]>(() =>
     draftsFromGroups(modifierGroups ?? []),
   );
+  const [specialFrom, setSpecialFrom] = useState(dish?.special_from ?? "");
+  const [specialUntil, setSpecialUntil] = useState(dish?.special_until ?? "");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +102,8 @@ export function DishForm({
       dietaryTags,
       isFeatured,
       imageUrl,
+      specialFrom: specialFrom || null,
+      specialUntil: specialUntil || null,
     };
 
     let dishId: string;
@@ -260,6 +266,39 @@ export function DishForm({
             label="Feature this dish"
           />
         </label>
+
+        <div>
+          <div className="mb-1 flex items-center gap-2">
+            <CalendarRange className="h-4 w-4 text-neutral-400" aria-hidden />
+            <span className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+              Daily special
+            </span>
+          </div>
+          <p className="mb-2 text-[11px] text-neutral-400">
+            Give the dish a date window and it is highlighted under Today&apos;s
+            specials while the window is on, and hidden outside it. Leave both
+            empty for an everyday dish.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="From">
+              <input
+                type="date"
+                value={specialFrom}
+                onChange={(e) => setSpecialFrom(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Until">
+              <input
+                type="date"
+                value={specialUntil}
+                min={specialFrom || undefined}
+                onChange={(e) => setSpecialUntil(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+          </div>
+        </div>
 
         <div>
           <div className="mb-1 flex items-center gap-2">

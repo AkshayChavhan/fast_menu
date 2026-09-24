@@ -12,18 +12,20 @@ import {
   Loader2,
   GripVertical,
 } from "lucide-react";
-import type { Category, Dish, ModifierGroupWithOptions } from "@/types/db";
+import type { Category, Dish, MenuSchedule, ModifierGroupWithOptions } from "@/types/db";
 import { cn } from "@/lib/utils";
 import { DishCard } from "./DishCard";
 import {
   updateCategory,
   deleteCategory,
+  setCategorySchedule,
 } from "@/app/dashboard/menu/actions";
 
 export function CategorySection({
   category,
   dishes,
   modifiersByDish,
+  schedules,
   currency,
   locale,
   isFirst,
@@ -36,6 +38,7 @@ export function CategorySection({
   category: Category | null; // null = the "Uncategorized" bucket
   dishes: Dish[];
   modifiersByDish: Map<string, ModifierGroupWithOptions[]>;
+  schedules: MenuSchedule[];
   currency: string;
   locale: string;
   isFirst: boolean;
@@ -50,8 +53,24 @@ export function CategorySection({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [deleting, setDeleting] = useState(false);
+  const [scheduleId, setScheduleId] = useState<string | null>(category?.schedule_id ?? null);
+  const [schedulePending, startScheduleTransition] = useTransition();
 
   const isRealCategory = category !== null;
+
+  function changeSchedule(next: string | null) {
+    if (!category) return;
+    const previous = scheduleId;
+    setScheduleId(next); // optimistic
+    setError(null);
+    startScheduleTransition(async () => {
+      const res = await setCategorySchedule({ categoryId: category.id, scheduleId: next });
+      if (!res.ok) {
+        setScheduleId(previous);
+        setError(res.error);
+      }
+    });
+  }
 
   function saveName() {
     if (!category) return;
@@ -172,6 +191,30 @@ export function CategorySection({
               {dishes.length}
             </span>
           </h3>
+        )}
+
+        {isRealCategory && !editing && !reordering && schedules.length > 0 && (
+          <label className="flex items-center gap-1 text-[11px] text-neutral-500">
+            <span className="sr-only">Schedule for {category!.name}</span>
+            <select
+              value={scheduleId ?? ""}
+              disabled={schedulePending}
+              onChange={(e) => changeSchedule(e.target.value || null)}
+              className={cn(
+                "rounded-md border px-1.5 py-0.5 text-[11px] font-medium outline-none focus:border-brand-500",
+                scheduleId
+                  ? "border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-900/30 dark:text-brand-300"
+                  : "border-neutral-200 bg-white text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800",
+              )}
+            >
+              <option value="">All day</option>
+              {schedules.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
 
         {isRealCategory && !editing && !reordering && (

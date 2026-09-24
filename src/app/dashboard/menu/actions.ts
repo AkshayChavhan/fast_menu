@@ -239,6 +239,14 @@ const priceField = z
   .refine((v): v is number => v !== null, "Enter a valid price")
   .refine((v) => v <= 100_000_00, "Price is too large");
 
+// "YYYY-MM-DD" from a date input, or empty for none.
+const dateField = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date")
+  .nullable()
+  .or(z.literal("").transform(() => null));
+
 const dishBase = {
   name: z.string().trim().min(1, "Dish name is required").max(120),
   description: z
@@ -261,12 +269,21 @@ const dishBase = {
     .url()
     .nullable()
     .or(z.literal("").transform(() => null)),
+  // Daily special window; both empty for an ordinary dish.
+  specialFrom: dateField,
+  specialUntil: dateField,
 };
 
-const createDishSchema = z.object({
-  restaurantId: z.string().uuid(),
-  ...dishBase,
-});
+const specialWindowValid = (d: { specialFrom: string | null; specialUntil: string | null }) =>
+  !d.specialFrom || !d.specialUntil || d.specialFrom <= d.specialUntil;
+const specialWindowMessage = { message: "The special can't end before it starts" };
+
+const createDishSchema = z
+  .object({
+    restaurantId: z.string().uuid(),
+    ...dishBase,
+  })
+  .refine(specialWindowValid, specialWindowMessage);
 
 export async function createDish(input: {
   restaurantId: string;
@@ -278,6 +295,8 @@ export async function createDish(input: {
   dietaryTags: string[];
   isFeatured: boolean;
   imageUrl: string | null;
+  specialFrom?: string | null;
+  specialUntil?: string | null;
 }): Promise<ActionResult<{ id: string }>> {
   const parsed = createDishSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
@@ -317,6 +336,8 @@ export async function createDish(input: {
       dietary_tags: d.dietaryTags,
       is_featured: d.isFeatured,
       image_url: d.imageUrl,
+      special_from: d.specialFrom,
+      special_until: d.specialUntil,
       sort_order: nextOrder,
     })
     .select("id")
@@ -328,10 +349,12 @@ export async function createDish(input: {
   return { ok: true, data: { id: created.id } };
 }
 
-const updateDishSchema = z.object({
-  dishId: z.string().uuid(),
-  ...dishBase,
-});
+const updateDishSchema = z
+  .object({
+    dishId: z.string().uuid(),
+    ...dishBase,
+  })
+  .refine(specialWindowValid, specialWindowMessage);
 
 export async function updateDish(input: {
   dishId: string;
@@ -343,6 +366,8 @@ export async function updateDish(input: {
   dietaryTags: string[];
   isFeatured: boolean;
   imageUrl: string | null;
+  specialFrom?: string | null;
+  specialUntil?: string | null;
 }): Promise<ActionResult> {
   const parsed = updateDishSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
@@ -370,6 +395,8 @@ export async function updateDish(input: {
       dietary_tags: d.dietaryTags,
       is_featured: d.isFeatured,
       image_url: d.imageUrl,
+      special_from: d.specialFrom,
+      special_until: d.specialUntil,
     })
     .eq("id", d.dishId);
   if (error) return { ok: false, error: error.message };
@@ -510,5 +537,50 @@ export async function setDishModifiers(input: {
   }
 
   revalidatePath("/dashboard/menu");
+  return { ok: true };
+}
+
+// ===========================================================================
+// Category schedules
+// ===========================================================================
+
+const categoryScheduleSchema = z.object({
+  categoryId: z.string().uuid(),
+  scheduleId: z.string().uuid().nullable(),
+});
+
+// Restrict a category to one of the restaurant's schedules, or clear it.
+export async function setCategorySchedule(input: {
+  categoryId: string;
+  scheduleId: string | null;
+}): Promise<ActionResult> {
+  const parsed = categoryScheduleSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const { categoryId, scheduleId } = parsed.data;
+
+  const { supabase, user } = await auth();
+  if (!user) return { ok: false, error: "Not authenticated" };
+  const restaurantId = await managedCategoryRestaurant(supabase, categoryId);
+  if (!restaurantId) return { ok: false, error: "Category not found" };
+
+  // A schedule from another restaurant must not be attachable.
+  if (scheduleId) {
+    const { data: schedule } = await supabase
+      .from("menu_schedules")
+      .select("id")
+      .eq("id", scheduleId)
+      .eq("restaurant_id", restaurantId)
+      .maybeSingle();
+    if (!schedule) return { ok: false, error: "Schedule not found" };
+  }
+
+  const { error } = await supabase
+    .from("categories")
+    .update({ schedule_id: scheduleId })
+    .eq("id", categoryId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/menu");
+  revalidatePath("/dashboard/schedules");
   return { ok: true };
 }

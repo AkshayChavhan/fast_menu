@@ -13,6 +13,7 @@ import {
 import type {
   Category,
   Dish,
+  MenuSchedule,
   ModifierGroup,
   ModifierGroupWithOptions,
   ModifierOption,
@@ -36,6 +37,7 @@ export function MenuEditor({
   initialDishes,
   initialModifierGroups,
   initialModifierOptions,
+  schedules,
 }: {
   restaurantId: string;
   currency: string;
@@ -44,6 +46,7 @@ export function MenuEditor({
   initialDishes: Dish[];
   initialModifierGroups: ModifierGroup[];
   initialModifierOptions: ModifierOption[];
+  schedules: MenuSchedule[];
 }) {
   const router = useRouter();
 
@@ -274,6 +277,7 @@ export function MenuEditor({
             category={category}
             dishes={dishesByCategory.get(category.id) ?? []}
             modifiersByDish={modifiersByDish}
+            schedules={schedules}
             currency={currency}
             locale={defaultLocale}
             isFirst={i === 0}
@@ -299,6 +303,7 @@ export function MenuEditor({
             category={null}
             dishes={uncategorized}
             modifiersByDish={modifiersByDish}
+            schedules={schedules}
             currency={currency}
             locale={defaultLocale}
             isFirst={false}

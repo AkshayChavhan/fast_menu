@@ -5,6 +5,7 @@ import { Pencil, Trash2, Star, Loader2, ImageIcon } from "lucide-react";
 import type { Dish, ModifierGroupWithOptions } from "@/types/db";
 import { formatPrice, cn } from "@/lib/utils";
 import { describeModifiers, dishPriceRange } from "@/lib/modifiers";
+import { isSpecial } from "@/lib/schedule";
 import { labelize } from "@/components/dashboard/ChipSelect";
 import { Switch } from "@/components/dashboard/Switch";
 import {
@@ -114,6 +115,11 @@ export function DishCard({
             {dish.description && (
               <p className="mt-0.5 line-clamp-2 text-xs text-neutral-500">
                 {dish.description}
+              </p>
+            )}
+            {isSpecial(dish) && (
+              <p className="mt-1 inline-flex rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                Special {dish.special_from ?? "…"} → {dish.special_until ?? "…"}
               </p>
             )}
             {modifierSummary && (
