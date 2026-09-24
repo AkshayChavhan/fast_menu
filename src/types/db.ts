@@ -31,9 +31,19 @@ export interface Restaurant {
   kds_enabled: boolean;
   allow_takeaway: boolean;
   google_review_url: string | null;
+  // Trial identity (see migrations/*_trial_claims). Owners claim the trial
+  // once with a verified phone; the dashboard is gated until it is active.
+  phone: string | null;
+  phone_verified_at: string | null;
+  gstin: string | null;
+  city: string | null;
+  pincode: string | null;
+  trial_status: TrialStatus;
   created_at: string;
   updated_at: string;
 }
+
+export type TrialStatus = "pending" | "active" | "needs_review" | "denied";
 
 // --- Staff -----------------------------------------------------------------
 
