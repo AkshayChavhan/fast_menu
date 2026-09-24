@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -20,6 +20,7 @@ import {
   rejectOrder,
 } from "@/app/waiter/actions";
 import type { OrderDetail } from "@/app/waiter/data";
+import { useRealtimeRefresh } from "@/lib/realtime";
 import { timeAgo } from "@/lib/time";
 import { formatPrice, cn } from "@/lib/utils";
 import type { RestaurantTable, ServiceType } from "@/types/db";
@@ -44,12 +45,14 @@ const STATUS_TONE: Record<OrderDetail["status"], string> = {
 };
 
 export function OrderReview({
+  restaurantId,
   order,
   tables,
   occupied,
   currency,
   locale,
 }: {
+  restaurantId: string;
   order: OrderDetail;
   tables: RestaurantTable[];
   occupied: Record<string, string>;
@@ -67,11 +70,7 @@ export function OrderReview({
   const [moving, setMoving] = useState(false);
 
   const live = order.status === "placed" || order.status === "approved";
-  useEffect(() => {
-    if (!live || pending) return;
-    const id = setInterval(() => router.refresh(), POLL_MS);
-    return () => clearInterval(id);
-  }, [live, pending, router]);
+  useRealtimeRefresh(restaurantId, ["orders", "order_items"], live ? POLL_MS : 0);
 
   const price = (cents: number) => formatPrice(cents, currency, locale);
   const count = order.items.reduce((n, i) => n + i.quantity, 0);

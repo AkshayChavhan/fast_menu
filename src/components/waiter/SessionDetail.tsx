@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, Check, ChevronRight, Eraser, Loader2, Plus, Receipt } from "lucide-react";
 
 import { clearSession, resolveRequest } from "@/app/waiter/actions";
 import type { SessionDetail as SessionDetailData } from "@/app/waiter/data";
+import { useRealtimeRefresh } from "@/lib/realtime";
 import { timeAgo } from "@/lib/time";
 import { formatPrice, cn } from "@/lib/utils";
 
@@ -16,10 +17,12 @@ const POLL_MS = 8000;
 // things a waiter does here — add another order, or clear a table that
 // never ordered. Settling happens at the counter.
 export function SessionDetail({
+  restaurantId,
   session,
   currency,
   locale,
 }: {
+  restaurantId: string;
   session: SessionDetailData;
   currency: string;
   locale: string;
@@ -28,11 +31,11 @@ export function SessionDetail({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (session.status === "closed") return;
-    const id = setInterval(() => router.refresh(), POLL_MS);
-    return () => clearInterval(id);
-  }, [router, session.status]);
+  useRealtimeRefresh(
+    restaurantId,
+    ["orders", "table_sessions", "service_requests"],
+    session.status === "closed" ? 0 : POLL_MS,
+  );
 
   const price = (cents: number) => formatPrice(cents, currency, locale);
   const name =

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Armchair, Bell, Loader2, Receipt } from "lucide-react";
 
 import { seatTables } from "@/app/waiter/actions";
 import type { BoardTable } from "@/app/waiter/data";
+import { useRealtimeRefresh } from "@/lib/realtime";
 import { timeAgo } from "@/lib/time";
 import { formatPrice, cn } from "@/lib/utils";
 import { BottomSheet } from "@/components/ordering/BottomSheet";
@@ -35,11 +36,7 @@ export function TableBoard({
   const [guestLabel, setGuestLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (seating) return;
-    const id = setInterval(() => router.refresh(), POLL_MS);
-    return () => clearInterval(id);
-  }, [router, seating]);
+  useRealtimeRefresh(restaurantId, ["table_sessions", "service_requests", "orders"], POLL_MS);
 
   const price = (cents: number) => formatPrice(cents, currency, locale);
   const free = tables.filter((t) => !t.session);

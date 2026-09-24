@@ -39,6 +39,7 @@ export default async function WaiterOrderPage({
         <ArrowLeft className="h-4 w-4" aria-hidden /> Home
       </Link>
       <OrderReview
+        restaurantId={restaurant.id}
         order={order}
         tables={tables}
         occupied={occupied}

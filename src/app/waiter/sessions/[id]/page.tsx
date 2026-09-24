@@ -29,6 +29,7 @@ export default async function SessionPage({
         <ArrowLeft className="h-4 w-4" aria-hidden /> Tables
       </Link>
       <SessionDetail
+        restaurantId={restaurant.id}
         session={session}
         currency={restaurant.currency}
         locale={restaurant.default_locale}

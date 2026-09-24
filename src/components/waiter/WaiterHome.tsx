@@ -1,36 +1,35 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, Check, ChevronRight, Loader2, Receipt } from "lucide-react";
 
 import { resolveRequest } from "@/app/waiter/actions";
 import type { WaiterHome as WaiterHomeData } from "@/app/waiter/data";
+import { useRealtimeRefresh } from "@/lib/realtime";
 import { timeAgo } from "@/lib/time";
 import { formatPrice, cn } from "@/lib/utils";
 
 const POLL_MS = 6000;
 
 export function WaiterHome({
+  restaurantId,
   home,
   currency,
   locale,
 }: {
+  restaurantId: string;
   home: WaiterHomeData;
   currency: string;
   locale: string;
-  timezone: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const id = setInterval(() => router.refresh(), POLL_MS);
-    return () => clearInterval(id);
-  }, [router]);
+  useRealtimeRefresh(restaurantId, ["orders", "table_sessions", "service_requests"], POLL_MS);
 
   const price = (cents: number) => formatPrice(cents, currency, locale);
 

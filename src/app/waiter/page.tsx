@@ -47,10 +47,10 @@ export default async function WaiterHomePage() {
       ) : null}
 
       <WaiterHome
+        restaurantId={restaurant.id}
         home={home}
         currency={restaurant.currency}
         locale={restaurant.default_locale}
-        timezone={restaurant.timezone}
       />
 
       {home.placed.length === 0 && home.sessions.length === 0 && home.requests.length === 0 ? (
