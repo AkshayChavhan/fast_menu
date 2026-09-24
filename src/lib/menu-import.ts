@@ -1,13 +1,20 @@
 import { z } from "zod";
 
 import { ALLERGENS, DIETARY_TAGS, SUPPORTED_LOCALES } from "@/lib/constants";
-import type { Category, Dish } from "@/types/db";
+import type {
+  Category,
+  Dish,
+  MenuSchedule,
+  ModifierGroupWithOptions,
+} from "@/types/db";
 
 // Ceilings that keep a hand-edited (or pasted-from-anywhere) file from turning
 // into a multi-megabyte insert.
 export const IMPORT_MAX_CATEGORIES = 100;
 export const IMPORT_MAX_DISHES = 1000;
 export const IMPORT_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+export const IMPORT_MAX_MODIFIER_GROUPS = 10;
+export const IMPORT_MAX_MODIFIER_OPTIONS = 30;
 
 const ALLERGEN_SET = new Set<string>(ALLERGENS);
 const DIETARY_SET = new Set<string>(DIETARY_TAGS);
@@ -19,20 +26,45 @@ const LOCALE_SET = new Set<string>(SUPPORTED_LOCALES.map((l) => l.code));
 
 const translationMap = z.record(z.string(), z.string().trim().max(400));
 
+const isoDate = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "dates are written YYYY-MM-DD");
+
+const priceNumber = z
+  .number({ invalid_type_error: "`price` must be a number, e.g. 12.50" })
+  .min(0, "`price` cannot be negative")
+  .max(1_000_000);
+
+const modifierOptionSchema = z.object({
+  name: z.string().trim().min(1, "An option is missing a name").max(80),
+  price: priceNumber.optional().default(0),
+  default: z.boolean().optional().default(false),
+  available: z.boolean().optional().default(true),
+});
+
+const modifierGroupSchema = z.object({
+  name: z.string().trim().min(1, "A modifier group is missing a name").max(80),
+  kind: z.enum(["variant", "addon"], {
+    errorMap: () => ({ message: '`kind` must be "variant" or "addon"' }),
+  }),
+  min: z.number().int().min(0).max(20).optional().default(0),
+  max: z.number().int().min(1).max(20).optional().nullable().default(null),
+  options: z.array(modifierOptionSchema).max(IMPORT_MAX_MODIFIER_OPTIONS).optional().default([]),
+});
+
 const dishSchema = z.object({
   name: z.string().trim().min(1, "A dish is missing a name").max(200),
   description: z.string().trim().max(2000).optional().nullable(),
-  price: z
-    .number({ invalid_type_error: "`price` must be a number, e.g. 12.50" })
-    .min(0, "`price` cannot be negative")
-    .max(1_000_000)
-    .optional()
-    .default(0),
+  price: priceNumber.optional().default(0),
   image_url: z.string().trim().url("`image_url` must be a full URL").optional().nullable(),
   allergens: z.array(z.string().trim()).max(40).optional().default([]),
   dietary_tags: z.array(z.string().trim()).max(40).optional().default([]),
   available: z.boolean().optional().default(true),
   featured: z.boolean().optional().default(false),
+  special_from: isoDate.optional().nullable(),
+  special_until: isoDate.optional().nullable(),
+  modifiers: z.array(modifierGroupSchema).max(IMPORT_MAX_MODIFIER_GROUPS).optional().default([]),
   translations: z
     .object({
       name: translationMap.optional(),
@@ -44,6 +76,8 @@ const dishSchema = z.object({
 const categorySchema = z.object({
   name: z.string().trim().min(1, "A category is missing a name").max(200),
   description: z.string().trim().max(2000).optional().nullable(),
+  // Name of one of the restaurant's schedules; resolved by the database.
+  schedule: z.string().trim().max(60).optional().nullable(),
   translations: translationMap.optional(),
   dishes: z.array(dishSchema).max(IMPORT_MAX_DISHES).optional().default([]),
 });
@@ -59,6 +93,21 @@ export type MenuFile = z.input<typeof menuFileSchema>;
 
 // --- Normalised payload handed to the import_menu() SQL function ------------
 
+export interface NormalizedModifierOption {
+  name: string;
+  price_cents: number;
+  is_default: boolean;
+  is_available: boolean;
+}
+
+export interface NormalizedModifierGroup {
+  name: string;
+  kind: "variant" | "addon";
+  min_select: number;
+  max_select: number | null;
+  options: NormalizedModifierOption[];
+}
+
 export interface NormalizedDish {
   name: string;
   name_i18n: Record<string, string>;
@@ -70,12 +119,16 @@ export interface NormalizedDish {
   dietary_tags: string[];
   is_available: boolean;
   is_featured: boolean;
+  special_from: string | null;
+  special_until: string | null;
+  modifiers: NormalizedModifierGroup[];
 }
 
 export interface NormalizedCategory {
   name: string;
   name_i18n: Record<string, string>;
   description: string | null;
+  schedule: string | null;
   dishes: NormalizedDish[];
 }
 
@@ -140,11 +193,55 @@ function filterLocales(
   return out;
 }
 
+// Round rather than truncate so 12.345 becomes 1235, not 1234.
+const toCents = (major: number) => Math.round(major * 100);
+
+function normalizeModifiers(
+  groups: z.output<typeof modifierGroupSchema>[],
+  dishName: string,
+  warnings: string[],
+): NormalizedModifierGroup[] {
+  const out: NormalizedModifierGroup[] = [];
+  for (const g of groups) {
+    if (g.kind === "variant" && g.options.length === 0) {
+      warnings.push(`"${dishName}": dropped variant group "${g.name}" because it has no options`);
+      continue;
+    }
+    let max = g.kind === "variant" ? 1 : g.max;
+    const min = g.kind === "variant" ? 1 : g.min;
+    if (max !== null && max < min) {
+      warnings.push(`"${dishName}": "${g.name}" had max below min; max was raised to ${min}`);
+      max = min;
+    }
+    out.push({
+      name: g.name,
+      kind: g.kind,
+      min_select: min,
+      max_select: max,
+      options: g.options.map((o) => ({
+        name: o.name,
+        price_cents: toCents(o.price),
+        is_default: g.kind === "variant" && o.default,
+        is_available: o.available,
+      })),
+    });
+  }
+  return out;
+}
+
 function normalizeDish(
   dish: z.output<typeof dishSchema>,
   offered: Set<string>,
   warnings: string[],
 ): NormalizedDish {
+  let specialFrom = dish.special_from ?? null;
+  let specialUntil = dish.special_until ?? null;
+  if (specialFrom && specialUntil && specialFrom > specialUntil) {
+    warnings.push(`"${dish.name}": special dates were reversed and have been ignored`);
+    specialFrom = null;
+    specialUntil = null;
+  }
+
   return {
     name: dish.name,
     name_i18n: filterLocales(
@@ -160,8 +257,7 @@ function normalizeDish(
       `"${dish.name}" description translation`,
       warnings,
     ),
-    // Round rather than truncate so 12.345 becomes 1235, not 1234.
-    price_cents: Math.round(dish.price * 100),
+    price_cents: toCents(dish.price),
     image_url: dish.image_url?.trim() ? dish.image_url.trim() : null,
     allergens: filterVocabulary(
       dish.allergens,
@@ -179,6 +275,9 @@ function normalizeDish(
     ),
     is_available: dish.available,
     is_featured: dish.featured,
+    special_from: specialFrom,
+    special_until: specialUntil,
+    modifiers: normalizeModifiers(dish.modifiers, dish.name, warnings),
   };
 }
 
@@ -213,6 +312,7 @@ export function parseMenuFile(
       warnings,
     ),
     description: cat.description?.trim() ? cat.description.trim() : null,
+    schedule: cat.schedule?.trim() ? cat.schedule.trim() : null,
     dishes: cat.dishes.map((d) => normalizeDish(d, offered, warnings)),
   }));
 
@@ -248,7 +348,25 @@ export function parseMenuFile(
 
 // --- Export -----------------------------------------------------------------
 
-function toFileDish(dish: Dish): Record<string, unknown> {
+function toFileModifiers(groups: ModifierGroupWithOptions[]): Record<string, unknown>[] {
+  return groups.map((g) => ({
+    name: g.name,
+    kind: g.kind,
+    min: g.min_select,
+    max: g.max_select,
+    options: g.options.map((o) => ({
+      name: o.name,
+      price: o.price_cents / 100,
+      default: o.is_default,
+      available: o.is_available,
+    })),
+  }));
+}
+
+function toFileDish(
+  dish: Dish,
+  modifiers: ModifierGroupWithOptions[],
+): Record<string, unknown> {
   return {
     name: dish.name,
     description: dish.description ?? "",
@@ -258,6 +376,9 @@ function toFileDish(dish: Dish): Record<string, unknown> {
     dietary_tags: dish.dietary_tags,
     available: dish.is_available,
     featured: dish.is_featured,
+    special_from: dish.special_from ?? null,
+    special_until: dish.special_until ?? null,
+    modifiers: toFileModifiers(modifiers),
     translations: {
       name: dish.name_i18n ?? {},
       description: dish.description_i18n ?? {},
@@ -271,10 +392,13 @@ function toFileDish(dish: Dish): Record<string, unknown> {
 export function serializeMenu(
   categories: Category[],
   dishes: Dish[],
+  modifiersByDish: Map<string, ModifierGroupWithOptions[]> = new Map(),
+  schedules: Pick<MenuSchedule, "id" | "name">[] = [],
 ): Record<string, unknown> {
   const byCategory = new Map<string, Dish[]>();
   const loose: Dish[] = [];
   const knownIds = new Set(categories.map((c) => c.id));
+  const scheduleName = new Map(schedules.map((s) => [s.id, s.name]));
 
   for (const dish of dishes) {
     if (dish.category_id && knownIds.has(dish.category_id)) {
@@ -286,15 +410,18 @@ export function serializeMenu(
     }
   }
 
+  const fileDish = (d: Dish) => toFileDish(d, modifiersByDish.get(d.id) ?? []);
+
   return {
     version: 1,
     categories: categories.map((cat) => ({
       name: cat.name,
       description: cat.description ?? "",
+      schedule: cat.schedule_id ? (scheduleName.get(cat.schedule_id) ?? null) : null,
       translations: cat.name_i18n ?? {},
-      dishes: (byCategory.get(cat.id) ?? []).map(toFileDish),
+      dishes: (byCategory.get(cat.id) ?? []).map(fileDish),
     })),
-    dishes: loose.map(toFileDish),
+    dishes: loose.map(fileDish),
   };
 }
 
@@ -311,6 +438,9 @@ export function sampleMenuFile(currency: string): Record<string, unknown> {
       "\"dietary_tags\" must come from: " + DIETARY_TAGS.join(", "),
       "\"translations\" keys are language codes you have enabled in Settings.",
       "Use the top-level \"dishes\" array for items with no category.",
+      "\"modifiers\" holds sizes (kind \"variant\": pick one, its price replaces the dish price) and add-ons (kind \"addon\": pick min..max, prices are added).",
+      "\"special_from\" / \"special_until\" (YYYY-MM-DD) make a dish a daily special for those dates.",
+      "A category's \"schedule\" names one of your schedules (Dashboard > Schedules); it must exist already.",
     ],
     version: 1,
     categories: [
@@ -328,6 +458,26 @@ export function sampleMenuFile(currency: string): Record<string, unknown> {
             dietary_tags: ["vegetarian"],
             available: true,
             featured: true,
+            modifiers: [
+              {
+                name: "Portion",
+                kind: "variant",
+                options: [
+                  { name: "Half", price: 180, default: true },
+                  { name: "Full", price: 320 },
+                ],
+              },
+              {
+                name: "Extras",
+                kind: "addon",
+                min: 0,
+                max: 2,
+                options: [
+                  { name: "Extra chutney", price: 20 },
+                  { name: "Cheese", price: 40 },
+                ],
+              },
+            ],
             translations: {
               name: { hi: "पनीर टिक्का" },
               description: { hi: "तंदूर में पका पनीर, पुदीने की चटनी" },
@@ -351,6 +501,13 @@ export function sampleMenuFile(currency: string): Record<string, unknown> {
             price: 340,
             allergens: ["dairy"],
             dietary_tags: ["vegetarian", "chef-special"],
+          },
+          {
+            name: "Monsoon Thali",
+            description: "This week only",
+            price: 450,
+            special_from: "2026-09-21",
+            special_until: "2026-09-27",
           },
         ],
       },

@@ -34,7 +34,7 @@ describe("parseMenuFile", () => {
     });
 
     it("counts categories and dishes, including uncategorized ones", () => {
-      expect(parsed.counts).toEqual({ categories: 2, dishes: 4 });
+      expect(parsed.counts).toEqual({ categories: 2, dishes: 5 });
       expect(parsed.menu.dishes).toHaveLength(1);
     });
 
@@ -309,5 +309,175 @@ describe("sampleMenuFile", () => {
   it("warns in the file itself that importing replaces everything", () => {
     const sample = sampleMenuFile("USD") as { _readme: string[] };
     expect(sample._readme.some((line) => /REPLACES/i.test(line))).toBe(true);
+  });
+});
+
+describe("modifiers, specials and schedules", () => {
+  it("normalises variant and add-on groups with prices in cents", () => {
+    const dish = firstDish(
+      fileWithDish({
+        name: "Paneer",
+        price: 320,
+        modifiers: [
+          {
+            name: "Portion",
+            kind: "variant",
+            options: [
+              { name: "Half", price: 180.5, default: true },
+              { name: "Full", price: 320 },
+            ],
+          },
+          {
+            name: "Extras",
+            kind: "addon",
+            min: 1,
+            max: 2,
+            options: [{ name: "Cheese", price: 40, available: false }],
+          },
+        ],
+      }),
+    );
+    expect(dish.modifiers).toEqual([
+      {
+        name: "Portion",
+        kind: "variant",
+        min_select: 1,
+        max_select: 1,
+        options: [
+          { name: "Half", price_cents: 18050, is_default: true, is_available: true },
+          { name: "Full", price_cents: 32000, is_default: false, is_available: true },
+        ],
+      },
+      {
+        name: "Extras",
+        kind: "addon",
+        min_select: 1,
+        max_select: 2,
+        options: [{ name: "Cheese", price_cents: 4000, is_default: false, is_available: false }],
+      },
+    ]);
+  });
+
+  it("rejects an unknown modifier kind with a pointed message", () => {
+    const res = parseMenuFile(
+      fileWithDish({ name: "D", modifiers: [{ name: "X", kind: "sauce", options: [] }] }),
+      LOCALES,
+    );
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toContain("kind");
+  });
+
+  it("drops an empty variant group and raises a max below min, with warnings", () => {
+    const parsed = parseOrThrow(
+      fileWithDish({
+        name: "D",
+        modifiers: [
+          { name: "Size", kind: "variant", options: [] },
+          { name: "Sides", kind: "addon", min: 2, max: 1, options: [{ name: "A" }] },
+        ],
+      }),
+    );
+    const dish = parsed.menu.categories[0].dishes[0];
+    expect(dish.modifiers.map((g) => g.name)).toEqual(["Sides"]);
+    expect(dish.modifiers[0].max_select).toBe(2);
+    expect(parsed.warnings).toHaveLength(2);
+  });
+
+  it("keeps special dates and ignores a reversed window", () => {
+    const ok = firstDish(fileWithDish({ name: "D", special_from: "2026-09-21", special_until: "2026-09-27" }));
+    expect(ok.special_from).toBe("2026-09-21");
+    expect(ok.special_until).toBe("2026-09-27");
+
+    const parsed = parseOrThrow(fileWithDish({ name: "D", special_from: "2026-09-27", special_until: "2026-09-21" }));
+    const dish = parsed.menu.categories[0].dishes[0];
+    expect(dish.special_from).toBeNull();
+    expect(dish.special_until).toBeNull();
+    expect(parsed.warnings[0]).toContain("reversed");
+
+    const bad = parseMenuFile(fileWithDish({ name: "D", special_from: "21/09/2026" }), LOCALES);
+    expect(bad.ok).toBe(false);
+  });
+
+  it("carries a category's schedule name through for the database to resolve", () => {
+    const parsed = parseOrThrow({ categories: [{ name: "Breakfast", schedule: " Morning ", dishes: [] }] });
+    expect(parsed.menu.categories[0].schedule).toBe("Morning");
+    const none = parseOrThrow({ categories: [{ name: "All day", dishes: [] }] });
+    expect(none.menu.categories[0].schedule).toBeNull();
+  });
+
+  it("round-trips modifiers, specials and schedules through export", () => {
+    const category: Category = {
+      id: "c1",
+      restaurant_id: "r1",
+      name: "Breakfast",
+      name_i18n: {},
+      description: null,
+      sort_order: 0,
+      schedule_id: "s1",
+      created_at: "",
+    };
+    const dish: Dish = {
+      id: "d1",
+      restaurant_id: "r1",
+      category_id: "c1",
+      name: "Idli",
+      name_i18n: {},
+      description: null,
+      description_i18n: {},
+      price_cents: 8000,
+      image_url: null,
+      allergens: [],
+      dietary_tags: [],
+      is_available: true,
+      is_featured: false,
+      sort_order: 0,
+      special_from: "2026-09-21",
+      special_until: null,
+      created_at: "",
+      updated_at: "",
+    };
+    const base = { restaurant_id: "r1", name_i18n: {}, created_at: "", updated_at: "" };
+    const modifiers = new Map([
+      [
+        "d1",
+        [
+          {
+            ...base,
+            id: "g1",
+            dish_id: "d1",
+            name: "Portion",
+            kind: "variant" as const,
+            min_select: 1,
+            max_select: 1,
+            sort_order: 0,
+            options: [
+              { ...base, id: "o1", group_id: "g1", name: "Single", price_cents: 8000, is_available: true, is_default: true, sort_order: 0 },
+              { ...base, id: "o2", group_id: "g1", name: "Double", price_cents: 14000, is_available: true, is_default: false, sort_order: 1 },
+            ],
+          },
+        ],
+      ],
+    ]);
+
+    const file = serializeMenu([category], [dish], modifiers, [{ id: "s1", name: "Morning" }]);
+    const parsed = parseOrThrow(file);
+    const cat = parsed.menu.categories[0];
+    expect(cat.schedule).toBe("Morning");
+    expect(cat.dishes[0].special_from).toBe("2026-09-21");
+    expect(cat.dishes[0].special_until).toBeNull();
+    expect(cat.dishes[0].modifiers).toEqual([
+      {
+        name: "Portion",
+        kind: "variant",
+        min_select: 1,
+        max_select: 1,
+        options: [
+          { name: "Single", price_cents: 8000, is_default: true, is_available: true },
+          { name: "Double", price_cents: 14000, is_default: false, is_available: true },
+        ],
+      },
+    ]);
+    expect(parsed.warnings).toEqual([]);
   });
 });

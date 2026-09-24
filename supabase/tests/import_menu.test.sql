@@ -11,6 +11,8 @@
 
 \echo ''
 \echo '=== setup: an existing menu, plus a second tenant that must not be touched ==='
+insert into public.restaurants (id, owner_id, name, slug) values (:'R', :'R', 'Import Test', 'import-test');
+insert into public.menu_schedules (restaurant_id, name, starts_at, ends_at) values (:'R', 'Morning', '07:00', '11:00');
 insert into public.categories (restaurant_id, name) values (:'R', 'OLD CATEGORY');
 insert into public.dishes (restaurant_id, name) values (:'R', 'OLD DISH A'), (:'R', 'OLD DISH B');
 insert into public.categories (restaurant_id, name) values (:'R2', 'OTHER TENANT CAT');
@@ -31,15 +33,21 @@ select public.assert(
           "is_available": false, "is_featured": true},
          {"name": "Chicken 65", "price_cents": 38000}
        ]},
-      {"name": "Mains", "dishes": [{"name": "Dal Makhani", "price_cents": 34000}]}
+      {"name": "Mains", "schedule": "morning",
+       "dishes": [{"name": "Dal Makhani", "price_cents": 34000,
+                   "special_from": "2026-09-21", "special_until": "2026-09-27",
+                   "modifiers": [{"name": "Portion", "kind": "variant",
+                                  "options": [{"name": "Half", "price_cents": 20000, "is_default": true},
+                                              {"name": "Full", "price_cents": 34000}]}]}]},
+      {"name": "Dinner", "schedule": "No such schedule", "dishes": []}
     ],
     "dishes": [{"name": "Masala Chai", "price_cents": 9000, "image_url": ""}]
   }
-  $json$::jsonb) = '{"dishes": 4, "categories": 2}'::jsonb,
+  $json$::jsonb) = '{"dishes": 4, "categories": 3}'::jsonb,
   'returns the inserted counts');
 
 select public.assert(
-  (select count(*) from public.categories where restaurant_id = :'R') = 2
+  (select count(*) from public.categories where restaurant_id = :'R') = 3
   and (select count(*) from public.dishes where restaurant_id = :'R') = 4,
   'menu now holds exactly what the payload described');
 
@@ -94,6 +102,33 @@ select public.assert(
   'top-level dishes stay uncategorised, and an empty image_url becomes null');
 
 \echo ''
+\echo '=== schedules, specials and modifiers ==='
+select public.assert(
+  (select s.name from public.categories c join public.menu_schedules s on s.id = c.schedule_id where c.name = 'Mains') = 'Morning',
+  'a category schedule resolves by name, case-insensitively');
+select public.assert(
+  (select schedule_id is null from public.categories where name = 'Dinner'),
+  'an unknown schedule name leaves the category unscheduled');
+select public.assert(
+  (select special_from = '2026-09-21' and special_until = '2026-09-27' from public.dishes where name = 'Dal Makhani'),
+  'special dates land on the dish');
+select public.assert(
+  (select special_from is null and special_until is null from public.dishes where name = 'Paneer Tikka'),
+  'dishes without dates stay ordinary');
+select public.assert(
+  (select count(*) from public.modifier_groups g join public.dishes d on d.id = g.dish_id where d.name = 'Dal Makhani') = 1
+  and (select array_agg(o.name order by o.sort_order)
+         from public.modifier_options o
+         join public.modifier_groups g on g.id = o.group_id
+         join public.dishes d on d.id = g.dish_id
+        where d.name = 'Dal Makhani') = array['Half', 'Full'],
+  'modifier groups and options are imported with the dish');
+select public.assert(
+  (select is_default from public.modifier_options where name = 'Half') = true,
+  'the default variant is kept');
+
+
+\echo ''
 \echo '=== ownership guard ==='
 update public.test_flags set owns = false;
 do $$
@@ -110,7 +145,7 @@ update public.test_flags set owns = true;
 
 select public.assert(
   not exists (select 1 from public.categories where name = 'HACKED')
-  and (select count(*) from public.categories where restaurant_id = :'R') = 2,
+  and (select count(*) from public.categories where restaurant_id = :'R') = 3,
   'the refused import changed nothing');
 
 \echo ''
@@ -160,6 +195,9 @@ select public.assert(
   public.import_menu(:'R', '{"categories":[],"dishes":[{"name":"Only one","price_cents":1}]}'::jsonb)
     = '{"dishes": 1, "categories": 0}'::jsonb,
   'a payload of only uncategorised dishes is accepted');
+
+-- Later test files create their own restaurants; leave no rows behind.
+delete from public.restaurants where id = :'R';
 
 \echo ''
 \echo 'ALL SQL ASSERTIONS PASSED'

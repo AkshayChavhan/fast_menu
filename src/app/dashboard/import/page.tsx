@@ -1,7 +1,14 @@
 import { requireCapability } from "../lib";
 import { createClient } from "@/lib/supabase/server";
 import { serializeMenu, sampleMenuFile } from "@/lib/menu-import";
-import type { Category, Dish } from "@/types/db";
+import { groupModifiersByDish } from "@/lib/modifiers";
+import type {
+  Category,
+  Dish,
+  MenuSchedule,
+  ModifierGroup,
+  ModifierOption,
+} from "@/types/db";
 import { MenuImportPanel } from "@/components/dashboard/import/MenuImportPanel";
 import { MenuExportCard } from "@/components/dashboard/import/MenuExportCard";
 
@@ -13,28 +20,37 @@ export default async function ImportPage() {
   const { restaurant } = await requireCapability("menu:import");
   const supabase = await createClient();
 
-  const [categoriesRes, dishesRes] = await Promise.all([
-    supabase
-      .from("categories")
-      .select("*")
-      .eq("restaurant_id", restaurant.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("dishes")
-      .select("*")
-      .eq("restaurant_id", restaurant.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }),
-  ]);
+  const [categoriesRes, dishesRes, groupsRes, optionsRes, schedulesRes] =
+    await Promise.all([
+      supabase
+        .from("categories")
+        .select("*")
+        .eq("restaurant_id", restaurant.id)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("dishes")
+        .select("*")
+        .eq("restaurant_id", restaurant.id)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+      supabase.from("modifier_groups").select("*").eq("restaurant_id", restaurant.id),
+      supabase.from("modifier_options").select("*").eq("restaurant_id", restaurant.id),
+      supabase.from("menu_schedules").select("id, name").eq("restaurant_id", restaurant.id),
+    ]);
 
   const categories = (categoriesRes.data ?? []) as Category[];
   const dishes = (dishesRes.data ?? []) as Dish[];
+  const modifiersByDish = groupModifiersByDish(
+    (groupsRes.data ?? []) as ModifierGroup[],
+    (optionsRes.data ?? []) as ModifierOption[],
+  );
+  const schedules = (schedulesRes.data ?? []) as Pick<MenuSchedule, "id" | "name">[];
 
   // Both files are built server-side and handed to the client as text, so the
   // download buttons are a Blob away and need no extra round-trip.
   const currentMenuJson = JSON.stringify(
-    serializeMenu(categories, dishes),
+    serializeMenu(categories, dishes, modifiersByDish, schedules),
     null,
     2,
   );

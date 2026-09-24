@@ -20,7 +20,7 @@ MIGRATIONS="$ROOT/supabase/migrations"
 
 # Functions to load, in dependency order, and the test files to run against
 # them. Add to both lists as new database functions gain tests.
-FUNCTIONS=(import_menu is_platform_admin normalize_hotel_name claim_trial enforce_trial_before_publish list_trial_reviews review_trial set_dish_modifiers schedule_is_open category_is_open dish_special_active)
+FUNCTIONS=(insert_dish_modifiers import_menu is_platform_admin normalize_hotel_name claim_trial enforce_trial_before_publish list_trial_reviews review_trial set_dish_modifiers schedule_is_open category_is_open dish_special_active)
 TESTS=(import_menu.test.sql claim_trial.test.sql set_dish_modifiers.test.sql schedules.test.sql)
 
 for bin in initdb pg_ctl psql; do
