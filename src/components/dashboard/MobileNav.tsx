@@ -4,10 +4,17 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { SidebarNav } from "./SidebarNav";
 import { cn } from "@/lib/utils";
+import type { MemberRole } from "@/types/db";
 
 // Hamburger-triggered slide-over sidebar for small screens. On >=lg the static
 // sidebar in the layout is shown instead and this button is hidden.
-export function MobileNav({ restaurantName }: { restaurantName: string }) {
+export function MobileNav({
+  restaurantName,
+  role,
+}: {
+  restaurantName: string;
+  role: MemberRole;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -55,7 +62,7 @@ export function MobileNav({ restaurantName }: { restaurantName: string }) {
           <p className="truncate px-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
             {restaurantName}
           </p>
-          <SidebarNav onNavigate={() => setOpen(false)} />
+          <SidebarNav role={role} onNavigate={() => setOpen(false)} />
         </div>
       </div>
     </>

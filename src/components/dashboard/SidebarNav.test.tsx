@@ -31,12 +31,17 @@ vi.mock("next/link", () => ({
 }));
 
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
+import type { MemberRole } from "@/types/db";
 
 afterEach(cleanup);
 
-function renderAt(pathname: string, onNavigate?: () => void) {
+function renderAt(
+  pathname: string,
+  onNavigate?: () => void,
+  role: MemberRole = "owner",
+) {
   usePathname.mockReturnValue(pathname);
-  return render(<SidebarNav onNavigate={onNavigate} />);
+  return render(<SidebarNav role={role} onNavigate={onNavigate} />);
 }
 
 // The active item is the one carrying the brand background.
@@ -144,5 +149,38 @@ describe("SidebarNav — the Review group", () => {
     const nav = screen.getByRole("navigation");
     const settings = within(nav).getByRole("link", { name: "Settings" });
     expect(isActive(settings)).toBe(false);
+  });
+});
+
+describe("SidebarNav — roles", () => {
+  const labels = () =>
+    screen
+      .getAllByRole("link")
+      .map((a) => a.textContent?.trim())
+      .concat(screen.queryAllByRole("button").map((b) => b.textContent?.trim()));
+
+  it("shows the owner everything", () => {
+    renderAt("/dashboard", undefined, "owner");
+    expect(labels()).toEqual([
+      "Overview",
+      "Menu",
+      "Preview & QR",
+      "Import / Export",
+      "Settings",
+      "Review",
+    ]);
+  });
+
+  it("hides Settings from a manager but keeps the menu tools", () => {
+    renderAt("/dashboard", undefined, "manager");
+    expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
+    screen.getByRole("link", { name: "Menu" });
+    screen.getByRole("link", { name: "Import / Export" });
+    screen.getByRole("button", { name: /Review/ });
+  });
+
+  it("leaves a cashier with Overview only", () => {
+    renderAt("/dashboard", undefined, "cashier");
+    expect(labels()).toEqual(["Overview"]);
   });
 });

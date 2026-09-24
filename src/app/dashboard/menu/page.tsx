@@ -1,10 +1,10 @@
-import { getActiveContext } from "../lib";
+import { requireCapability } from "../lib";
 import { createClient } from "@/lib/supabase/server";
 import type { Category, Dish } from "@/types/db";
 import { MenuEditor } from "@/components/dashboard/menu/MenuEditor";
 
 export default async function MenuPage() {
-  const { restaurant } = await getActiveContext();
+  const { restaurant } = await requireCapability("menu:manage");
   const supabase = await createClient();
 
   const [categoriesRes, dishesRes] = await Promise.all([

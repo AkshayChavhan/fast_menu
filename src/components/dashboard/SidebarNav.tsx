@@ -14,12 +14,16 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { can, type Capability } from "@/lib/permissions";
+import type { MemberRole } from "@/types/db";
 
 type NavLeaf = {
   href: string;
   label: string;
   icon: LucideIcon;
   exact?: boolean;
+  /** Hidden from roles without this capability. Omit for everyone. */
+  capability?: Capability;
 };
 
 type NavGroup = {
@@ -28,6 +32,7 @@ type NavGroup = {
   /** Prefix that marks this group (and any child) as the active section. */
   match: string;
   children: { href: string; label: string; exact?: boolean }[];
+  capability?: Capability;
 };
 
 type NavItem = NavLeaf | NavGroup;
@@ -36,19 +41,40 @@ const isGroup = (item: NavItem): item is NavGroup => "children" in item;
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/menu", label: "Menu", icon: UtensilsCrossed },
-  { href: "/dashboard/qr", label: "Preview & QR", icon: QrCode },
-  { href: "/dashboard/import", label: "Import / Export", icon: FileUp },
+  {
+    href: "/dashboard/menu",
+    label: "Menu",
+    icon: UtensilsCrossed,
+    capability: "menu:manage",
+  },
+  {
+    href: "/dashboard/qr",
+    label: "Preview & QR",
+    icon: QrCode,
+    capability: "menu:manage",
+  },
+  {
+    href: "/dashboard/import",
+    label: "Import / Export",
+    icon: FileUp,
+    capability: "menu:import",
+  },
   {
     label: "Review",
     icon: Star,
     match: "/dashboard/reviews",
+    capability: "reviews:moderate",
     children: [
       { href: "/dashboard/reviews", label: "Reviews", exact: true },
       { href: "/dashboard/reviews/settings", label: "Review Settings" },
     ],
   },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  {
+    href: "/dashboard/settings",
+    label: "Settings",
+    icon: Settings,
+    capability: "settings:manage",
+  },
 ];
 
 const linkBase =
@@ -58,12 +84,24 @@ const activeCls =
 const idleCls =
   "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100";
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({
+  role,
+  onNavigate,
+}: {
+  role: MemberRole;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
+
+  // What a role can't do is hidden rather than disabled: a cashier should
+  // see a two-item sidebar, not a greyed-out menu editor.
+  const items = NAV.filter(
+    (item) => !item.capability || can(role, item.capability),
+  );
 
   return (
     <nav className="flex flex-col gap-1">
-      {NAV.map((item) => {
+      {items.map((item) => {
         if (!isGroup(item)) {
           const active = item.exact
             ? pathname === item.href

@@ -1,4 +1,4 @@
-import { getActiveContext } from "../../lib";
+import { requireCapability } from "../../lib";
 import { getSiteOrigin } from "@/lib/site";
 import { publicReviewPath, settingsFromForm } from "@/lib/reviews";
 import { createClient } from "@/lib/supabase/server";
@@ -10,7 +10,7 @@ export const metadata = {
 };
 
 export default async function ReviewSettingsPage() {
-  const { restaurant } = await getActiveContext();
+  const { restaurant } = await requireCapability("reviews:moderate");
   const supabase = await createClient();
   const origin = await getSiteOrigin();
 

@@ -100,7 +100,7 @@ default becomes 15 days. Dishes gain `special_from` / `special_until`.
 
 Tick a box when the phase is merged into this branch.
 
-- [ ] **0 Foundations** — plan doc, proxy rename, migrations, restaurant
+- [x] **0 Foundations** — plan doc, proxy rename, migrations, restaurant
       flags + timezone, `restaurant_staff` + `member_role`, permissions map,
       dashboard context by membership, 15-day trial.
 - [ ] **1 Accounts and trial** — staff management for all roles, role-based

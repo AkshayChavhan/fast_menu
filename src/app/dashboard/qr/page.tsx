@@ -1,6 +1,6 @@
 import { QrCode } from "lucide-react";
 
-import { getActiveContext } from "../lib";
+import { requireCapability } from "../lib";
 import { getSiteOrigin, publicMenuPath } from "@/lib/site";
 import { publicReviewPath } from "@/lib/reviews";
 import { createClient } from "@/lib/supabase/server";
@@ -12,13 +12,13 @@ export const metadata = {
   title: "QR code & share assets — fast_menu",
 };
 
-// Server component: loads the signed-in owner's active restaurant (via the
-// shared getActiveContext, so it matches the dashboard header and every other
-// page) and computes the absolute public menu URL, then hands off to the
+// Server component: loads the active restaurant (via the shared dashboard
+// context, so it matches the header and every other page; menu:manage is the
+// capability that covers share assets) and computes the absolute public menu URL, then hands off to the
 // interactive <QrStudio /> client. getSiteOrigin() always resolves an origin
 // server-side (env var, VERCEL_URL, or the request host).
 export default async function QrPage() {
-  const { restaurant } = await getActiveContext();
+  const { restaurant } = await requireCapability("menu:manage");
 
   const origin = await getSiteOrigin();
   const menuPath = publicMenuPath(restaurant.slug);

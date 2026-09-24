@@ -1,9 +1,9 @@
-import { getActiveContext } from "../lib";
+import { requireCapability } from "../lib";
 import { getSiteOrigin } from "@/lib/site";
 import { SettingsForm } from "@/components/dashboard/settings/SettingsForm";
 
 export default async function SettingsPage() {
-  const { restaurant } = await getActiveContext();
+  const { restaurant } = await requireCapability("settings:manage");
   const origin = await getSiteOrigin();
 
   return (

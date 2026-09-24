@@ -1,4 +1,4 @@
-import { getActiveContext } from "../lib";
+import { requireCapability } from "../lib";
 import { createClient } from "@/lib/supabase/server";
 import { serializeMenu, sampleMenuFile } from "@/lib/menu-import";
 import type { Category, Dish } from "@/types/db";
@@ -10,7 +10,7 @@ export const metadata = {
 };
 
 export default async function ImportPage() {
-  const { restaurant } = await getActiveContext();
+  const { restaurant } = await requireCapability("menu:import");
   const supabase = await createClient();
 
   const [categoriesRes, dishesRes] = await Promise.all([
