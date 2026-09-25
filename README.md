@@ -335,8 +335,10 @@ Optional extras, all off until their env is set (see `.env.example`):
   `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` upload source maps.
 - **Uptime** — point a monitor at `/api/health`; it answers 503 when the
   database is unreachable.
-- **Housekeeping** — enable the `pg_cron` extension and the migrations schedule
-  `expire_placed_orders()` every ten minutes.
+- **Housekeeping** — the migrations enable `pg_cron` where the role may and
+  schedule `expire_placed_orders()` every ten minutes. If pg_cron had to be
+  enabled by hand afterwards (Database → Extensions), run
+  `select public.schedule_housekeeping();` once in the SQL editor.
 
 ---
 
