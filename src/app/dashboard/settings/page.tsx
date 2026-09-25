@@ -1,9 +1,11 @@
-import { getActiveContext } from "../lib";
+import { requireCapability } from "../lib";
 import { getSiteOrigin } from "@/lib/site";
 import { SettingsForm } from "@/components/dashboard/settings/SettingsForm";
+import { OrderingSettingsCard } from "@/components/dashboard/settings/OrderingSettingsCard";
+import { IntegrationsCard } from "@/components/dashboard/settings/IntegrationsCard";
 
 export default async function SettingsPage() {
-  const { restaurant } = await getActiveContext();
+  const { restaurant } = await requireCapability("settings:manage");
   const origin = await getSiteOrigin();
 
   return (
@@ -15,6 +17,8 @@ export default async function SettingsPage() {
         </p>
       </div>
       <SettingsForm restaurant={restaurant} origin={origin} />
+      <OrderingSettingsCard restaurant={restaurant} />
+      <IntegrationsCard restaurant={restaurant} />
     </div>
   );
 }

@@ -26,6 +26,39 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
 - **Marketing landing page** (`/`) with a live demo link.
 - **Multi-tenant & secure** — every restaurant is isolated by Postgres
   Row-Level Security; owners can only touch their own data.
+- **Roles & staff logins** — owner, manager, cashier, waiter and kitchen. One
+  login page sends each role to its app; the dashboard shows each role only
+  what it may use.
+- **One trial per hotel** — a 15-day trial claimed once with a verified mobile
+  number, GSTIN and name + pincode checks, and a platform-admin review queue
+  for look-alikes.
+- **Sizes, variants & add-ons** — half / full plates, spice levels, extra
+  toppings, defined per dish by the owner; the public menu shows "from" prices.
+- **Schedules & daily specials** — breakfast / lunch / happy-hour windows in
+  the restaurant's timezone, and date-limited specials highlighted on the menu.
+- **Tables & per-table QR** — a floor plan with a stable code per table, so
+  guests scan the table they sit at and the label can change without reprints.
+- **Ordering switches** — accept orders, takeaway, per-table QR, kitchen screen
+  and a one-tap pause with a message guests see.
+- **Guest ordering** (`/m/<slug>/cart`, `/m/<slug>/order/<code>`) — no login:
+  add dishes with sizes and add-ons, notes, dine-in or parcel, place the order
+  and show its QR to the waiter; the page tracks approval, the table and the
+  bill, then points at Google reviews. Call a waiter or ask for the bill from
+  a table QR. Every price is re-read by the database; anonymous writes go
+  through security-definer functions and are rate-limited.
+- **Waiter app** (`/waiter`) — phone-first: scan the guest's QR (or type the
+  code), pick the table (or several, joined onto one bill), approve or reject,
+  take an order directly, edit an order's items until it is paid, move it to
+  another table, seat and clear tables on a live board, and get a push
+  notification when a guest orders or calls.
+- **Billing counter** (`/dashboard/orders`) — owners, managers and cashiers see
+  every open bill by table exactly as approved, bills the guest asked for
+  first, mark them paid, and see today's paid bills and takings by the
+  restaurant's own calendar; managers can reopen a mistake. Screens refresh
+  through Supabase Realtime with a slow poll as fallback.
+- **Kitchen screen** (`/kitchen`, optional) — a dark tablet board of tickets,
+  oldest first; lines move queued → cooking → ready → served, a ready ticket
+  pushes the approving waiter, and any ticket prints at receipt width.
 
 ---
 
@@ -33,6 +66,10 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
 
 > **New to Supabase?** Follow the click-by-click **[Setup Walkthrough](docs/SETUP.md)**
 > instead — it covers every step below in detail with troubleshooting.
+>
+> **Using the product?** The **[Guide Book](docs/user-guide/fast_menu-guide-book.pdf)**
+> covers every screen for owners, waiters, cashiers, kitchen staff and guests,
+> with no technical content. Rebuild it after edits with `scripts/build-guide.sh`.
 
 ### 1. Prerequisites
 
@@ -49,14 +86,19 @@ npm install
 
 ### 3. Configure the database
 
-In your Supabase project's **SQL Editor**, run the schema:
+In your Supabase project's **SQL Editor**, run every file in
+`supabase/migrations/` in filename order (or `supabase db push` with the
+Supabase CLI):
 
 ```
-supabase/schema.sql
+supabase/migrations/20260924000000_baseline.sql
+supabase/migrations/<later files, in order>
 ```
 
-This creates the tables, Row-Level Security policies, the `menu-images` storage
-bucket, and a trigger that provisions a starter restaurant for every new user.
+The baseline creates the tables, Row-Level Security policies, the `menu-images`
+storage bucket, and a trigger that provisions a starter restaurant for every
+new user. Each later file is a forward-only migration that adds one feature and
+is safe to run once on an existing database.
 
 ### 4. Environment variables
 
@@ -120,6 +162,8 @@ an owner.)
 | `pnpm test`          | Unit tests (Vitest), once                   |
 | `pnpm test:watch`    | Unit tests in watch mode                    |
 | `pnpm test:sql`      | SQL tests against a throwaway Postgres      |
+| `pnpm test:e2e`      | Playwright end-to-end (needs a Supabase stack) |
+| `pnpm images:prune`  | List images no row references; `--delete` removes them |
 
 ---
 
@@ -135,14 +179,23 @@ What's covered:
 
 | Area | File |
 | ---- | ---- |
-| Menu import/export parsing, normalisation, round-trip | `src/lib/menu-import.test.ts` |
+| Menu import/export parsing, normalisation, round-trip (incl. modifiers, specials, schedules) | `src/lib/menu-import.test.ts` |
+| Variant / add-on pricing and validation | `src/lib/modifiers.test.ts` |
+| Schedule windows and special dates in a timezone | `src/lib/schedule.test.ts` |
+| Table label ranges and ordering | `src/lib/tables.test.ts` |
+| Google review link validation | `src/lib/google-review.test.ts` |
+| Guest cart: line keys, merging, quantities, totals, order payload | `src/lib/cart.test.ts` |
+| Order code parsing from a scan | `src/lib/order-code.test.ts` |
+| Relative time and clock formatting | `src/lib/time.test.ts` |
 | Review settings + rating normalisation | `src/lib/reviews.test.ts` |
 | Price, slug and translation helpers | `src/lib/utils.test.ts` |
 | Site origin resolution | `src/lib/site.test.ts` |
 | Blob file downloads | `src/lib/download-file.test.ts` |
 | Public review submission (validation + sanitisation) | `src/app/r/[slug]/actions.test.ts` |
 | Star rating: mouse, keyboard, ARIA | `src/components/reviews/StarRating.test.tsx` |
-| Sidebar navigation + Review submenu | `src/components/dashboard/SidebarNav.test.tsx` |
+| Sidebar navigation, Review submenu, per-role visibility | `src/components/dashboard/SidebarNav.test.tsx` |
+| Role → capability map | `src/lib/permissions.test.ts` |
+| Staff account actions (validation, role rules, cleanup on failure) | `src/app/dashboard/staff/actions.test.ts` |
 
 ### `pnpm test:sql` — database functions
 
@@ -150,7 +203,7 @@ What's covered:
 real rather than mocked. `scripts/test-sql.sh` spins up a throwaway PostgreSQL
 cluster in a temp directory, mirrors the tables the function touches
 (`supabase/tests/fixtures.sql`), extracts the function **straight out of
-`supabase/schema.sql`** so the tests can't drift from the shipped code, and runs
+`supabase/migrations/`** so the tests can't drift from the shipped code, and runs
 `supabase/tests/import_menu.test.sql`. The cluster is deleted on exit and your
 own PostgreSQL is never started.
 
@@ -167,11 +220,38 @@ import safe: a non-owner is refused with `42501`, and a failure induced *after*
 the deletes have been applied rolls back completely, leaving the original menu
 intact.
 
+`supabase/tests/claim_trial.test.sql` covers the one-trial-per-hotel rules the
+same way: phone and GSTIN duplicates are refused, a look-alike name in the same
+pincode is parked for review, publishing is blocked until the trial is active,
+and only platform admins can approve or deny. `set_dish_modifiers.test.sql`
+and `schedules.test.sql` do the same for variants / add-ons and for schedule
+windows, including overnight and timezone edges. `orders.test.sql` exercises the
+guest ordering functions: price snapshots, size and add-on validation, refusals
+when paused or unavailable, one unapproved order per device, expiry, guest
+cancellation, session totals, service requests and the rate limiter.
+`staff_orders.test.sql` covers the waiter side: approving onto new or existing
+sessions, joined tables, takeaway sessions, reject and cancel, waiter-taken
+orders, replacing items with an audit event, moving tables, seating and
+clearing. `billing.test.sql` covers settling a bill, the freeze that follows,
+reopening and roles. `kitchen.test.sql` covers item and ticket states and their
+allowed transitions.
+
+### `pnpm test:e2e` — Playwright
+
+`e2e/` drives the real app in Chromium (desktop and a Pixel-sized phone):
+a guest orders from a table QR, a waiter approves it onto the table, the
+counter settles the bill, and the guest is thanked; plus role landing and the
+health endpoint. `e2e/global-setup.ts` builds a small restaurant with the
+service-role key, so the tests need a Supabase stack: in CI
+(`.github/workflows/ci.yml`) that is `supabase start` with the migrations
+applied; locally, run `supabase start`, point `.env.local` at it, and
+`pnpm test:e2e`.
+
 ### Not covered
 
-Server actions that only orchestrate Supabase calls, the dashboard editor
-components, and RLS policies have no automated tests — the first two are thin,
-and RLS needs a real Supabase project to exercise meaningfully.
+Server actions that only orchestrate Supabase calls and the dashboard editor
+components have no unit tests — they are thin. RLS policies are exercised
+indirectly by the end-to-end run.
 
 ---
 
@@ -183,24 +263,30 @@ src/
     page.tsx              Marketing landing page
     (auth)/               Login & signup (route group)
     auth/                 Signout + email-confirm route handlers
-    dashboard/            Owner app: overview, menu editor, settings, QR
+    dashboard/            Back office: overview, orders & billing, menu, schedules, tables, staff, settings, QR
       menu/actions.ts     Server Actions (category/dish CRUD, 86 toggle)
       settings/actions.ts Server Actions (restaurant settings, publish)
-    m/[slug]/             Public customer-facing menu
+    m/[slug]/             Public customer-facing menu, cart and live order page
     api/qr/               PNG QR-code endpoint
+    waiter/               Waiter app: home, scan, order review, composer, tables, bills
+    kitchen/              Kitchen ticket screen (tablet)
+    onboarding/claim/     One-time trial claim (phone OTP, GSTIN, pincode)
+    admin/trials/         Platform-admin review of flagged trials
   components/
     menu/                 Public menu UI (dish cards, pairings, language switcher)
     dashboard/            Editor UI (dish form, chips, switch, image upload)
     qr/QrStudio.tsx       QR generation + printable assets
     Wordmark.tsx          Shared logo lockup
   lib/
-    supabase/             Browser / server / middleware clients
+    supabase/             Browser / server / proxy / admin clients
+    membership.ts         Who is signed in, where they work, as what role
+    permissions.ts        Role → capability map (mirrors the RLS rules)
     site.ts               Absolute-URL helpers (origin, public menu path)
     utils.ts              formatPrice, slugify, localized, cn
     constants.ts          Allergens, dietary tags, locales, currencies
   types/db.ts             Domain types mirroring the schema
 supabase/
-  schema.sql              Tables, RLS, storage bucket, triggers
+  migrations/             Versioned schema: baseline + one file per feature
   seed.sql                Demo restaurant for /m/demo
 ```
 
@@ -214,6 +300,20 @@ supabase/
   `price_cents`. `is_available = false` is the **86'd** state. Translations live
   in `*_i18n` JSONB columns.
 - **dish_pairings** — the upsell engine ("goes well with" / add-ons).
+- **restaurant_staff** — manager, cashier, waiter and kitchen logins, each with
+  an optional profile photo (`avatar_url`); the owner is `restaurants.owner_id`.
+  `member_role()` answers role questions inside RLS.
+- **trial_claims** — one row per hotel that activated its trial (phone hash,
+  GSTIN, normalised name + pincode), so a second email cannot earn a second
+  trial.
+- **tables**, **table_sessions** — the floor plan and one "bill" per seating,
+  which may span joined tables.
+- **orders**, **order_items**, **order_events** — an order with a short code,
+  snapshotted lines (name, price, size, add-ons, note) and an audit trail.
+  Guests never write these directly; `place_order()` and friends do.
+- **service_requests**, **push_subscriptions**, **rate_limit_buckets** —
+  call-waiter / bill requests, staff push endpoints, and the fixed-window
+  counters behind anonymous rate limits.
 
 All access is enforced by Postgres RLS: owners manage their own rows; the public
 can only read rows belonging to a **published** restaurant.
@@ -226,6 +326,19 @@ Deploy to [Vercel](https://vercel.com): import the repo, add the four
 environment variables above (set `NEXT_PUBLIC_SITE_URL` to your production URL),
 and ship. Point your Supabase Auth **Site URL** / redirect URLs at the deployed
 domain.
+
+Optional extras, all off until their env is set (see `.env.example`):
+
+- **Push notifications** — VAPID keys for the waiter bell.
+- **Error monitoring** — `NEXT_PUBLIC_SENTRY_DSN` sends server and browser
+  errors to Sentry, tagged with restaurant and role, never with personal data.
+  `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` upload source maps.
+- **Uptime** — point a monitor at `/api/health`; it answers 503 when the
+  database is unreachable.
+- **Housekeeping** — the migrations enable `pg_cron` where the role may and
+  schedule `expire_placed_orders()` every ten minutes. If pg_cron had to be
+  enabled by hand afterwards (Database → Extensions), run
+  `select public.schedule_housekeeping();` once in the SQL editor.
 
 ---
 

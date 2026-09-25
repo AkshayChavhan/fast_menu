@@ -1,24 +1,26 @@
 import { QrCode } from "lucide-react";
 
-import { getActiveContext } from "../lib";
+import { requireCapability } from "../lib";
 import { getSiteOrigin, publicMenuPath } from "@/lib/site";
 import { publicReviewPath } from "@/lib/reviews";
 import { createClient } from "@/lib/supabase/server";
-import type { ReviewForm } from "@/types/db";
+import { sortByLabel } from "@/lib/tables";
+import type { RestaurantTable, ReviewForm } from "@/types/db";
 import QrStudio from "@/components/qr/QrStudio";
 import { ReviewQrCard } from "@/components/qr/ReviewQrCard";
+import { TableQrSheet } from "@/components/qr/TableQrSheet";
 
 export const metadata = {
   title: "QR code & share assets — fast_menu",
 };
 
-// Server component: loads the signed-in owner's active restaurant (via the
-// shared getActiveContext, so it matches the dashboard header and every other
-// page) and computes the absolute public menu URL, then hands off to the
+// Server component: loads the active restaurant (via the shared dashboard
+// context, so it matches the header and every other page; menu:manage is the
+// capability that covers share assets) and computes the absolute public menu URL, then hands off to the
 // interactive <QrStudio /> client. getSiteOrigin() always resolves an origin
 // server-side (env var, VERCEL_URL, or the request host).
 export default async function QrPage() {
-  const { restaurant } = await getActiveContext();
+  const { restaurant } = await requireCapability("menu:manage");
 
   const origin = await getSiteOrigin();
   const menuPath = publicMenuPath(restaurant.slug);
@@ -27,11 +29,22 @@ export default async function QrPage() {
 
   // No row until Review Settings is saved; the review page is on by default.
   const supabase = await createClient();
-  const { data: reviewForm } = await supabase
-    .from("review_forms")
-    .select("is_enabled")
-    .eq("restaurant_id", restaurant.id)
-    .maybeSingle<Pick<ReviewForm, "is_enabled">>();
+  const [{ data: reviewForm }, { data: tableRows }] = await Promise.all([
+    supabase
+      .from("review_forms")
+      .select("is_enabled")
+      .eq("restaurant_id", restaurant.id)
+      .maybeSingle<Pick<ReviewForm, "is_enabled">>(),
+    // Only when per-table codes are on; retired tables are left off the sheet.
+    restaurant.table_qr_enabled
+      ? supabase
+          .from("tables")
+          .select("*")
+          .eq("restaurant_id", restaurant.id)
+          .eq("is_active", true)
+      : Promise.resolve({ data: null }),
+  ]);
+  const tables = sortByLabel((tableRows as RestaurantTable[] | null) ?? []);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
@@ -63,6 +76,15 @@ export default async function QrPage() {
         hasAbsoluteUrl={true}
         restaurantName={restaurant.name}
       />
+
+      {restaurant.table_qr_enabled ? (
+        <TableQrSheet
+          origin={origin}
+          slug={restaurant.slug}
+          restaurantName={restaurant.name}
+          tables={tables}
+        />
+      ) : null}
 
       <ReviewQrCard
         reviewUrl={reviewUrl}

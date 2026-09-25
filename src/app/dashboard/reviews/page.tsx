@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Star, Settings2 } from "lucide-react";
 
-import { getActiveContext } from "../lib";
+import { requireCapability } from "../lib";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeRatings } from "@/lib/reviews";
 import type { Review } from "@/types/db";
@@ -12,7 +12,7 @@ export const metadata = {
 };
 
 export default async function ReviewsPage() {
-  const { restaurant } = await getActiveContext();
+  const { restaurant } = await requireCapability("reviews:moderate");
   const supabase = await createClient();
 
   const { data } = await supabase

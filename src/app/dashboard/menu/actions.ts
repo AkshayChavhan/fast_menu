@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ALLERGENS, DIETARY_TAGS } from "@/lib/constants";
+import { can } from "@/lib/permissions";
+import type { ModifierGroupInput } from "@/lib/modifiers";
+import { removeRestaurantImages } from "@/lib/storage-cleanup";
+import { getMemberRole } from "../lib";
 
 const ALLERGEN_VALUES = ALLERGENS as readonly string[];
 const DIETARY_VALUES = DIETARY_TAGS as readonly string[];
@@ -13,9 +17,12 @@ export type ActionResult<T = undefined> =
   | { ok: false; error: string };
 
 // ---------------------------------------------------------------------------
-// Ownership guard. RLS enforces tenancy at the DB level; we also verify here so
-// that the app returns friendly errors and never issues a write it can't do.
+// Authorisation. RLS enforces tenancy and roles at the DB level; we also check
+// here so the app returns friendly errors and never issues a write it can't
+// do. Owners and managers may edit the menu (see lib/permissions.ts).
 // ---------------------------------------------------------------------------
+type Db = Awaited<ReturnType<typeof createClient>>;
+
 async function auth() {
   const supabase = await createClient();
   const {
@@ -24,58 +31,44 @@ async function auth() {
   return { supabase, user };
 }
 
-async function assertOwnsRestaurant(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
+async function canManageRestaurant(
+  supabase: Db,
   restaurantId: string,
 ): Promise<boolean> {
-  const { data } = await supabase
-    .from("restaurants")
-    .select("id")
-    .eq("id", restaurantId)
-    .eq("owner_id", userId)
-    .maybeSingle();
-  return !!data;
+  const role = await getMemberRole(supabase, restaurantId);
+  return can(role, "menu:manage");
 }
 
-// The embedded relation can come back typed as an object or an array depending
-// on inference; normalize to the single owner_id either way.
-function relationOwnerId(rel: unknown): string | null {
-  if (!rel) return null;
-  const one = Array.isArray(rel) ? rel[0] : rel;
-  const owner = (one as { owner_id?: string } | undefined)?.owner_id;
-  return owner ?? null;
-}
-
-// Verify ownership by walking from a category id up to its restaurant.
-async function assertOwnsCategory(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
+// Walk from a category id up to its restaurant and check the role there.
+// Returns the restaurant id when the caller may edit it, else null.
+async function managedCategoryRestaurant(
+  supabase: Db,
   categoryId: string,
 ): Promise<string | null> {
   const { data } = await supabase
     .from("categories")
-    .select("restaurant_id, restaurants!inner(owner_id)")
+    .select("restaurant_id")
     .eq("id", categoryId)
-    .maybeSingle();
+    .maybeSingle<{ restaurant_id: string }>();
   if (!data) return null;
-  const owner = relationOwnerId((data as { restaurants: unknown }).restaurants);
-  return owner === userId ? (data.restaurant_id as string) : null;
+  return (await canManageRestaurant(supabase, data.restaurant_id))
+    ? data.restaurant_id
+    : null;
 }
 
-async function assertOwnsDish(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
+async function managedDishRestaurant(
+  supabase: Db,
   dishId: string,
 ): Promise<string | null> {
   const { data } = await supabase
     .from("dishes")
-    .select("restaurant_id, restaurants!inner(owner_id)")
+    .select("restaurant_id")
     .eq("id", dishId)
-    .maybeSingle();
+    .maybeSingle<{ restaurant_id: string }>();
   if (!data) return null;
-  const owner = relationOwnerId((data as { restaurants: unknown }).restaurants);
-  return owner === userId ? (data.restaurant_id as string) : null;
+  return (await canManageRestaurant(supabase, data.restaurant_id))
+    ? data.restaurant_id
+    : null;
 }
 
 function firstIssue(err: z.ZodError): string {
@@ -101,7 +94,7 @@ export async function createCategory(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsRestaurant(supabase, user.id, restaurantId)))
+  if (!(await canManageRestaurant(supabase, restaurantId)))
     return { ok: false, error: "Restaurant not found" };
 
   // Append to the end: sort_order = current max + 1.
@@ -149,7 +142,7 @@ export async function updateCategory(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsCategory(supabase, user.id, categoryId)))
+  if (!(await managedCategoryRestaurant(supabase, categoryId)))
     return { ok: false, error: "Category not found" };
 
   const patch: Record<string, unknown> = { name };
@@ -176,7 +169,7 @@ export async function deleteCategory(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsCategory(supabase, user.id, categoryId)))
+  if (!(await managedCategoryRestaurant(supabase, categoryId)))
     return { ok: false, error: "Category not found" };
 
   // Dishes reference categories with ON DELETE SET NULL, so deleting a category
@@ -207,7 +200,7 @@ export async function reorderCategories(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsRestaurant(supabase, user.id, restaurantId)))
+  if (!(await canManageRestaurant(supabase, restaurantId)))
     return { ok: false, error: "Restaurant not found" };
 
   // Persist each new position. Scoped by restaurant_id so RLS + the filter both
@@ -247,6 +240,14 @@ const priceField = z
   .refine((v): v is number => v !== null, "Enter a valid price")
   .refine((v) => v <= 100_000_00, "Price is too large");
 
+// "YYYY-MM-DD" from a date input, or empty for none.
+const dateField = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date")
+  .nullable()
+  .or(z.literal("").transform(() => null));
+
 const dishBase = {
   name: z.string().trim().min(1, "Dish name is required").max(120),
   description: z
@@ -269,12 +270,21 @@ const dishBase = {
     .url()
     .nullable()
     .or(z.literal("").transform(() => null)),
+  // Daily special window; both empty for an ordinary dish.
+  specialFrom: dateField,
+  specialUntil: dateField,
 };
 
-const createDishSchema = z.object({
-  restaurantId: z.string().uuid(),
-  ...dishBase,
-});
+const specialWindowValid = (d: { specialFrom: string | null; specialUntil: string | null }) =>
+  !d.specialFrom || !d.specialUntil || d.specialFrom <= d.specialUntil;
+const specialWindowMessage = { message: "The special can't end before it starts" };
+
+const createDishSchema = z
+  .object({
+    restaurantId: z.string().uuid(),
+    ...dishBase,
+  })
+  .refine(specialWindowValid, specialWindowMessage);
 
 export async function createDish(input: {
   restaurantId: string;
@@ -286,19 +296,21 @@ export async function createDish(input: {
   dietaryTags: string[];
   isFeatured: boolean;
   imageUrl: string | null;
-}): Promise<ActionResult> {
+  specialFrom?: string | null;
+  specialUntil?: string | null;
+}): Promise<ActionResult<{ id: string }>> {
   const parsed = createDishSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
   const d = parsed.data;
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsRestaurant(supabase, user.id, d.restaurantId)))
+  if (!(await canManageRestaurant(supabase, d.restaurantId)))
     return { ok: false, error: "Restaurant not found" };
 
   // If a category was chosen, ensure it belongs to this restaurant.
   if (d.categoryId) {
-    const owned = await assertOwnsCategory(supabase, user.id, d.categoryId);
+    const owned = await managedCategoryRestaurant(supabase, d.categoryId);
     if (owned !== d.restaurantId)
       return { ok: false, error: "Invalid category" };
   }
@@ -312,29 +324,38 @@ export async function createDish(input: {
     .maybeSingle();
   const nextOrder = (last?.sort_order ?? -1) + 1;
 
-  const { error } = await supabase.from("dishes").insert({
-    restaurant_id: d.restaurantId,
-    category_id: d.categoryId,
-    name: d.name,
-    description: d.description,
-    price_cents: d.price,
-    allergens: d.allergens,
-    dietary_tags: d.dietaryTags,
-    is_featured: d.isFeatured,
-    image_url: d.imageUrl,
-    sort_order: nextOrder,
-  });
-  if (error) return { ok: false, error: error.message };
+  // The id comes back so the form can attach variants and add-ons next.
+  const { data: created, error } = await supabase
+    .from("dishes")
+    .insert({
+      restaurant_id: d.restaurantId,
+      category_id: d.categoryId,
+      name: d.name,
+      description: d.description,
+      price_cents: d.price,
+      allergens: d.allergens,
+      dietary_tags: d.dietaryTags,
+      is_featured: d.isFeatured,
+      image_url: d.imageUrl,
+      special_from: d.specialFrom,
+      special_until: d.specialUntil,
+      sort_order: nextOrder,
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !created) return { ok: false, error: error?.message ?? "Could not create the dish" };
 
   revalidatePath("/dashboard/menu");
   revalidatePath("/dashboard");
-  return { ok: true };
+  return { ok: true, data: { id: created.id } };
 }
 
-const updateDishSchema = z.object({
-  dishId: z.string().uuid(),
-  ...dishBase,
-});
+const updateDishSchema = z
+  .object({
+    dishId: z.string().uuid(),
+    ...dishBase,
+  })
+  .refine(specialWindowValid, specialWindowMessage);
 
 export async function updateDish(input: {
   dishId: string;
@@ -346,6 +367,8 @@ export async function updateDish(input: {
   dietaryTags: string[];
   isFeatured: boolean;
   imageUrl: string | null;
+  specialFrom?: string | null;
+  specialUntil?: string | null;
 }): Promise<ActionResult> {
   const parsed = updateDishSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
@@ -353,14 +376,20 @@ export async function updateDish(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  const restaurantId = await assertOwnsDish(supabase, user.id, d.dishId);
+  const restaurantId = await managedDishRestaurant(supabase, d.dishId);
   if (!restaurantId) return { ok: false, error: "Dish not found" };
 
   if (d.categoryId) {
-    const owned = await assertOwnsCategory(supabase, user.id, d.categoryId);
+    const owned = await managedCategoryRestaurant(supabase, d.categoryId);
     if (owned !== restaurantId)
       return { ok: false, error: "Invalid category" };
   }
+
+  const { data: before } = await supabase
+    .from("dishes")
+    .select("image_url")
+    .eq("id", d.dishId)
+    .maybeSingle<{ image_url: string | null }>();
 
   const { error } = await supabase
     .from("dishes")
@@ -373,9 +402,14 @@ export async function updateDish(input: {
       dietary_tags: d.dietaryTags,
       is_featured: d.isFeatured,
       image_url: d.imageUrl,
+      special_from: d.specialFrom,
+      special_until: d.specialUntil,
     })
     .eq("id", d.dishId);
   if (error) return { ok: false, error: error.message };
+
+  // A replaced or removed photo is unreferenced now; drop the file.
+  await removeRestaurantImages(supabase, restaurantId, [before?.image_url], d.imageUrl);
 
   revalidatePath("/dashboard/menu");
   revalidatePath("/dashboard");
@@ -397,7 +431,7 @@ export async function toggleDishAvailability(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsDish(supabase, user.id, dishId)))
+  if (!(await managedDishRestaurant(supabase, dishId)))
     return { ok: false, error: "Dish not found" };
 
   const { error } = await supabase
@@ -422,13 +456,149 @@ export async function deleteDish(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await assertOwnsDish(supabase, user.id, dishId)))
-    return { ok: false, error: "Dish not found" };
+  const restaurantId = await managedDishRestaurant(supabase, dishId);
+  if (!restaurantId) return { ok: false, error: "Dish not found" };
+
+  const { data: dish } = await supabase
+    .from("dishes")
+    .select("image_url")
+    .eq("id", dishId)
+    .maybeSingle<{ image_url: string | null }>();
 
   const { error } = await supabase.from("dishes").delete().eq("id", dishId);
   if (error) return { ok: false, error: error.message };
 
+  await removeRestaurantImages(supabase, restaurantId, [dish?.image_url]);
+
   revalidatePath("/dashboard/menu");
   revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// ===========================================================================
+// Variants and add-ons
+// ===========================================================================
+
+const MODIFIER_MAX_GROUPS = 10;
+const MODIFIER_MAX_OPTIONS = 30;
+
+const modifierOptionSchema = z.object({
+  name: z.string().trim().min(1, "Every option needs a name").max(80),
+  price: priceField,
+  is_available: z.boolean(),
+  is_default: z.boolean(),
+});
+
+const modifierGroupSchema = z
+  .object({
+    name: z.string().trim().min(1, "Every group needs a name").max(80),
+    kind: z.enum(["variant", "addon"]),
+    min_select: z.number().int().min(0).max(20),
+    max_select: z.number().int().min(1).max(20).nullable(),
+    options: z.array(modifierOptionSchema).max(MODIFIER_MAX_OPTIONS),
+  })
+  .refine((g) => g.kind !== "variant" || g.options.length > 0, {
+    message: "A size / variant group needs at least one option",
+  })
+  .refine((g) => g.max_select === null || g.max_select >= g.min_select, {
+    message: "'At most' can't be smaller than 'at least'",
+  });
+
+const setModifiersSchema = z.object({
+  dishId: z.string().uuid(),
+  groups: z.array(modifierGroupSchema).max(MODIFIER_MAX_GROUPS),
+});
+
+// Replace a dish's variants and add-ons as a whole. Runs after the dish
+// itself is saved; set_dish_modifiers() does the write in one transaction.
+export async function setDishModifiers(input: {
+  dishId: string;
+  groups: ModifierGroupInput[];
+}): Promise<ActionResult> {
+  const parsed = setModifiersSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const { dishId, groups } = parsed.data;
+
+  const { supabase, user } = await auth();
+  if (!user) return { ok: false, error: "Not authenticated" };
+  if (!(await managedDishRestaurant(supabase, dishId)))
+    return { ok: false, error: "Dish not found" };
+
+  const payload = groups.map((g) => ({
+    name: g.name,
+    kind: g.kind,
+    min_select: g.min_select,
+    max_select: g.max_select,
+    options: g.options.map((o) => ({
+      name: o.name,
+      price_cents: o.price,
+      is_available: o.is_available,
+      is_default: o.is_default,
+    })),
+  }));
+
+  const { error } = await supabase.rpc("set_dish_modifiers", {
+    p_dish_id: dishId,
+    payload,
+  });
+  if (error) {
+    // 22023 is the function's own validation.
+    if (error.code === "22023") return { ok: false, error: error.message };
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        error:
+          "The set_dish_modifiers database function is missing. Run the files in supabase/migrations/ first.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard/menu");
+  return { ok: true };
+}
+
+// ===========================================================================
+// Category schedules
+// ===========================================================================
+
+const categoryScheduleSchema = z.object({
+  categoryId: z.string().uuid(),
+  scheduleId: z.string().uuid().nullable(),
+});
+
+// Restrict a category to one of the restaurant's schedules, or clear it.
+export async function setCategorySchedule(input: {
+  categoryId: string;
+  scheduleId: string | null;
+}): Promise<ActionResult> {
+  const parsed = categoryScheduleSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const { categoryId, scheduleId } = parsed.data;
+
+  const { supabase, user } = await auth();
+  if (!user) return { ok: false, error: "Not authenticated" };
+  const restaurantId = await managedCategoryRestaurant(supabase, categoryId);
+  if (!restaurantId) return { ok: false, error: "Category not found" };
+
+  // A schedule from another restaurant must not be attachable.
+  if (scheduleId) {
+    const { data: schedule } = await supabase
+      .from("menu_schedules")
+      .select("id")
+      .eq("id", scheduleId)
+      .eq("restaurant_id", restaurantId)
+      .maybeSingle();
+    if (!schedule) return { ok: false, error: "Schedule not found" };
+  }
+
+  const { error } = await supabase
+    .from("categories")
+    .update({ schedule_id: scheduleId })
+    .eq("id", categoryId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/menu");
+  revalidatePath("/dashboard/schedules");
   return { ok: true };
 }

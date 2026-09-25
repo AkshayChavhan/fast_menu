@@ -34,7 +34,7 @@ describe("parseMenuFile", () => {
     });
 
     it("counts categories and dishes, including uncategorized ones", () => {
-      expect(parsed.counts).toEqual({ categories: 2, dishes: 4 });
+      expect(parsed.counts).toEqual({ categories: 2, dishes: 5, schedules: 1 });
       expect(parsed.menu.dishes).toHaveLength(1);
     });
 
@@ -205,7 +205,7 @@ describe("parseMenuFile", () => {
 
     it("accepts a file of only uncategorized dishes", () => {
       const parsed = parseOrThrow({ dishes: [{ name: "Chai", price: 90 }] });
-      expect(parsed.counts).toEqual({ categories: 0, dishes: 1 });
+      expect(parsed.counts).toEqual({ categories: 0, dishes: 1, schedules: 0 });
     });
   });
 });
@@ -218,6 +218,7 @@ describe("serializeMenu", () => {
     name_i18n: { hi: "मुख्य" },
     description: "Big plates",
     sort_order: 0,
+    schedule_id: null,
     created_at: "2026-01-01T00:00:00Z",
   };
 
@@ -236,6 +237,8 @@ describe("serializeMenu", () => {
     is_available: false,
     is_featured: true,
     sort_order: 0,
+    special_from: null,
+    special_until: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...over,
@@ -308,3 +311,351 @@ describe("sampleMenuFile", () => {
     expect(sample._readme.some((line) => /REPLACES/i.test(line))).toBe(true);
   });
 });
+
+describe("modifiers, specials and schedules", () => {
+  it("normalises variant and add-on groups with prices in cents", () => {
+    const dish = firstDish(
+      fileWithDish({
+        name: "Paneer",
+        price: 320,
+        modifiers: [
+          {
+            name: "Portion",
+            kind: "variant",
+            options: [
+              { name: "Half", price: 180.5, default: true },
+              { name: "Full", price: 320 },
+            ],
+          },
+          {
+            name: "Extras",
+            kind: "addon",
+            min: 1,
+            max: 2,
+            options: [{ name: "Cheese", price: 40, available: false }],
+          },
+        ],
+      }),
+    );
+    expect(dish.modifiers).toEqual([
+      {
+        name: "Portion",
+        kind: "variant",
+        min_select: 1,
+        max_select: 1,
+        options: [
+          { name: "Half", price_cents: 18050, is_default: true, is_available: true },
+          { name: "Full", price_cents: 32000, is_default: false, is_available: true },
+        ],
+      },
+      {
+        name: "Extras",
+        kind: "addon",
+        min_select: 1,
+        max_select: 2,
+        options: [{ name: "Cheese", price_cents: 4000, is_default: false, is_available: false }],
+      },
+    ]);
+  });
+
+  it("rejects an unknown modifier kind with a pointed message", () => {
+    const res = parseMenuFile(
+      fileWithDish({ name: "D", modifiers: [{ name: "X", kind: "sauce", options: [] }] }),
+      LOCALES,
+    );
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toContain("kind");
+  });
+
+  it("drops an empty variant group and raises a max below min, with warnings", () => {
+    const parsed = parseOrThrow(
+      fileWithDish({
+        name: "D",
+        modifiers: [
+          { name: "Size", kind: "variant", options: [] },
+          { name: "Sides", kind: "addon", min: 2, max: 1, options: [{ name: "A" }] },
+        ],
+      }),
+    );
+    const dish = parsed.menu.categories[0].dishes[0];
+    expect(dish.modifiers.map((g) => g.name)).toEqual(["Sides"]);
+    expect(dish.modifiers[0].max_select).toBe(2);
+    expect(parsed.warnings).toHaveLength(2);
+  });
+
+  it("keeps special dates and ignores a reversed window", () => {
+    const ok = firstDish(fileWithDish({ name: "D", special_from: "2026-09-21", special_until: "2026-09-27" }));
+    expect(ok.special_from).toBe("2026-09-21");
+    expect(ok.special_until).toBe("2026-09-27");
+
+    const parsed = parseOrThrow(fileWithDish({ name: "D", special_from: "2026-09-27", special_until: "2026-09-21" }));
+    const dish = parsed.menu.categories[0].dishes[0];
+    expect(dish.special_from).toBeNull();
+    expect(dish.special_until).toBeNull();
+    expect(parsed.warnings[0]).toContain("reversed");
+
+    const bad = parseMenuFile(fileWithDish({ name: "D", special_from: "21/09/2026" }), LOCALES);
+    expect(bad.ok).toBe(false);
+  });
+
+  it("carries a category's schedule name through for the database to resolve", () => {
+    const parsed = parseOrThrow({ categories: [{ name: "Breakfast", schedule: " Morning ", dishes: [] }] });
+    expect(parsed.menu.categories[0].schedule).toBe("Morning");
+    const none = parseOrThrow({ categories: [{ name: "All day", dishes: [] }] });
+    expect(none.menu.categories[0].schedule).toBeNull();
+  });
+
+  it("round-trips modifiers, specials and schedules through export", () => {
+    const category: Category = {
+      id: "c1",
+      restaurant_id: "r1",
+      name: "Breakfast",
+      name_i18n: {},
+      description: null,
+      sort_order: 0,
+      schedule_id: "s1",
+      created_at: "",
+    };
+    const dish: Dish = {
+      id: "d1",
+      restaurant_id: "r1",
+      category_id: "c1",
+      name: "Idli",
+      name_i18n: {},
+      description: null,
+      description_i18n: {},
+      price_cents: 8000,
+      image_url: null,
+      allergens: [],
+      dietary_tags: [],
+      is_available: true,
+      is_featured: false,
+      sort_order: 0,
+      special_from: "2026-09-21",
+      special_until: null,
+      created_at: "",
+      updated_at: "",
+    };
+    const base = { restaurant_id: "r1", name_i18n: {}, created_at: "", updated_at: "" };
+    const modifiers = new Map([
+      [
+        "d1",
+        [
+          {
+            ...base,
+            id: "g1",
+            dish_id: "d1",
+            name: "Portion",
+            kind: "variant" as const,
+            min_select: 1,
+            max_select: 1,
+            sort_order: 0,
+            options: [
+              { ...base, id: "o1", group_id: "g1", name: "Single", price_cents: 8000, is_available: true, is_default: true, sort_order: 0 },
+              { ...base, id: "o2", group_id: "g1", name: "Double", price_cents: 14000, is_available: true, is_default: false, sort_order: 1 },
+            ],
+          },
+        ],
+      ],
+    ]);
+
+    const file = serializeMenu([category], [dish], modifiers, [
+      {
+        ...base,
+        id: "s1",
+        restaurant_id: "r1",
+        name: "Morning",
+        days: [1, 2, 3, 4, 5],
+        starts_at: "08:00:00",
+        ends_at: "11:30:00",
+        is_active: true,
+      },
+    ]);
+    const parsed = parseOrThrow(file);
+    const cat = parsed.menu.categories[0];
+    expect(cat.schedule).toBe("Morning");
+    expect(cat.dishes[0].special_from).toBe("2026-09-21");
+    expect(cat.dishes[0].special_until).toBeNull();
+    expect(cat.dishes[0].modifiers).toEqual([
+      {
+        name: "Portion",
+        kind: "variant",
+        min_select: 1,
+        max_select: 1,
+        options: [
+          { name: "Single", price_cents: 8000, is_default: true, is_available: true },
+          { name: "Double", price_cents: 14000, is_default: false, is_available: true },
+        ],
+      },
+    ]);
+    expect(parsed.warnings).toEqual([]);
+  });
+});
+
+describe("settings block", () => {
+  const withSettings = (settings: Record<string, unknown>) =>
+    parseOrThrow({
+      settings,
+      dishes: [{ name: "Chai", price: 1 }],
+    });
+
+  it("is absent when the file has none, so older menu files import unchanged", () => {
+    const parsed = parseOrThrow({ dishes: [{ name: "Chai", price: 1 }] });
+    expect(parsed.menu.settings).toEqual({});
+    expect(parsed.hasSettings).toBe(false);
+  });
+
+  it("carries the allowlisted fields through", () => {
+    const parsed = withSettings({
+      currency: "INR",
+      timezone: "Asia/Kolkata",
+      default_locale: "hi",
+      locales: ["en", "hi"],
+      ordering_enabled: true,
+      allow_takeaway: false,
+      table_qr_enabled: true,
+      kds_enabled: true,
+      google_review_url: "https://g.page/r/abc",
+    });
+    expect(parsed.hasSettings).toBe(true);
+    expect(parsed.menu.settings).toEqual({
+      currency: "INR",
+      timezone: "Asia/Kolkata",
+      default_locale: "hi",
+      locales: ["en", "hi"],
+      ordering_enabled: true,
+      allow_takeaway: false,
+      table_qr_enabled: true,
+      kds_enabled: true,
+      google_review_url: "https://g.page/r/abc",
+    });
+  });
+
+  it("drops a currency the app doesn't support, and says so", () => {
+    const parsed = withSettings({ currency: "XYZ" });
+    expect(parsed.menu.settings.currency).toBeUndefined();
+    expect(parsed.warnings.join(" ")).toContain("XYZ");
+  });
+
+  it("drops an invalid timezone but keeps a valid alias", () => {
+    expect(withSettings({ timezone: "Mars/Olympus" }).menu.settings.timezone).toBeUndefined();
+    // The alias that Intl.supportedValuesOf omits — see isValidTimezone.
+    expect(withSettings({ timezone: "Asia/Kolkata" }).menu.settings.timezone).toBe(
+      "Asia/Kolkata",
+    );
+  });
+
+  it("pulls the default language into the offered list when it's missing", () => {
+    const parsed = withSettings({ default_locale: "ta", locales: ["en"] });
+    expect(parsed.menu.settings.locales).toEqual(["ta", "en"]);
+    expect(parsed.warnings.join(" ")).toContain("ta");
+  });
+
+  it("never lets the offered languages end up empty", () => {
+    const parsed = withSettings({ locales: ["klingon"] });
+    expect(parsed.menu.settings.locales).toBeUndefined();
+  });
+
+  it("ignores keys outside the allowlist", () => {
+    const parsed = withSettings({
+      slug: "stolen",
+      is_published: true,
+      owner_id: "someone-else",
+      currency: "INR",
+    });
+    expect(parsed.menu.settings).toEqual({ currency: "INR" });
+  });
+
+  it("uses the file's own languages to filter translations", () => {
+    // "ta" isn't in LOCALES, so without the settings block it would be dropped.
+    const parsed = parseOrThrow({
+      settings: { locales: ["en", "ta"] },
+      dishes: [{ name: "Chai", price: 1, translations: { name: { ta: "தேநீர்" } } }],
+    });
+    expect(parsed.menu.dishes[0].name_i18n).toEqual({ ta: "தேநீர்" });
+  });
+});
+
+describe("schedules", () => {
+  const withSchedules = (schedules: unknown[], categories: unknown[] = []) =>
+    parseOrThrow({
+      schedules,
+      categories,
+      dishes: [{ name: "Chai", price: 1 }],
+    });
+
+  it("normalises times to HH:MM:SS and sorts the days", () => {
+    const parsed = withSchedules([
+      { name: "Lunch", days: [5, 1, 1], starts_at: "12:00", ends_at: "15:30" },
+    ]);
+    expect(parsed.menu.schedules).toEqual([
+      {
+        name: "Lunch",
+        days: [1, 5],
+        starts_at: "12:00:00",
+        ends_at: "15:30:00",
+        is_active: true,
+      },
+    ]);
+    expect(parsed.counts.schedules).toBe(1);
+  });
+
+  it("keeps an overnight window, where the end is before the start", () => {
+    const parsed = withSchedules([
+      { name: "Late", days: [6], starts_at: "22:00", ends_at: "02:00" },
+    ]);
+    expect(parsed.menu.schedules[0].ends_at).toBe("02:00:00");
+  });
+
+  it("drops a zero-length window", () => {
+    const parsed = withSchedules([
+      { name: "Nothing", days: [1], starts_at: "12:00", ends_at: "12:00" },
+    ]);
+    expect(parsed.menu.schedules).toEqual([]);
+    expect(parsed.warnings.join(" ")).toContain("Nothing");
+  });
+
+  it("drops a duplicate name rather than importing it twice", () => {
+    const parsed = withSchedules([
+      { name: "Lunch", days: [1], starts_at: "12:00", ends_at: "15:00" },
+      { name: "lunch", days: [2], starts_at: "13:00", ends_at: "16:00" },
+    ]);
+    expect(parsed.menu.schedules).toHaveLength(1);
+    expect(parsed.menu.schedules[0].days).toEqual([1]);
+  });
+
+  it("warns when a category names a schedule the file doesn't define", () => {
+    const parsed = withSchedules(
+      [{ name: "Lunch", days: [1], starts_at: "12:00", ends_at: "15:00" }],
+      [{ name: "Thalis", schedule: "Dinner", dishes: [] }],
+    );
+    expect(parsed.menu.categories[0].schedule).toBe("Dinner");
+    expect(parsed.warnings.join(" ")).toContain("Dinner");
+  });
+
+  it("stays quiet when the schedule is defined in the same file", () => {
+    const parsed = withSchedules(
+      [{ name: "Lunch", days: [1], starts_at: "12:00", ends_at: "15:00" }],
+      [{ name: "Thalis", schedule: "lunch", dishes: [] }],
+    );
+    expect(parsed.warnings.join(" ")).not.toContain("lunch");
+  });
+
+  it("rejects a day outside 0-6", () => {
+    const res = parseMenuFile(
+      { schedules: [{ name: "Bad", days: [9], starts_at: "12:00", ends_at: "13:00" }], dishes: [{ name: "Chai", price: 1 }] },
+      LOCALES,
+    );
+    expect(res.ok).toBe(false);
+  });
+
+  it("rejects a malformed time", () => {
+    const res = parseMenuFile(
+      { schedules: [{ name: "Bad", days: [1], starts_at: "noon", ends_at: "13:00" }], dishes: [{ name: "Chai", price: 1 }] },
+      LOCALES,
+    );
+    expect(res.ok).toBe(false);
+  });
+});
+

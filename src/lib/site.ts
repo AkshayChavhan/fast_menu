@@ -16,6 +16,7 @@ export async function getSiteOrigin(): Promise<string> {
   return `${proto}://${host}`;
 }
 
-export function publicMenuPath(slug: string): string {
-  return `/m/${slug}`;
-}
+// Path helpers are re-exported for server callers; client components must
+// import them from lib/paths.ts instead, because this module pulls in
+// next/headers.
+export { publicMenuPath, tableMenuPath } from "./paths";

@@ -5,7 +5,7 @@
 -- categories, photographed dishes, allergens, dietary tags, an 86'd dish,
 -- multi-language names, and upsell pairings.
 --
--- Run AFTER schema.sql, and AFTER you have signed up at least one user
+-- Run AFTER the migrations in supabase/migrations/, and AFTER you have signed up at least one user
 -- (restaurants.owner_id references auth.users). Run it in the Supabase SQL
 -- editor or: supabase db execute --file supabase/seed.sql
 --
@@ -50,6 +50,20 @@ begin
      'Modern Mediterranean plates, wood-fired mains and natural wines.',
      'USD', 'en', array['en','es','fr'], true)
   returning id into v_rest;
+
+  -- Table ordering on, so the demo shows the whole flow: guests order from
+  -- /m/demo, waiters approve, the counter settles. Existing owners are
+  -- grandfathered as active trials by the migration; the demo is too.
+  update public.restaurants
+     set ordering_enabled = true,
+         allow_takeaway   = true,
+         table_qr_enabled = true,
+         trial_status     = 'active',
+         timezone         = 'Europe/Rome'
+   where id = v_rest;
+
+  insert into public.tables (restaurant_id, label, sort_order)
+  select v_rest, 'Table ' || n, n from generate_series(1, 8) as n;
 
   -- ---- Categories -------------------------------------------------------
   insert into public.categories (restaurant_id, name, name_i18n, description, sort_order)
@@ -192,6 +206,21 @@ begin
      'https://images.unsplash.com/photo-1560512823-829485b8bf24?w=800&q=80',
      array['sulphites'], array['vegan','gluten-free'], true, false, 2)
   returning id into d_spritz;
+
+  -- ---- Sizes and add-ons ------------------------------------------------
+  -- The ribeye comes in two cuts; the tiramisu takes an extra shot.
+  perform public.insert_dish_modifiers(v_rest, d_ribeye, $j$[
+    {"name": "Cut", "kind": "variant",
+     "options": [{"name": "250 g", "price_cents": 3400, "is_default": true},
+                 {"name": "400 g", "price_cents": 4900}]},
+    {"name": "Sides", "kind": "addon", "min_select": 0, "max_select": 2,
+     "options": [{"name": "Rosemary fries", "price_cents": 600},
+                 {"name": "Grilled greens", "price_cents": 700}]}
+  ]$j$::jsonb);
+  perform public.insert_dish_modifiers(v_rest, d_tiramisu, $j$[
+    {"name": "Extras", "kind": "addon", "min_select": 0, "max_select": 1,
+     "options": [{"name": "Espresso shot", "price_cents": 300}]}
+  ]$j$::jsonb);
 
   -- ---- Pairings (upsell engine) ----------------------------------------
   -- "Goes well with" (kind = 'pairing') and add-ons (kind = 'addon').

@@ -49,13 +49,15 @@ trigger that gives every new signup a starter restaurant.
 
 1. In your project, open the **SQL Editor** (left sidebar, the `</>` icon).
 2. Click **+ New query**.
-3. Open [`supabase/schema.sql`](../supabase/schema.sql) from this repo, copy its
-   **entire** contents, and paste into the editor.
+3. Open [`supabase/migrations/`](../supabase/migrations/) in this repo. Start with
+   the baseline file, copy its **entire** contents, and paste into the editor.
 4. Click **Run** (or press Ctrl/Cmd + Enter).
 5. You should see **Success. No rows returned** — that's correct.
+6. Repeat for every later file in the folder, in filename order. Each one is a
+   forward-only migration that adds a feature on top of the baseline.
 
-> Re-running `schema.sql` later is safe; it uses `create ... if not exists` and
-> `drop policy if exists`.
+> Re-running the baseline later is safe; it uses `create ... if not exists` and
+> `drop policy if exists`. Later migrations are written to be re-runnable too.
 
 **Verify (optional):** open the **Table Editor** — you should now see the
 `profiles`, `restaurants`, `categories`, `dishes`, and `dish_pairings` tables.
@@ -144,6 +146,58 @@ Re-running `seed.sql` resets the demo to a clean state.
 
 ---
 
+## 6. The free trial, staff logins and platform admins
+
+Every new restaurant claims a **one-time 15-day trial** right after signup.
+The owner enters the hotel's mobile number, city, pincode and (optionally)
+GSTIN; a number or GSTIN that already activated a trial is refused, and a
+look-alike name in the same pincode is parked for a platform admin to review.
+
+**Phone verification.** By default the mobile number must be confirmed by an
+SMS code, which needs a provider:
+
+1. Supabase → **Authentication** → **Sign In / Providers** → **Phone**.
+2. Enable it, pick a provider (Twilio, MessageBird, Textlocal or Vonage) and
+   paste its credentials.
+
+Until that is set up, switch the OTP off (every duplicate check still runs):
+
+```sql
+update public.platform_settings set value = 'none' where key = 'trial_verification';
+```
+
+Set it back to `'phone'` once SMS works.
+
+**Platform admins.** Flagged claims are reviewed at `/admin/trials`. Allow
+yourself in with:
+
+```sql
+insert into public.platform_admins (email) values ('you.com');
+```
+
+**Push notifications (optional).** Waiters can get a buzz when a guest orders
+or calls. Generate a key pair once and put it in the env:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+```dotenv
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you.com
+```
+
+Without the keys the bell in the waiter app is hidden and nothing is sent.
+
+**Staff logins.** Owners and managers add managers, cashiers, waiters and
+kitchen staff under **Staff** in the dashboard. Accounts are created with the
+service-role key, so `SUPABASE_SERVICE_ROLE_KEY` must be set. Waiters land in
+`/waiter` and kitchen staff in `/kitchen` when they sign in at the usual
+login page.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Cause & fix |
@@ -151,8 +205,11 @@ Re-running `seed.sql` resets the demo to a clean state.
 | Pages error / "Invalid API key" | `.env.local` values are wrong or missing. Double-check the URL and anon key, then restart `npm run dev`. |
 | Signup "succeeds" but you're not logged in | Email confirmation is on. Either click the emailed link, or turn off "Confirm email" (step 3). |
 | Public menu shows "menu not found" | The restaurant isn't **published**, or the slug in the URL doesn't match. Publish it under Settings. |
-| Dish photos don't upload | The `menu-images` storage bucket wasn't created — re-run `schema.sql`. |
+| Dish photos don't upload | The `menu-images` storage bucket wasn't created — re-run the baseline migration. |
+| Upload fails with "exceeded the maximum allowed size" or "mime type … is not supported" | The bucket caps images at 1 MB and JPG/PNG/WebP. The app shrinks larger photos before sending, so this only appears for an upload that bypassed it, or an image that could not be shrunk enough. |
 | `/m/demo` is empty / errors | You ran `seed.sql` before signing up. Sign up first, then re-run the seed. |
+| Signup lands on "Activate your free trial" and no SMS arrives | No phone provider is configured. Set `trial_verification` to `none` (section 6) or configure the provider. |
+| "Add staff" fails with a service-role error | `SUPABASE_SERVICE_ROLE_KEY` is missing from `.env.local` (or Vercel). |
 | Env changes not taking effect | Restart the dev server — Next.js only reads `.env.local` at startup. |
 
 ---

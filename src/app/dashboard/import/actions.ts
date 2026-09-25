@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireOwnedRestaurant } from "../lib";
+import { requireRestaurantAccess } from "../lib";
 import {
   parseMenuFile,
   IMPORT_MAX_BYTES,
@@ -10,7 +10,9 @@ import {
 } from "@/lib/menu-import";
 
 export interface ImportPreview {
-  counts: { categories: number; dishes: number };
+  counts: { categories: number; dishes: number; schedules: number };
+  /** The file carries a settings block, so importing also changes settings. */
+  hasSettings: boolean;
   /** What the replace would remove — shown before the user commits. */
   replacing: { categories: number; dishes: number };
   warnings: string[];
@@ -21,7 +23,7 @@ export type PreviewResult =
   | { ok: false; error: string };
 
 export type ApplyResult =
-  | { ok: true; imported: { categories: number; dishes: number } }
+  | { ok: true; imported: { categories: number; dishes: number; schedules: number } }
   | { ok: false; error: string };
 
 // Shared front half of both actions: authorise, read the restaurant's locales,
@@ -36,7 +38,7 @@ async function authorizeAndParse(restaurantId: string, rawText: string) {
     };
   }
 
-  const guard = await requireOwnedRestaurant(restaurantId);
+  const guard = await requireRestaurantAccess(restaurantId, "menu:import");
   if (!guard.ok) return { ok: false as const, error: guard.error };
 
   let raw: unknown;
@@ -88,6 +90,7 @@ export async function previewImport(
     ok: true,
     preview: {
       counts: ready.parsed.counts,
+      hasSettings: ready.parsed.hasSettings,
       replacing: {
         categories: catRes.count ?? 0,
         dishes: dishRes.count ?? 0,
@@ -115,7 +118,7 @@ export async function applyImport(
   });
 
   if (error) {
-    // 42501 is the ownership guard inside the function.
+    // 42501 is the role guard inside the function.
     if (error.code === "42501") {
       return { ok: false, error: "You don't have access to this restaurant." };
     }
@@ -123,16 +126,21 @@ export async function applyImport(
       return {
         ok: false,
         error:
-          "The import_menu database function is missing. Run supabase/schema.sql in the Supabase SQL editor first.",
+          "The import_menu database function is missing. Run the files in supabase/migrations/ in the Supabase SQL editor first.",
       };
     }
     return { ok: false, error: error.message };
   }
 
-  const result = (data ?? {}) as { categories?: number; dishes?: number };
+  const result = (data ?? {}) as {
+    categories?: number;
+    dishes?: number;
+    schedules?: number;
+  };
 
   revalidatePath("/dashboard/menu");
   revalidatePath("/dashboard/import");
+  revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");
   revalidatePath(`/m/${slug}`);
 
@@ -141,6 +149,7 @@ export async function applyImport(
     imported: {
       categories: result.categories ?? 0,
       dishes: result.dishes ?? 0,
+      schedules: result.schedules ?? 0,
     },
   };
 }

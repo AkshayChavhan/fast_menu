@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { Pencil, Trash2, Star, Loader2, ImageIcon } from "lucide-react";
-import type { Dish } from "@/types/db";
+import type { Dish, ModifierGroupWithOptions } from "@/types/db";
 import { formatPrice, cn } from "@/lib/utils";
+import { describeModifiers, dishPriceRange } from "@/lib/modifiers";
+import { isSpecial } from "@/lib/schedule";
 import { labelize } from "@/components/dashboard/ChipSelect";
 import { Switch } from "@/components/dashboard/Switch";
 import {
@@ -13,11 +15,13 @@ import {
 
 export function DishCard({
   dish,
+  modifierGroups,
   currency,
   locale,
   onEdit,
 }: {
   dish: Dish;
+  modifierGroups: ModifierGroupWithOptions[];
   currency: string;
   locale: string;
   onEdit: () => void;
@@ -55,6 +59,12 @@ export function DishCard({
   }
 
   const dimmed = !available;
+  const modifierSummary = describeModifiers(modifierGroups);
+  const range = dishPriceRange(dish, modifierGroups);
+  const priceLabel =
+    range.from === range.to
+      ? formatPrice(range.from, currency, locale)
+      : `${formatPrice(range.from, currency, locale)} – ${formatPrice(range.to, currency, locale)}`;
 
   return (
     <div
@@ -107,6 +117,16 @@ export function DishCard({
                 {dish.description}
               </p>
             )}
+            {isSpecial(dish) && (
+              <p className="mt-1 inline-flex rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                Special {dish.special_from ?? "…"} → {dish.special_until ?? "…"}
+              </p>
+            )}
+            {modifierSummary && (
+              <p className="mt-1 text-[11px] font-medium text-brand-600 dark:text-brand-300">
+                {modifierSummary}
+              </p>
+            )}
             {(dish.allergens.length > 0 || dish.dietary_tags.length > 0) && (
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {dish.dietary_tags.map((t) => (
@@ -129,7 +149,7 @@ export function DishCard({
             )}
           </div>
           <span className="shrink-0 text-sm font-semibold tabular-nums">
-            {formatPrice(dish.price_cents, currency, locale)}
+            {priceLabel}
           </span>
         </div>
       </div>

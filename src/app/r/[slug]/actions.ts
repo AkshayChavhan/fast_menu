@@ -81,7 +81,7 @@ export async function submitReview(
   // RLS hides unpublished/expired restaurants, so this doubles as the
   // "can this page be reached at all" check.
   const { data: restaurant } = await supabase
-    .from("restaurants")
+    .from("restaurants_public")
     .select("id")
     .eq("slug", slug)
     .maybeSingle<{ id: string }>();

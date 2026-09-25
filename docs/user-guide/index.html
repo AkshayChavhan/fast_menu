@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>fast_menu guide book</title>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<section class="cover">
+  <div class="logo"><img src="../../public/icon-512.png" alt=""><span class="name">fast_menu</span></div>
+  <div>
+    <h1>Guide<br>Book</h1>
+    <p class="sub">QR menus and table ordering for restaurants, cafés, bars and hotels. Everything owners, waiters, cashiers and kitchen staff need to run service with fast_menu.</p>
+  </div>
+  <div class="foot"><span>Edition 1 · September 2026</span><span>For the people who use the product</span></div>
+</section>
+<section class="frontmatter">
+  <h2>Contents</h2>
+  <ul class="toc">
+    <li class="part"><span class="t">Part one · Setting up</span></li>
+    <li><span class="n">1</span><span class="t">Welcome</span><span class="d">What fast_menu does and who does what</span></li>
+    <li><span class="n">2</span><span class="t">Your first day as an owner</span><span class="d">Account, free trial, restaurant details, going live</span></li>
+    <li><span class="n">3</span><span class="t">Building the menu</span><span class="d">Categories, dishes, sizes and add-ons, specials, schedules</span></li>
+    <li><span class="n">4</span><span class="t">Tables and QR codes</span><span class="d">Switching ordering on, your floor plan, printing codes</span></li>
+    <li><span class="n">5</span><span class="t">Your team</span><span class="d">Roles, logins, passwords, putting the app on phones</span></li>
+    <li class="part"><span class="t">Part two · During service</span></li>
+    <li><span class="n">6</span><span class="t">Ordering from the table</span><span class="d">The guest's side, from scan to payment</span></li>
+    <li><span class="n">7</span><span class="t">The waiter app</span><span class="d">Approve, take, edit and move orders; the table board</span></li>
+    <li><span class="n">8</span><span class="t">The kitchen screen</span><span class="d">Tickets, cooking states, ready alerts</span></li>
+    <li><span class="n">9</span><span class="t">The billing counter</span><span class="d">Open bills, marking paid, today's takings</span></li>
+    <li class="part"><span class="t">Part three · Running the restaurant</span></li>
+    <li><span class="n">10</span><span class="t">Day to day</span><span class="d">Pausing orders, specials, reviews, the trial, offline</span></li>
+    <li class="part"><span class="t">Appendix</span></li>
+    <li><span class="n">A</span><span class="t">An order, stage by stage</span><span class="d">Statuses, kitchen states, words used in this book</span></li>
+    <li><span class="n">B</span><span class="t">Questions and answers</span><span class="d">The situations that come up most</span></li>
+  </ul>
+  <p class="small" style="margin-top:18pt">Words shown like <span class="ui">Approve</span> are buttons and labels exactly as they appear on screen. Status words are shown like <span class="status green">Approved</span>. Prices in examples use rupees; your menu shows the currency you choose in Settings.</p>
+</section>
+
+<section class="part">
+  <div class="kicker">Part one</div>
+  <h1>Setting up</h1>
+  <p>For the owner. From creating an account to a live menu with tables, codes and a team, in an afternoon.</p>
+</section>
+
+<section class="chapter" id="ch1">
+  <h1><span class="num">1</span>Welcome</h1>
+  <p class="lead">fast_menu turns the QR code on your table into a digital menu that guests can order from, with a waiter always in the loop and one bill per table.</p>
+
+  <h2>What it does</h2>
+  <p>Guests scan a code and see your menu on their phone, with photos, allergens and prices that you change from your own phone. With ordering switched on, they build an order, and a waiter confirms it with one scan before it reaches the kitchen. The counter sees every open table and marks it paid once. Optionally, a tablet in the kitchen shows tickets, and guests are pointed to your Google reviews after they pay.</p>
+
+  <h2>Who does what</h2>
+  <p>Everyone signs in on the same page and lands in the screen made for their role. You create the logins for your staff yourself; nobody needs to register.</p>
+  <table>
+    <tr><th>Role</th><th>Lands in</th><th>Can</th><th>Cannot</th></tr>
+    <tr><td class="k">Owner</td><td>Dashboard</td><td>Everything below, plus Settings: restaurant details, the ordering switches, the timezone, publishing.</td><td></td></tr>
+    <tr><td class="k">Manager</td><td>Dashboard</td><td>Menu, schedules, tables, staff, reviews, pause ordering, the billing counter, reopen a paid bill, and the waiter and kitchen screens.</td><td>Change Settings. Add or remove other managers.</td></tr>
+    <tr><td class="k">Cashier</td><td>Dashboard, billing counter</td><td>See open bills, mark them paid, see today's takings.</td><td>Touch the menu, staff or settings.</td></tr>
+    <tr><td class="k">Waiter</td><td>Waiter app</td><td>Scan, approve, reject, take, edit and move orders; seat and clear tables; get notifications.</td><td>Mark a bill paid. Open the dashboard.</td></tr>
+    <tr><td class="k">Kitchen</td><td>Kitchen screen</td><td>See tickets and move dishes from queued to cooking to ready.</td><td>Anything else.</td></tr>
+    <tr><td class="k">Guest</td><td>Your menu</td><td>Browse, order, order more, call a waiter, ask for the bill.</td><td>Send anything to the kitchen unconfirmed, change a confirmed order, see other tables.</td></tr>
+  </table>
+
+  <h2>A service in five steps</h2>
+  <div class="flow">
+    <div class="step"><span class="who">Guest</span><b>Orders</b>from the table code and shows a short code</div>
+    <div class="step"><span class="who">Waiter</span><b>Scans and approves</b>picking the table if needed</div>
+    <div class="step"><span class="who">Kitchen</span><b>Cooks</b>from the ticket, marks it ready</div>
+    <div class="step"><span class="who">Waiter</span><b>Serves</b>and edits or adds if guests ask</div>
+    <div class="step"><span class="who">Counter</span><b>Marks paid</b>once for the whole table</div>
+  </div>
+  <p>Two rules make this safe. Nothing reaches the kitchen or the bill until a member of staff approves it. And every price is checked again by the system when the order is placed, so a stale menu on someone's phone cannot produce a wrong bill.</p>
+
+  <h2>Where things live</h2>
+  <table>
+    <tr><th>Screen</th><th>Who uses it</th><th>Best on</th></tr>
+    <tr><td class="k">Dashboard</td><td>Owner, manager, cashier</td><td>Laptop or phone</td></tr>
+    <tr><td class="k">Waiter app</td><td>Waiters, managers</td><td>Phone, added to the home screen</td></tr>
+    <tr><td class="k">Kitchen screen</td><td>Kitchen</td><td>A tablet on the pass, dark theme</td></tr>
+    <tr><td class="k">Public menu</td><td>Guests</td><td>Any phone camera, nothing to install</td></tr>
+  </table>
+</section>
+
+<section class="chapter" id="ch2">
+  <h1><span class="num">2</span>Your first day as an owner</h1>
+  <p class="lead">Create the account, activate the free trial, fill in the basics, and decide when to go live.</p>
+
+  <h2>Creating the account</h2>
+  <ol class="steps">
+    <li>Open the sign-up page and enter your full name, email and a password of at least six characters. Tap <span class="ui">Create account</span>.</li>
+    <li>If the screen says <strong>Check your email</strong>, open the confirmation link we sent, then sign in. If it says <strong>You're all set</strong>, tap <span class="ui">Go to dashboard</span>.</li>
+  </ol>
+  <p>The email you sign up with is the owner login. Everyone else gets a login you create under Staff, so there is no need for a second account for the same restaurant.</p>
+
+  <h2>Activating the free trial</h2>
+  <p>Every restaurant gets fifteen days free, once. Before the dashboard opens for the first time you are asked to say which hotel or restaurant this is, on a page headed <strong>Activate your free 15-day trial</strong>.</p>
+  <table>
+    <tr><th>Field</th><th>What to enter</th></tr>
+    <tr><td class="k">Mobile number</td><td>The restaurant's main contact number, with the country code picked from the list. If verification is on, a six-digit code is texted to it.</td></tr>
+    <tr><td class="k">City and pincode</td><td>Where the restaurant is. Used to tell two restaurants with similar names apart.</td></tr>
+    <tr><td class="k">GSTIN</td><td>Optional. Fifteen characters, like 27AAPFU0939F1ZV. A quick way to prove this is a different business.</td></tr>
+  </table>
+  <p>Tap <span class="ui">Start my trial</span>, or <span class="ui">Send me the code</span> and then <span class="ui">Verify and start my trial</span>. One of three things happens:</p>
+  <ul>
+    <li><strong>Your 15-day trial has started.</strong> The dashboard opens. The fifteen days count from this moment, not from sign-up.</li>
+    <li><strong>We're checking your hotel.</strong> A restaurant with a very similar name already uses fast_menu in your area, so a person looks at it, usually within a day. You can build the whole menu meanwhile; only publishing waits.</li>
+    <li><strong>This hotel already has an account.</strong> The trial was refused because this restaurant already used one. If you work there, ask its owner to add you under Staff instead. If you think this is a mistake, contact support.</li>
+  </ul>
+  <div class="callout note"><span class="label">Why the checks</span><p>The trial is per restaurant, not per email. A phone number or GSTIN that already activated a trial cannot activate another, and a look-alike name in the same pincode is reviewed by hand. This keeps the trial fair for everyone.</p></div>
+
+  <h2>Restaurant details</h2>
+  <p>Open <span class="ui">Settings</span> in the sidebar. The <strong>Restaurant details</strong> card holds:</p>
+  <ul>
+    <li><strong>Name</strong> and <strong>Description</strong>, shown at the top of the menu.</li>
+    <li><strong>Public URL slug</strong>, the last part of your menu's web address. Letters, numbers and hyphens, and it has to be unique. Change it before you print codes, not after, because printed codes carry the address.</li>
+    <li><strong>Currency</strong>, <strong>Default language</strong> and <strong>Languages offered</strong>, which add a language switcher to the menu.</li>
+    <li>A <strong>Logo</strong>, uploaded in its own card. Every image you upload, here or for a dish or a staff member, must be a JPG, PNG or WebP. Anything over 1 MB is shrunk on your phone before it is sent, keeping all the detail a screen can show: a photo loses resolution it never displays before it loses any sharpness, and a PNG logo keeps its crisp edges and transparency. Only an image that cannot be brought under 1 MB without visible loss is refused.</li>
+  </ul>
+  <p>Further down, the <strong>Table ordering</strong> card has the switches described in chapter 4 and the <strong>Timezone</strong>. Set the timezone now: schedules, today's specials and the counter's daily totals all follow it.</p>
+
+  <h2>Going live</h2>
+  <p>Your menu starts as a draft that only you can see. The <strong>Overview</strong> page and the <strong>Visibility</strong> card in Settings both have the switch <span class="ui">Menu is a draft</span>. Flip it and it reads <span class="ui">Menu is live</span>; the badge next to your restaurant name changes from <span class="status grey">Draft</span> to <span class="status green">Published</span>.</p>
+  <p>Publishing is only possible while the trial is active. If the switch refuses with "Publishing is switched off until your trial is approved", the hotel check from above is still in progress.</p>
+  <div class="callout"><span class="label">Suggested order</span><p>Details and timezone, then the menu (chapter 3), then tables and the ordering switches (chapter 4), then staff (chapter 5), then publish and print. Guests who scan a code before you publish see a "Menu not found" page.</p></div>
+</section>
+<section class="chapter" id="ch3">
+  <h1><span class="num">3</span>Building the menu</h1>
+  <p class="lead">Categories hold dishes. Dishes can have sizes and add-ons, a date window as a special, and a switch that takes them off the menu when they run out.</p>
+
+  <h2>Categories</h2>
+  <p>Open <span class="ui">Menu</span>. Tap <span class="ui">Add category</span>, type a name such as Starters, and tap <span class="ui">Add</span>. The pencil renames, the trash deletes; deleting a category moves its dishes to <strong>Uncategorized</strong>, it does not delete them. Tap <span class="ui">Reorder</span> to drag categories into the order guests should see, then <span class="ui">Save order</span>.</p>
+  <p>Once you have created schedules (below), each category gets a dropdown that reads <span class="ui">All day</span> or the name of a schedule.</p>
+
+  <h2>Dishes</h2>
+  <p>Inside a category, add a dish. The form has:</p>
+  <table>
+    <tr><th>Field</th><th>Notes</th></tr>
+    <tr><td class="k">Photo</td><td>Optional but worth it. Cards with photos get the larger layout. JPG, PNG or WebP; a photo over 1 MB is shrunk to fit.</td></tr>
+    <tr><td class="k">Name, Price</td><td>The price is the dish's price when it has no sizes. Once you add a size group, the field reads <em>Price (unused with sizes)</em> and each size carries its own price.</td></tr>
+    <tr><td class="k">Category, Description</td><td>Where it shows, and the line under the name.</td></tr>
+    <tr><td class="k">Allergens, Dietary tags</td><td>Chips such as Nuts, Vegan, Gluten-free, Spicy. Guests can filter by dietary tags.</td></tr>
+    <tr><td class="k">Feature this dish</td><td>A star. Featured dishes carry a "Chef's Special" ribbon.</td></tr>
+    <tr><td class="k">Daily special</td><td>Two dates, From and Until. See below.</td></tr>
+    <tr><td class="k">Sizes, variants &amp; add-ons</td><td>The choices guests make when ordering. See below.</td></tr>
+  </table>
+
+  <h3>Taking a dish off the menu</h3>
+  <p>Every dish card has a switch that reads <span class="ui">On</span> or <span class="ui">86</span>. Flip it to 86 when a dish runs out. It vanishes from guests' phones at once, shows an amber <span class="status amber">86'd</span> badge in your dashboard, and counts on the Overview tile named <strong>86'd</strong>. Flip it back when it is available again. Nothing else changes, so this is the switch to use several times a night.</p>
+
+  <h2>Sizes, variants and add-ons</h2>
+  <p>Only what you define is offered. A dish with no groups is ordered as it is. There are two kinds of group:</p>
+  <div class="two">
+    <div class="card">
+      <h3>Sizes / variants · "Pick one"</h3>
+      <p>The guest must pick exactly one option, and that option's price <em>is</em> the price of the dish. Typical: Half ₹180 and Full ₹320, or Regular and Large. Mark one option as the default with the radio button. The menu shows the dish as "from ₹180".</p>
+    </div>
+    <div class="card">
+      <h3>Add-ons</h3>
+      <p>The guest may pick several, and each option's price is added to the dish. Typical: Extra cheese +20, Extra chutney +20, Butter (free). Set <span class="ui">At least</span> to 0 to make the group optional, or to 1 or more to require choices. Set <span class="ui">At most</span> to cap them, or leave it blank for any number.</p>
+    </div>
+  </div>
+  <p>Each option has its own availability switch, so you can 86 just the Large size or just one topping. The dish card in the dashboard shows a one-line summary of its groups, for example "Size: Half, Full · Extras: 3 options".</p>
+  <div class="callout note"><span class="label">Spice level</span><p>Spice level is usually a size-style group named Spice with options Mild, Medium and Hot, all at the same price. Because it is a "pick one" group, guests have to choose, so the kitchen never has to guess.</p></div>
+
+  <h2>Today's specials</h2>
+  <p>Give a dish a <strong>From</strong> and <strong>Until</strong> date and it becomes a special. Between those dates it is highlighted at the top of the menu under a section named <strong>Today's specials</strong>. Outside them it is hidden entirely, so a weekend thali can live in your menu all year and appear only on the days you choose. Leave both dates empty for an everyday dish. Dates follow the timezone in Settings.</p>
+
+  <h2>Schedules</h2>
+  <p>Open <span class="ui">Schedules</span> to create weekly windows such as Breakfast, Lunch or Happy hour.</p>
+  <ol class="steps">
+    <li>Tap <span class="ui">Add schedule</span>, name it, tap the days it applies to, and set <strong>From</strong> and <strong>Until</strong> times. An end before the start makes an overnight window that counts as the day it starts, useful for a late bar menu.</li>
+    <li>Save, then go to <span class="ui">Menu</span> and pick the schedule in the dropdown on each category it should govern.</li>
+  </ol>
+  <p>A category on a schedule is shown only while the window is open, with no message outside it. Categories without a schedule show all day. The list on the Schedules page tells you which categories use each one, and a switch pauses a schedule without deleting it. Deleting a schedule makes its categories show all day again.</p>
+
+  <h2>Moving a whole menu at once</h2>
+  <p><span class="ui">Import &amp; export</span> moves the entire menu as one file. <strong>Export</strong> downloads what you have, including sizes and add-ons, so you can edit it in bulk or keep a backup. <strong>Import</strong> replaces the whole menu with a file: the page shows what the file adds and what it will delete before you confirm with <span class="ui">Replace my menu</span>. Dish pairings are cleared by an import, so export first if you want a way back.</p>
+</section>
+<section class="chapter" id="ch4">
+  <h1><span class="num">4</span>Tables and QR codes</h1>
+  <p class="lead">Switch ordering on, tell fast_menu about your floor, and print a code for every table.</p>
+
+  <h2>The ordering switches</h2>
+  <p>In <span class="ui">Settings</span>, the <strong>Table ordering</strong> card has one master switch and three that depend on it. Tap <span class="ui">Save ordering settings</span> after changing them.</p>
+  <table>
+    <tr><th>Switch</th><th>On</th><th>Off</th></tr>
+    <tr><td class="k">Accept orders</td><td>Guests get Add buttons and a cart. Waiters, kitchen and counter screens come alive.</td><td>The menu is read-only, exactly as a plain QR menu. The other three switches are greyed out.</td></tr>
+    <tr><td class="k">Let guests choose parcel / takeaway</td><td>Guests pick Dine in or Parcel when placing an order.</td><td>Every guest order is dine-in. Waiters can still mark a parcel themselves.</td></tr>
+    <tr><td class="k">One QR code per table</td><td>You print a code per table and the table is filled in for the waiter. Guests can call a waiter and ask for the bill.</td><td>Guests scan the single menu code and the waiter picks the table when approving.</td></tr>
+    <tr><td class="k">Kitchen screen</td><td>Approved orders appear as tickets on a kitchen tablet, and waiters see cooking states.</td><td>Orders go from the waiter straight to the bill.</td></tr>
+  </table>
+  <p>Start with <em>Accept orders</em> and <em>One QR code per table</em>. Add the kitchen screen once the floor is comfortable; it is a separate habit for the kitchen to learn.</p>
+
+  <h2>Adding your tables</h2>
+  <p>Open <span class="ui">Tables</span>. The box at the top takes names or ranges, separated by commas, for example:</p>
+  <div class="screen"><div class="bar">Add tables</div><div class="row"><span>1-20, Bar, Patio 1-4</span></div><div class="row small"><span>Will add 25: 1, 2, 3, 4, 5, 6…</span></div><span class="btn">Add</span></div>
+  <ul>
+    <li>Ranges expand: <em>1-20</em> makes twenty tables, <em>Patio 1-4</em> makes four.</li>
+    <li>Names already in the list are skipped, so you can paste again safely. The notice reads, for example, "Added 4; 2 already existed."</li>
+    <li>A name can be up to 40 characters and a restaurant can have up to 300 tables.</li>
+  </ul>
+  <p>Each row has a pencil to rename, a switch to <strong>Retire</strong> a table you are not using (its code stops resolving until you reactivate it) and a trash icon to delete it. Renaming keeps the printed code working; deleting does not.</p>
+
+  <h2>Printing table cards</h2>
+  <ol class="steps">
+    <li>Publish the menu first. A code scanned before publishing shows "Menu not found".</li>
+    <li>Open <span class="ui">QR code</span> in the sidebar and scroll to <strong>Table codes</strong>. One card per active table is laid out, each with the table name, its QR and the line "Scan to see the menu &amp; order".</li>
+    <li>Tap <span class="ui">Print table cards</span>. Cut, laminate, and put each card on its table.</li>
+  </ol>
+  <div class="callout"><span class="label">Codes never change</span><p>A table's code points at the table, not at its name. Rename Table 3 to Window 1 and the card keeps working. Only deleting the table breaks its card, which is why the delete button warns you.</p></div>
+
+  <h2>The other codes on that page</h2>
+  <ul>
+    <li><strong>The single menu code</strong> at the top opens the menu without a table. Download it as PNG or SVG, or print it as a <span class="ui">Table tent</span>, <span class="ui">Sticker</span> or <span class="ui">Window decal</span>. Use it on the door, on flyers, or on tables if you keep per-table codes off.</li>
+    <li><strong>The review QR code</strong> opens your own review form (chapter 10), not Google. Print it on the bill.</li>
+  </ul>
+</section>
+
+<section class="chapter" id="ch5">
+  <h1><span class="num">5</span>Your team</h1>
+  <p class="lead">Give each person a login for exactly the screen they need. You create the accounts; nobody registers on their own.</p>
+
+  <h2>Adding a staff member</h2>
+  <ol class="steps">
+    <li>Open <span class="ui">Staff</span> and tap <span class="ui">Add staff</span>.</li>
+    <li>Enter their name, pick a role, and enter the email they will sign in with. A safe password is generated for you; tap the refresh icon for another one. Note it down: it is not shown again.</li>
+    <li>Optionally tap <span class="ui">Upload photo</span> to add a profile picture; it appears next to their name on the roster. You can add or change it later with the <span class="ui">Photo</span> button.</li>
+    <li>Tap <span class="ui">Create account</span> and share the email and password with the person. They sign in on the normal login page and land in their app.</li>
+  </ol>
+  <p>The role picker explains each choice: <strong>Manager</strong>, "Menu, staff, billing and the floor. Not settings." <strong>Cashier</strong>, "Billing counter and reports only." <strong>Waiter</strong>, "The waiter app: scan, approve, take and edit orders." <strong>Kitchen</strong>, "The kitchen ticket screen."</p>
+
+  <h2>Looking after accounts</h2>
+  <table>
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td class="k">Photo</td><td>Adds, replaces or removes the person's profile picture. JPG, PNG or WebP; a photo over 1 MB is shrunk to fit.</td></tr>
+    <tr><td class="k">Deactivate</td><td>The person cannot sign in, and is signed out of any phone still open, but their record stays. Use it for someone on leave. Flip it back to reactivate.</td></tr>
+    <tr><td class="k">Password</td><td>Generates a new password and shows it once. The old one stops working immediately. Use it when someone forgets theirs or leaves a phone behind.</td></tr>
+    <tr><td class="k">Remove</td><td>Deletes the login. Their login stops working immediately.</td></tr>
+  </table>
+  <p>The owner can manage every role. A manager can manage waiters, kitchen staff and cashiers but not other managers; those rows read <em>Managed by the owner</em>.</p>
+
+  <h2>Phones and tablets</h2>
+  <p>The waiter app and kitchen screen are web apps, so there is nothing to download from a store, and an update reaches every phone at once. For the best experience, add them to the home screen so they open full screen and can receive notifications:</p>
+  <ul>
+    <li><strong>iPhone:</strong> open the login page in Safari, tap Share, then <em>Add to Home Screen</em>. Notifications on iPhone only work from the home-screen version.</li>
+    <li><strong>Android:</strong> open it in Chrome, tap the menu, then <em>Install app</em> or <em>Add to Home screen</em>.</li>
+    <li><strong>Kitchen tablet:</strong> the same, then keep the tablet plugged in with the screen set to never sleep. The kitchen screen is dark by design so it is easy on the eyes on the pass.</li>
+  </ul>
+  <p>Pages a phone has already opened keep working through a short Wi-Fi drop. A page that was never opened shows <strong>You're offline</strong> until the connection returns.</p>
+  <div class="callout note"><span class="label">One shared waiter phone or one each?</span><p>Both work. Each waiter with their own login gets their own notifications and the kitchen's "ready" alert goes to the waiter who approved that order. A shared phone is simpler on a small floor.</p></div>
+</section>
+
+<section class="part">
+  <div class="kicker">Part two</div>
+  <h1>During service</h1>
+  <p>Guests, waiters, the kitchen and the counter, each on their own screen, all looking at the same tables.</p>
+</section>
+<section class="chapter" id="ch6">
+  <h1><span class="num">6</span>Ordering from the table</h1>
+  <p class="lead">What your guests see from the moment they scan a code to the moment they pay. Nothing to install, no account, no login.</p>
+
+  <div class="flow">
+    <div class="step"><span class="who">Guest</span><b>Scan</b>the code on the table</div>
+    <div class="step"><span class="who">Guest</span><b>Choose</b>dishes, sizes, add-ons</div>
+    <div class="step"><span class="who">Guest</span><b>Place order</b>and get a code</div>
+    <div class="step"><span class="who">Waiter</span><b>Confirm</b>by scanning the code</div>
+    <div class="step"><span class="who">Counter</span><b>Pay</b>once, for the whole table</div>
+  </div>
+
+  <h2>Opening the menu</h2>
+  <p>Guests point their phone camera at the QR code and tap the link that appears. Two kinds of code exist:</p>
+  <ul>
+    <li><strong>A table code</strong> (printed from <em>Tables</em>, see chapter 4). The menu opens with a small pill at the top that reads <span class="ui">You're at Table 4</span>, and the waiter already knows where the order is going.</li>
+    <li><strong>The general menu code</strong> (the QR studio's tents, stickers and decals). The menu opens without a table. Guests can still order; the waiter adds the table when they confirm it.</li>
+  </ul>
+  <p>The menu itself works the way it always has: photos, allergen and diet badges, a search box that reads <span class="ui">Search dishes…</span>, and filter chips such as <span class="ui">Vegan</span> or <span class="ui">Gluten-free</span>. Dishes you have marked unavailable are hidden. Dishes on a schedule only appear during their hours. Date-limited specials are grouped at the top under <strong>Today's specials</strong>.</p>
+
+  <div class="callout note"><span class="label">If ordering is off</span><p>When <em>Accept orders</em> is switched off in Settings, the menu is browse-only and no <span class="ui">Add</span> buttons appear. When ordering is <em>paused</em>, guests see an amber banner, <strong>Ordering is paused.</strong>, followed by your own message or the default line "You can still browse; please ask a member of staff to order."</p></div>
+
+  <h2>Adding dishes</h2>
+  <p>Every dish has an <span class="ui">Add</span> button. A dish with no choices goes straight into the order and the button briefly turns green with <span class="ui">Added</span>. A dish with sizes or add-ons opens a sheet first:</p>
+  <div class="screen">
+    <div class="bar">Order sheet</div>
+    <div class="row"><span><strong>Paneer Tikka</strong></span><span></span></div>
+    <div class="row"><span>Size · <em>Choose one</em></span><span>Half ₹180 · Full ₹320</span></div>
+    <div class="row"><span>Extras · <em>Optional, up to 2</em></span><span>Extra chutney + ₹20 · Butter Free</span></div>
+    <div class="row"><span>Anything for the kitchen? <em>Optional</em></span><span class="small">Less spicy, no onion…</span></div>
+    <span class="btn">Add to order · ₹340</span>
+  </div>
+  <ul>
+    <li>Groups marked <em>Choose one</em> need a pick. If a guest forgets, the sheet says, for example, <strong>Choose a size</strong> or <strong>Pick at least one topping</strong>.</li>
+    <li>The price on the button updates as they choose. Add-ons show their extra cost as <span class="ui">+ ₹20</span>, or <span class="ui">Free</span>.</li>
+    <li>The note field is for one dish only, up to 200 characters. It reaches the waiter and the kitchen with that line.</li>
+    <li>Quantity is set with the stepper next to the button, up to 99 per line.</li>
+  </ul>
+
+  <h2>Reviewing the order</h2>
+  <p>As soon as one dish is in, a bar appears at the bottom of the menu: <span class="ui">View your order</span> with the item count and the running subtotal. Tapping it opens the <strong>Your order</strong> page.</p>
+  <ul>
+    <li>Each line shows the dish, the chosen options ("Half · Extra chutney"), a note box, the price and a quantity stepper. Taking a line down to zero removes it.</li>
+    <li>If you allow takeaway, guests choose between <span class="ui">Dine in</span> and <span class="ui">Parcel / takeaway</span>.</li>
+    <li><strong>Note for the restaurant</strong> is for the whole order, up to 300 characters: allergies, timing, anything else.</li>
+    <li>A line under the list explains what happens next. From a table code: "Ordering for Table 4. Your waiter will confirm it." Without one: "After you place the order, show the code on your screen to your waiter."</li>
+  </ul>
+  <p>The button reads <span class="ui">Place order · 3 items</span> with the subtotal. The order is not sent to the kitchen yet. A waiter always confirms it first, so a mistaken tap costs nothing.</p>
+
+  <h2>The order code</h2>
+  <p>After placing the order the guest lands on a page headed <strong>Waiting for your waiter</strong>. Under it is a card titled <strong>Show this to your waiter</strong> with a QR code and a short code in large letters, for example <span class="ui">K7M2QD</span>. The code never uses 0, O, 1 or I, so it is easy to read out loud. If the waiter's camera fails, they can type it.</p>
+  <p>This page updates itself every few seconds, so guests can leave it open and watch the status change. While the order is still waiting, a <span class="ui">Change my order</span> button puts everything back into the cart so they can edit and place it again.</p>
+
+  <h2>What the guest sees over time</h2>
+  <table>
+    <tr><th>Stage</th><th>Heading on the guest's screen</th><th>What it means</th></tr>
+    <tr><td class="k"><span class="status amber">Waiting</span></td><td>Waiting for your waiter</td><td>Placed, not yet confirmed. The kitchen has not seen it.</td></tr>
+    <tr><td class="k"><span class="status green">Confirmed</span></td><td>Confirmed for Table 4</td><td>A waiter approved it. "Your order has gone to the kitchen. You can add more any time."</td></tr>
+    <tr><td class="k"><span class="status red">Rejected</span></td><td>We couldn't take this order</td><td>The waiter declined it. Their reason is shown, if they gave one.</td></tr>
+    <tr><td class="k"><span class="status grey">Cancelled</span></td><td>This order was cancelled</td><td>Cancelled by the guest, by staff, or timed out after two hours without approval.</td></tr>
+    <tr><td class="k"><span class="status blue">Paid</span></td><td>Paid. Thank you!</td><td>The counter settled the table's bill. A button to rate you on Google appears if you set a review link.</td></tr>
+  </table>
+
+  <h2>Ordering more, calling a waiter, asking for the bill</h2>
+  <p>A confirmed order shows an <span class="ui">Order more</span> button. New dishes go on a new order, but the same table bill, so the counter sees one total for the table.</p>
+  <p>Guests who opened the menu from a table code also get two pill buttons, on the menu and on the order page:</p>
+  <ul>
+    <li><span class="ui">Call a waiter</span>, which turns into <span class="ui">Waiter on the way</span> for a minute.</li>
+    <li><span class="ui">Ask for the bill</span>, which turns into <span class="ui">Bill requested</span>. The table is flagged on every staff screen and moves to the top of the counter's list.</li>
+  </ul>
+  <p>Pressing again within a minute does not send a second request, so the staff are not spammed.</p>
+
+  <div class="callout"><span class="label">Good to know</span>
+    <p>The order lives in the guest's browser for the day. If they close the tab and scan again, their unsent items are still there. If too many orders come from one connection in a short time, the guest is asked to wait a few minutes or ask a member of staff. This protects you from pranks; real guests never hit it.</p>
+  </div>
+</section>
+<section class="chapter" id="ch7">
+  <h1><span class="num">7</span>The waiter app</h1>
+  <p class="lead">A phone-first screen for the floor. Confirm what guests ordered, take orders yourself, and keep an eye on every table.</p>
+
+  <h2>Signing in</h2>
+  <p>Waiters use the same login page as everyone else, with the email and password the owner or manager gave them. After signing in they land straight on the waiter home. The bottom bar has four tabs: <span class="ui">Home</span>, <span class="ui">Scan</span>, <span class="ui">New order</span> and <span class="ui">Tables</span>. The header shows the restaurant name, a bell for notifications and a sign-out button.</p>
+  <div class="callout"><span class="label">Put it on the home screen</span>
+    <p>The app installs like a native one. On iPhone, open it in Safari, tap Share and choose <em>Add to Home Screen</em>. On Android, open it in Chrome, tap the menu and choose <em>Install app</em> or <em>Add to Home screen</em>. It then opens full screen without the browser bar.</p>
+  </div>
+
+  <h2>Home</h2>
+  <p>Home is the waiter's to-do list. It refreshes on its own every few seconds.</p>
+  <ul>
+    <li><strong>Guests need you</strong> lists calls and bill requests: "Table 4 wants the bill", "Table 7 is calling". Tap <span class="ui">Done</span> once handled.</li>
+    <li><strong>Waiting for approval</strong> lists guest orders that nobody has confirmed yet, with the code, table, item summary and time. Tap one to review it.</li>
+    <li><strong>Open tables</strong> lists every table with guests, its order count, how long they have been seated, and the running total. A <span class="status">Bill requested</span> pill shows when the guest asked to pay.</li>
+  </ul>
+  <p>When there is nothing to do the screen says <strong>All quiet</strong>. If the owner has paused guest ordering, a banner reminds waiters that they can still take orders themselves.</p>
+
+  <h2>Confirming a guest's order</h2>
+  <ol class="steps">
+    <li>Tap <span class="ui">Scan</span> and point the camera at the guest's screen. When the code is read, the app vibrates, shows <strong>Got it</strong> and opens the order. If the camera is not available, type the code in the box that reads <span class="ui">Or type the code, e.g. K7M2QD</span> and tap <span class="ui">Open</span>.</li>
+    <li>Check the items. Each line shows the quantity, the dish, its options and any note the guest wrote. Notes are highlighted in amber. A note for the whole order appears as <strong>Guest says:</strong>.</li>
+    <li>Choose <span class="ui">Dine in</span> or <span class="ui">Parcel</span>. For dine-in, pick the table. If the guest scanned a table code it is preselected. For a parcel, type a name to call out, such as "Ravi".</li>
+    <li>Tap <span class="ui">Approve</span>. The order goes to the kitchen and onto the table's bill. Until a table is chosen the button reads <span class="ui">Pick a table</span> and stays disabled.</li>
+  </ol>
+  <p>To decline, tap <span class="ui">Reject</span>. The app asks for a short reason, which the guest sees on their screen. Leaving it blank is fine.</p>
+
+  <div class="callout note"><span class="label">Codes expire</span><p>An order that nobody confirms disappears after two hours. Scanning it then shows <strong>No order with that code</strong>. Ask the guest to place it again.</p></div>
+
+  <h3>Joined tables</h3>
+  <p>A large group on several tables should pay once. In the table picker, tap more than one table. The label shows <em>· 2 joined</em> and the order goes on one shared bill. Every later order from any of those tables lands on the same bill.</p>
+
+  <h2>After approval</h2>
+  <p>An approved order shows a green <span class="status green">Approved</span> pill and four actions:</p>
+  <table>
+    <tr><th>Action</th><th>Use it when</th></tr>
+    <tr><td class="k">Edit items</td><td>The guest changes their mind. You can add, remove or change lines until the bill is paid. Save with <span class="ui">Save changes</span>; the bill total updates at once and the order is marked <em>edited</em>.</td></tr>
+    <tr><td class="k">Move table</td><td>Guests moved seats. Pick the new table (or switch to parcel) and tap <span class="ui">Move here</span>.</td></tr>
+    <tr><td class="k">Mark served</td><td>The kitchen screen is on and the food has reached the table. Shown once at least one item is ready.</td></tr>
+    <tr><td class="k">Cancel order</td><td>The order should not be charged. It drops off the bill; the guest's screen says it was cancelled.</td></tr>
+  </table>
+  <p>When the kitchen screen is enabled, each line also carries a chip: <span class="status grey">In the queue</span>, <span class="status amber">Cooking</span>, <span class="status green">Ready to serve</span> or <span class="status blue">Served</span>. Waiters see at a glance what is safe to promise the guest.</p>
+
+  <h2>Taking an order yourself</h2>
+  <p>Some guests would rather tell you. Tap <span class="ui">New order</span>:</p>
+  <ol class="steps">
+    <li>Find dishes with the search box or the category chips, and tap <span class="ui">Add</span>. Sizes and add-ons work exactly as they do for guests.</li>
+    <li>The panel <strong>This order</strong> lists what you have added, with a stepper to fix quantities.</li>
+    <li>Choose dine-in and a table, or parcel and a name. Add a kitchen note if needed.</li>
+    <li>Tap <span class="ui">Send to billing</span>. The order is created already approved, so it goes to the kitchen and the bill at once.</li>
+  </ol>
+  <p>From a table that already has guests, open the table and tap <span class="ui">Add an order</span>. The table is preselected.</p>
+
+  <h2>The table board</h2>
+  <p>The <span class="ui">Tables</span> tab shows every table as a card and reads, for example, "5 of 12 taken. Tap a free table to seat guests."</p>
+  <table>
+    <tr><th>Card</th><th>Meaning</th></tr>
+    <tr><td class="k">Dashed, "Free"</td><td>Nobody is seated. Tap it to seat guests: add an optional name or note, join more tables if the group is large, then tap <span class="ui">Seat</span>.</td></tr>
+    <tr><td class="k">White, with a total</td><td>Guests are seated. Shows orders, running total, seated time, and "with Table 6" when joined.</td></tr>
+    <tr><td class="k">Orange tint, receipt icon</td><td>The guests asked for the bill.</td></tr>
+    <tr><td class="k">Amber tint, bell icon</td><td>The guests called a waiter and nobody has tapped Done yet.</td></tr>
+  </table>
+  <p>Tapping a seated table opens the bill: its orders, who placed each one, the running total and a status pill of <span class="status">Open</span>, <span class="status">Bill requested</span> or <span class="status blue">Paid</span>. Paying happens at the counter, not here. A table whose guests left without ordering can be freed with <span class="ui">Clear table</span>.</p>
+
+  <h2>Notifications</h2>
+  <p>Tap the bell in the header and allow notifications when the phone asks. From then on the phone buzzes for:</p>
+  <ul>
+    <li><strong>New order K7M2QD</strong>, "Table 4 · 3 items. Tap to approve." Tapping opens the order.</li>
+    <li><strong>Table 4 wants the bill</strong> or <strong>Table 4 is calling</strong>. Tapping opens the waiter home.</li>
+  </ul>
+  <p>Every waiter and manager who turned the bell on is notified. If the bell says notifications are blocked, they were declined in the phone's browser settings; allow them there and try again. If the bell is missing, the owner has not set up notifications yet.</p>
+</section>
+<section class="chapter" id="ch8">
+  <h1><span class="num">8</span>The kitchen screen</h1>
+  <p class="lead">An optional tablet on the pass. Every approved order becomes a ticket; the kitchen taps lines as they cook, and the waiter's phone buzzes when a table is ready.</p>
+
+  <h2>Turning it on</h2>
+  <p>Switch on <strong>Kitchen screen</strong> in Settings and create a login with the <strong>Kitchen</strong> role under Staff. Sign in on the tablet and it opens the board directly. Until the switch is on, the tablet reads <strong>The kitchen screen is switched off</strong>.</p>
+
+  <h2>Reading a ticket</h2>
+  <div class="screen"><div class="bar">Ticket</div>
+    <div class="row"><span><strong>Table 5</strong> · K7M2QD</span><span>19:42 · 3 min ago</span></div>
+    <div class="row"><span>2 × Paneer Tikka · Half</span><span class="status grey">Queued</span></div>
+    <div class="row"><span>1 × Dal Makhani · <em>"less spicy"</em></span><span class="status grey">Queued</span></div>
+    <div class="row small"><span>Guest: "Birthday, please bring together"</span></div>
+    <span class="btn">Start all</span><span class="btn ghost">All ready</span>
+  </div>
+  <ul>
+    <li>Tickets are ordered oldest first. The header shows the table (or "5 + 6" for joined tables, or "Parcel · Ravi"), the order code, the time approved and how long ago.</li>
+    <li><em>staff</em> means a waiter took the order; <em>edited</em> in amber means a waiter changed it after approval, so read it again.</li>
+    <li>Each line carries the size and add-ons, the guest's note for that dish in quotes, and a state pill. A note for the whole order appears under the lines.</li>
+    <li>The card's border turns amber while anything is cooking and green once everything is ready.</li>
+  </ul>
+
+  <h2>Moving lines along</h2>
+  <p>Tap a line to move it one step: <span class="status grey">Queued</span> to <span class="status amber">Cooking</span> to <span class="status green">Ready</span> to <span class="status blue">Served</span>. Served lines are struck through. The buttons at the foot of a ticket move all its lines at once:</p>
+  <table>
+    <tr><th>Button</th><th>Shown while</th><th>Does</th></tr>
+    <tr><td class="k">Start all</td><td>Every line is queued</td><td>Moves the whole ticket to Cooking.</td></tr>
+    <tr><td class="k">All ready</td><td>Something is not yet ready</td><td>Moves the whole ticket to Ready and alerts the waiter.</td></tr>
+    <tr><td class="k">Served · clear</td><td>Everything is ready</td><td>Marks the ticket served and takes it off the board.</td></tr>
+  </table>
+  <p>When the last line of an order becomes ready, the waiter who approved it gets a notification such as <strong>Table 5 is ready</strong>, "Order K7M2QD is ready to serve." The waiter can then mark the order served from their phone, or the kitchen can clear it here. Either way the ticket leaves the board.</p>
+
+  <h2>Printing a ticket</h2>
+  <p>The print icon on a ticket prints just that ticket, sized for a narrow receipt printer, in case the kitchen prefers paper for a dish or the tablet has to go on charge.</p>
+
+  <div class="callout note"><span class="label">No sound on the tablet</span><p>New tickets appear on their own within a few seconds, but the tablet does not chime. Put it where the pass can see it, or pair it with the waiter's phone alerts.</p></div>
+</section>
+<section class="chapter" id="ch9">
+  <h1><span class="num">9</span>The billing counter</h1>
+  <p class="lead">Every open bill by table, exactly as the waiters approved it. Mark it paid once, and see today's takings as you go.</p>
+
+  <h2>Who sees it</h2>
+  <p>The owner, managers and cashiers open <span class="ui">Orders &amp; billing</span> from the dashboard sidebar. It works on a laptop at the counter or on a phone. If ordering is switched off it says so and stays empty.</p>
+
+  <h2>The page</h2>
+  <p>Three tiles at the top: <strong>Open bills</strong>, <strong>Asking for the bill</strong>, and <strong>Paid today</strong> with the day's total in your currency. The day follows the timezone in Settings, so a bill settled at 00:30 counts for the evening it belongs to.</p>
+  <p>Below them, the <strong>Open bills</strong> column lists one card per table or group:</p>
+  <div class="screen" style="max-width:110mm"><div class="bar">Open bill</div>
+    <div class="row"><span><strong>5 + 6</strong> <span class="status">Bill requested</span></span><span>seated 48 min ago</span></div>
+    <div class="row small"><span>3 orders · 9 items</span><span></span></div>
+    <div class="row"><span>K7M2QD · by guest · 19:42</span><span>₹840</span></div>
+    <div class="row"><span>P4XR7A · by staff · 20:05 · edited</span><span>₹360</span></div>
+    <span class="btn">Mark paid · ₹1,200</span>
+  </div>
+  <ul>
+    <li>The title is the table, the joined tables, the guest's name for a parcel, or "Walk-in".</li>
+    <li>Tap a card to expand its orders. Each shows who placed it, when it was approved, whether a waiter edited it, and every line with sizes, add-ons and notes.</li>
+    <li>Bills whose guests tapped <em>Ask for the bill</em> carry a <span class="status">Bill requested</span> badge and sort to the top. A pill such as <span class="ui">Calling · done</span> clears an open call from here too.</li>
+  </ul>
+
+  <h2>Taking payment</h2>
+  <ol class="steps">
+    <li>Collect the money however you do today: cash, card machine, UPI. fast_menu does not process payments.</li>
+    <li>Tap <span class="ui">Mark paid · ₹1,200</span> and confirm. The bill moves to <strong>Paid today</strong>, the tables become free on the waiter's board, and every guest at that table sees <strong>Paid. Thank you!</strong> with your Google review button.</li>
+  </ol>
+  <p>A bill with nothing on it cannot be marked paid. Free such a table from the waiter app with <em>Clear table</em>.</p>
+
+  <h2>Fixing a mistake</h2>
+  <p>In the <strong>Paid today</strong> column, the owner or a manager sees <span class="ui">Reopen</span> on each bill. Reopening puts its orders back to unpaid and the table back on the open list. Cashiers cannot reopen; ask a manager.</p>
+
+  <div class="callout"><span class="label">Splitting and joining at the counter</span><p>A bill is always one table or one joined group. To split a group that was joined by mistake, have a waiter move the second group's orders to their own table with <em>Move table</em>, then settle each bill. To join two tables late, move one table's orders onto the other.</p></div>
+
+  <p>The page updates itself as waiters approve and guests order, so there is no need to refresh it.</p>
+</section>
+
+<section class="part">
+  <div class="kicker">Part three</div>
+  <h1>Running the restaurant</h1>
+  <p>The controls you reach for during a normal week.</p>
+</section>
+<section class="chapter" id="ch10">
+  <h1><span class="num">10</span>Day to day</h1>
+  <p class="lead">Pausing orders when the kitchen is slammed, keeping the menu honest, collecting reviews, and what happens when the trial ends.</p>
+
+  <h2>Pausing orders</h2>
+  <p>The <strong>Pause ordering</strong> card on the dashboard Overview is for the moments when phone orders should stop but the menu should stay up: last orders, a kitchen emergency, a full house. Type a message such as "Kitchen closed, back at 7 pm", tap <span class="ui">Save</span>, and flip the switch. The card reads <strong>Ordering is paused</strong>.</p>
+  <ul>
+    <li>Guests still see the menu, with an amber banner and your message. Their Add buttons are greyed out.</li>
+    <li>Waiters see a reminder on their home screen and can still take orders themselves.</li>
+    <li>Flip the switch back and everything resumes at once. Nothing is lost.</li>
+  </ul>
+  <p>Pausing is different from switching <em>Accept orders</em> off in Settings. Pause is a daily tool for owners and managers; the settings switch is a one-time decision for the owner.</p>
+
+  <h2>Keeping the menu honest</h2>
+  <ul>
+    <li><strong>Sold out:</strong> flip the dish's switch to <span class="ui">86</span>. Flip it back tomorrow. For a single size or topping, use the option's own switch inside the dish.</li>
+    <li><strong>Price change:</strong> edit the dish and save. Guests who already have it in their cart pay the new price; the system checks prices when the order is placed.</li>
+    <li><strong>Weekend special:</strong> set its From and Until dates once. It appears and disappears on its own.</li>
+    <li><strong>New hours:</strong> edit the schedule, not every category.</li>
+  </ul>
+
+  <h2>Reviews</h2>
+  <p>Two things share the word "review", and they are different:</p>
+  <div class="two">
+    <div class="card"><h3>Your own review form</h3><p>Guests reach it from the review QR code (chapter 4). Under <span class="ui">Reviews</span> you see submissions on three tabs, <strong>Pending</strong>, <strong>Approved</strong> and <strong>Hidden</strong>, and choose which ones appear on your menu with <span class="ui">Approve</span> or <span class="ui">Hide</span>. <span class="ui">Review settings</span> lets you write the headline, add star questions, and turn the page on or off.</p></div>
+    <div class="card"><h3>Google reviews</h3><p>Paste your Google "Get more reviews" link in the <strong>Google reviews</strong> card in Settings. After a bill is paid, every guest at the table sees <span class="ui">Rate us on Google</span> on their screen. The link has to be a real Google address starting with https://, otherwise the form tells you what is wrong. Leave it empty to hide the button.</p></div>
+  </div>
+  <p>The best moment for a Google review is right after paying, which is exactly when the button appears. Ask waiters to mention it while clearing the table.</p>
+
+  <h2>The trial and after</h2>
+  <p>The trial lasts fifteen days from activation. During a <em>needs review</em> check, everything works except publishing; an amber banner on the dashboard reminds you. When the fifteen days end, guests can no longer reach the menu or place orders, while you and your staff can still sign in and edit everything. Contact the fast_menu team before the end date to keep the menu live.</p>
+
+  <h2>If the connection drops</h2>
+  <p>Staff screens refresh themselves every few seconds and catch up as soon as the connection is back. A guest whose phone loses signal keeps their unsent order on the phone; the order they already placed keeps its status. The waiter's order page always shows the truth: if in doubt, scan the code again.</p>
+
+  <h2>Signing out</h2>
+  <p>Every screen has a sign-out button in its header. On a shared phone or tablet, sign out at the end of the shift. If someone leaves the team, deactivate or remove their login under Staff; any phone still signed in is signed out on its next tap.</p>
+</section>
+<section class="part">
+  <div class="kicker">Appendix</div>
+  <h1>Quick reference</h1>
+  <p>The stages of an order on one page, and answers to the questions that come up most on a busy evening.</p>
+</section>
+
+<section class="chapter" id="appA">
+  <h1><span class="num">A</span>An order, stage by stage</h1>
+  <p class="lead">Every screen uses the same words for the same stage. This is the whole life of an order in one table.</p>
+  <table>
+    <tr><th>Stage</th><th>Guest sees</th><th>Waiter sees</th><th>Counter sees</th><th>How it moves on</th></tr>
+    <tr><td class="k"><span class="status amber">Waiting</span></td><td>Waiting for your waiter, with the code and QR</td><td>Waiting for approval</td><td>Nothing yet</td><td>A waiter approves or rejects it; the guest changes it; or it times out after two hours</td></tr>
+    <tr><td class="k"><span class="status green">Confirmed</span></td><td>Confirmed for Table 4</td><td>Approved</td><td>On the table's open bill</td><td>The counter marks the bill paid; a waiter can edit, move or cancel it before that</td></tr>
+    <tr><td class="k"><span class="status red">Rejected</span></td><td>We couldn't take this order, plus the reason</td><td>Rejected</td><td>Nothing</td><td>Final. The guest starts again from the menu</td></tr>
+    <tr><td class="k"><span class="status grey">Cancelled</span></td><td>This order was cancelled</td><td>Cancelled, dimmed on the bill</td><td>Dropped off the bill</td><td>Final</td></tr>
+    <tr><td class="k"><span class="status blue">Paid</span></td><td>Paid. Thank you! and the Google review button</td><td>Paid</td><td>In today's paid bills</td><td>Final, unless a manager reopens the bill to fix a mistake</td></tr>
+  </table>
+
+  <h2>Kitchen states, when the kitchen screen is on</h2>
+  <p class="small">The kitchen tablet uses the short words; the waiter app spells them out as "In the queue", "Cooking", "Ready to serve" and "Served".</p>
+  <table>
+    <tr><th>State</th><th>Set by</th><th>Meaning</th></tr>
+    <tr><td class="k"><span class="status grey">Queued</span></td><td>Automatic on approval</td><td>The kitchen can see it but has not started</td></tr>
+    <tr><td class="k"><span class="status amber">Cooking</span></td><td>Kitchen</td><td>Being prepared</td></tr>
+    <tr><td class="k"><span class="status green">Ready</span></td><td>Kitchen</td><td>On the pass. The approving waiter's phone buzzes</td></tr>
+    <tr><td class="k"><span class="status blue">Served</span></td><td>Waiter or kitchen</td><td>At the table</td></tr>
+  </table>
+
+  <h2>Words used in this book</h2>
+  <table>
+    <tr><th>Word</th><th>Meaning</th></tr>
+    <tr><td class="k">Order</td><td>One round of dishes placed at one time. A table usually has several.</td></tr>
+    <tr><td class="k">Bill</td><td>Everything a table (or a joined group of tables) ordered since they sat down. The counter settles the bill, never a single order.</td></tr>
+    <tr><td class="k">Order code</td><td>The six-letter code and QR a guest shows the waiter, such as K7M2QD.</td></tr>
+    <tr><td class="k">Table code</td><td>The QR printed for one table. It never changes, even if you rename the table.</td></tr>
+    <tr><td class="k">Joined tables</td><td>Several tables sharing one bill for one group.</td></tr>
+    <tr><td class="k">Parcel</td><td>A takeaway order, tracked by a name instead of a table.</td></tr>
+    <tr><td class="k">Sizes and add-ons</td><td>Choices on a dish: a size or variant the guest must pick, and extras they may add.</td></tr>
+    <tr><td class="k">Special</td><td>A dish shown under "Today's specials" between two dates you set.</td></tr>
+    <tr><td class="k">Schedule</td><td>Hours and days during which a menu section is shown, such as Breakfast until 11:00.</td></tr>
+  </table>
+</section>
+
+<section class="chapter" id="appB">
+  <h1><span class="num">B</span>Questions and answers</h1>
+  <p class="lead">Short answers for the situations that come up most.</p>
+  <dl class="faq">
+    <dt>A guest says they ordered but nothing shows on the waiter's phone.</dt>
+    <dd>Ask to see their screen. If it says <em>Waiting for your waiter</em>, scan or type the code; the order is there. If the page says the order was cancelled, more than two hours passed without approval. Ask them to place it again, or take it yourself with <em>New order</em>.</dd>
+
+    <dt>The camera will not read the code.</dt>
+    <dd>Turn up the guest's screen brightness, or type the code in the box under the camera. Codes never contain 0, O, 1 or I.</dd>
+
+    <dt>The guest wants to change a dish after the waiter approved.</dt>
+    <dd>Open the order and tap <em>Edit items</em>. Anything can be changed until the bill is paid. The bill total updates on its own.</dd>
+
+    <dt>Two tables want to pay together.</dt>
+    <dd>When approving or seating, tap both tables in the picker so they are joined. From then on, every order from either table goes on one bill. If they are already on separate bills, move one table's orders with <em>Move table</em>.</dd>
+
+    <dt>Two tables on one bill want to pay separately.</dt>
+    <dd>Move the orders that belong to the second group onto their own table with <em>Move table</em>, then settle each bill.</dd>
+
+    <dt>The counter marked a bill paid by mistake.</dt>
+    <dd>A manager or the owner can reopen it from the paid list. The orders return to the open bill.</dd>
+
+    <dt>We are slammed and cannot keep up with phone orders.</dt>
+    <dd>Turn on <em>Pause ordering</em> in Settings, with a message such as "Kitchen is full, please order with your waiter." Guests can still browse, waiters can still take orders. Turn it off when things calm down.</dd>
+
+    <dt>A dish ran out.</dt>
+    <dd>Open the menu in the dashboard and flip the dish's availability. It disappears from guests' phones at once. Guests who already have it in their cart are told it is no longer available when they place the order.</dd>
+
+    <dt>We renamed Table 3 to Window 1. Do we reprint the code?</dt>
+    <dd>No. The printed code points at the table, not its name. The new name shows everywhere immediately.</dd>
+
+    <dt>A waiter's phone does not buzz for new orders.</dt>
+    <dd>They need to tap the bell in the waiter app once and allow notifications. If the bell says notifications are blocked, allow them in the phone's browser settings. On iPhone the app must be added to the home screen for notifications to work.</dd>
+
+    <dt>Guests do not see the breakfast section.</dt>
+    <dd>Check the schedule's hours and the restaurant's timezone in Settings. A section on a schedule is hidden outside its hours, with no message.</dd>
+
+    <dt>Can guests order without any table code?</dt>
+    <dd>Yes. From the general menu QR they place the order and show the code; the waiter picks the table when approving. Call-waiter and bill buttons need a table code, though.</dd>
+
+    <dt>What can a guest not do?</dt>
+    <dd>They cannot send anything to the kitchen on their own, cannot change an order after approval, and cannot see other tables. Every price is checked again by the system when the order is placed, so an out-of-date menu on a phone cannot lead to a wrong bill.</dd>
+  </dl>
+</section>
+
+</body>
+</html>

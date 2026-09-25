@@ -35,7 +35,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    // `lang`/`dir` are corrected per-locale on public menus by DocumentLocale,
+    // which writes them before the first paint — so React must accept whatever
+    // it finds on this element rather than re-asserting "en".
+    <html lang="en" dir="ltr" className={inter.variable} suppressHydrationWarning>
       <body className="font-sans">
         {children}
         <ServiceWorkerRegister />

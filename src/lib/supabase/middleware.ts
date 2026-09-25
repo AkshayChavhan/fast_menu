@@ -3,8 +3,24 @@ import { NextResponse, type NextRequest } from "next/server";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
+// Areas that need a session. Which role may use each one is decided by the
+// area's own layout; here we only know whether someone is signed in.
+const PROTECTED_PREFIXES = ["/dashboard", "/waiter", "/kitchen", "/onboarding", "/admin"];
+
+// Exported for tests: the whole redirect gate hangs off this predicate, and
+// getting it wrong locks every visitor out of the site rather than failing
+// quietly. A prefix matches the area's own path or anything beneath it —
+// checking the trailing slash keeps "/dashboardish" from counting as
+// "/dashboard", and keeps public pages like /login out of the gate entirely.
+export function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 // Refreshes the Supabase auth session on every request and guards the
-// /dashboard area. Called from the root middleware.ts.
+// signed-in areas (dashboard, waiter app, kitchen screen). Called from the root proxy.ts (Next.js 16 renamed the
+// middleware convention to proxy; this helper keeps the Supabase docs name).
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -33,8 +49,8 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isDashboard = request.nextUrl.pathname.startsWith("/dashboard");
-  if (isDashboard && !user) {
+  const { pathname } = request.nextUrl;
+  if (isProtectedPath(pathname) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", request.nextUrl.pathname);

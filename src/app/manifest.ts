@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "fast_menu",
     description:
       "Mobile-first QR digital menus for hotels, restaurants, cafés & bars. Edit prices and 86 dishes from your phone — no reprints.",
-    start_url: "/dashboard",
+    start_url: "/auth/home",
     scope: "/",
     display: "standalone",
     orientation: "portrait-primary",
