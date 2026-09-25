@@ -36,15 +36,11 @@ export default async function CartRoute({
     .maybeSingle<Restaurant>();
   if (!restaurant || !restaurant.ordering_enabled) notFound();
 
-  const { data: table } = t
-    ? await supabase
-        .from("tables")
-        .select("label, qr_token")
-        .eq("restaurant_id", restaurant.id)
-        .eq("qr_token", t)
-        .eq("is_active", true)
-        .maybeSingle<{ label: string; qr_token: string }>()
-    : { data: null };
+  const table = t
+    ? ((await supabase.rpc("resolve_table_token", { p_slug: slug, p_token: t })).data as
+        | { id: string; label: string; qr_token: string }
+        | null)
+    : null;
 
   const locale =
     lang && restaurant.locales.includes(lang) ? lang : restaurant.default_locale;

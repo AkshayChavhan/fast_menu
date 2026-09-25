@@ -80,19 +80,15 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
 // The table behind a per-table QR code (?t=<token>). Only active tables on a
 // published menu are readable, so a retired code reads as no table.
 async function resolveTable(
-  restaurantId: string,
+  slug: string,
   token: string | undefined,
 ): Promise<{ label: string; token: string } | null> {
   if (!token) return null;
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("tables")
-    .select("label, qr_token")
-    .eq("restaurant_id", restaurantId)
-    .eq("qr_token", token)
-    .eq("is_active", true)
-    .maybeSingle<{ label: string; qr_token: string }>();
-  return data ? { label: data.label, token: data.qr_token } : null;
+  // Guests may resolve one token, never list a restaurant's tables.
+  const { data } = await supabase.rpc("resolve_table_token", { p_slug: slug, p_token: token });
+  const table = data as { id: string; label: string; qr_token: string } | null;
+  return table ? { label: table.label, token: table.qr_token } : null;
 }
 
 // Resolve the active locale from ?lang=, constrained to the restaurant's
@@ -168,7 +164,7 @@ export default async function PublicMenuPage({
   const { restaurant } = menu;
   const locale = resolveLocale(restaurant, lang);
 
-  const table = restaurant.ordering_enabled ? await resolveTable(restaurant.id, t) : null;
+  const table = restaurant.ordering_enabled ? await resolveTable(restaurant.slug, t) : null;
   const ordering: OrderingInfo | null = restaurant.ordering_enabled
     ? {
         enabled: true,
