@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { getSiteOrigin, publicMenuPath, tableMenuPath } from "@/lib/site";
-import type { PublicOrder, Restaurant } from "@/types/db";
+import type { PublicOrder, PublicRestaurant } from "@/types/db";
 import { CartProvider } from "@/components/ordering/CartProvider";
 import { OrderStatus } from "@/components/ordering/OrderStatus";
 
@@ -30,10 +30,10 @@ export default async function OrderRoute({
 
   const supabase = await createClient();
   const { data: restaurant } = await supabase
-    .from("restaurants")
+    .from("restaurants_public")
     .select("*")
     .eq("slug", slug)
-    .maybeSingle<Restaurant>();
+    .maybeSingle<PublicRestaurant>();
   if (!restaurant) notFound();
 
   const { data } = await supabase.rpc("get_order_by_code", {

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Armchair, PauseCircle, UtensilsCrossed } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { localeDir } from "@/lib/utils";
-import type { Restaurant, Review, ReviewForm } from "@/types/db";
+import type { PublicRestaurant, Review, ReviewForm } from "@/types/db";
 import { normalizeRatings } from "@/lib/reviews";
 import { buildMenuView, loadMenuData, type MenuData } from "@/lib/menu-view";
 import { MenuHeader } from "@/components/menu/MenuHeader";
@@ -23,7 +23,7 @@ export const revalidate = 60;
 const HIDE_UNAVAILABLE = true;
 
 type LoadedMenu = MenuData & {
-  restaurant: Restaurant;
+  restaurant: PublicRestaurant;
   /** Approved reviews with something to say, for the floating strip. */
   reviews: Review[];
 };
@@ -40,10 +40,10 @@ async function loadMenu(slug: string): Promise<LoadedMenu | null> {
   const supabase = await createClient();
 
   const { data: restaurant } = await supabase
-    .from("restaurants")
+    .from("restaurants_public")
     .select("*")
     .eq("slug", slug)
-    .maybeSingle<Restaurant>();
+    .maybeSingle<PublicRestaurant>();
 
   if (!restaurant) return null;
 
@@ -94,7 +94,7 @@ async function resolveTable(
 // Resolve the active locale from ?lang=, constrained to the restaurant's
 // offered locales, falling back to its default_locale.
 function resolveLocale(
-  restaurant: Restaurant,
+  restaurant: PublicRestaurant,
   requested: string | undefined,
 ): string {
   if (requested && restaurant.locales.includes(requested)) return requested;

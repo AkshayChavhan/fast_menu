@@ -27,7 +27,7 @@ vi.mock("@/lib/supabase/server", () => ({
         };
       }
       // restaurants / review_forms both end in .maybeSingle()
-      const data = table === "restaurants" ? state.restaurant : state.form;
+      const data = table === "restaurants_public" ? state.restaurant : state.form;
       const chain = {
         select: () => chain,
         eq: () => chain,

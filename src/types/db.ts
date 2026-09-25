@@ -45,6 +45,17 @@ export interface Restaurant {
 
 export type TrialStatus = "pending" | "active" | "needs_review" | "denied";
 
+// What a guest may see of a restaurant: the restaurants_public view (see
+// migrations/*_restaurants_public_view) leaves out the owner, the trial and
+// the identity used to claim it.
+export type PublicRestaurant = Pick<
+  Restaurant,
+  | "id" | "name" | "slug" | "description" | "logo_url" | "currency"
+  | "default_locale" | "locales" | "timezone" | "ordering_enabled"
+  | "ordering_paused" | "pause_message" | "table_qr_enabled" | "kds_enabled"
+  | "allow_takeaway" | "google_review_url" | "created_at" | "updated_at"
+>;
+
 // --- Staff -----------------------------------------------------------------
 
 // Everyone who works at a restaurant other than its owner. The owner is

@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { settingsFromForm } from "@/lib/reviews";
 import { publicMenuPath } from "@/lib/site";
-import type { Restaurant, ReviewForm } from "@/types/db";
+import type { PublicRestaurant, ReviewForm } from "@/types/db";
 import { ReviewSubmitForm } from "@/components/reviews/ReviewSubmitForm";
 
 // The form itself is owner-controlled config that changes rarely; the page is
@@ -15,7 +15,7 @@ import { ReviewSubmitForm } from "@/components/reviews/ReviewSubmitForm";
 export const revalidate = 60;
 
 type LoadedForm = {
-  restaurant: Restaurant;
+  restaurant: PublicRestaurant;
   form: ReviewForm | null;
 };
 
@@ -25,10 +25,10 @@ async function loadReviewPage(slug: string): Promise<LoadedForm | null> {
   const supabase = await createClient();
 
   const { data: restaurant } = await supabase
-    .from("restaurants")
+    .from("restaurants_public")
     .select("*")
     .eq("slug", slug)
-    .maybeSingle<Restaurant>();
+    .maybeSingle<PublicRestaurant>();
 
   if (!restaurant) return null;
 

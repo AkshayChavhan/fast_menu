@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const supabase = await createClient();
     const { error } = await supabase
-      .from("restaurants")
+      .from("restaurants_public")
       .select("id", { head: true, count: "exact" })
       .limit(1);
     if (error) throw error;

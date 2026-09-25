@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { publicMenuPath, tableMenuPath } from "@/lib/site";
-import type { Restaurant } from "@/types/db";
+import type { PublicRestaurant } from "@/types/db";
 import { CartProvider } from "@/components/ordering/CartProvider";
 import { CartPage } from "@/components/ordering/CartPage";
 
@@ -30,10 +30,10 @@ export default async function CartRoute({
 
   const supabase = await createClient();
   const { data: restaurant } = await supabase
-    .from("restaurants")
+    .from("restaurants_public")
     .select("*")
     .eq("slug", slug)
-    .maybeSingle<Restaurant>();
+    .maybeSingle<PublicRestaurant>();
   if (!restaurant || !restaurant.ordering_enabled) notFound();
 
   const table = t
