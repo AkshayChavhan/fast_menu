@@ -36,13 +36,15 @@ create table public.dishes (
   updated_at    timestamptz not null default now()
 );
 
--- Stand-in for the RLS role helper. Flipped by the authorisation test.
-create table public.test_flags (owns boolean not null);
-insert into public.test_flags values (true);
+-- Stand-in for the RLS role helper. Flipped by the authorisation tests:
+-- `owns` grants every role everywhere; `only_rid`, when set, narrows the
+-- grant to that one restaurant so a test can tell tenants apart.
+create table public.test_flags (owns boolean not null, only_rid uuid);
+insert into public.test_flags values (true, null);
 
 create or replace function public.has_role(rid uuid, roles text[])
 returns boolean language sql stable as $$
-  select owns from public.test_flags limit 1
+  select owns and (only_rid is null or only_rid = rid) from public.test_flags limit 1
 $$;
 
 -- Raising on failure makes psql -v ON_ERROR_STOP=1 exit non-zero, so the
