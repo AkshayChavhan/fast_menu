@@ -50,14 +50,14 @@ test.describe.serial("guest → waiter → billing", () => {
   test("a waiter approves it onto the table", async ({ page }) => {
     await login(page, E2E.waiter.email, E2E.waiter.password);
     await expect(page).toHaveURL(/\/waiter/);
-    await expect(page.getByText("Waiting for approval")).toBeVisible();
+    await expect(page.getByText("Waiting for approval").first()).toBeVisible();
 
     await page.goto(`/waiter/orders/${code}`);
-    await expect(page.getByText("Masala Chai")).toBeVisible();
+    await expect(page.getByText("Masala Chai").first()).toBeVisible();
     // The table from the guest's QR is preselected; Approve is enabled.
     await page.getByRole("button", { name: "Approve" }).click();
-    await expect(page.getByText("Approved", { exact: true })).toBeVisible();
-    await expect(page.getByText("Table 1")).toBeVisible();
+    await expect(page.getByText("Approved", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Table 1").first()).toBeVisible();
   });
 
   test("the guest sees the confirmation", async ({ page }) => {
