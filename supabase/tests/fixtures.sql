@@ -62,8 +62,18 @@ $$;
 -- Trial claims (claim_trial, normalize_hotel_name, review_trial).
 -- Stubs for the Supabase-only pieces: auth.uid(), auth.jwt(), auth.users.
 -- ---------------------------------------------------------------------------
-create extension if not exists pg_trgm;
-create extension if not exists pgcrypto;
+-- Supabase installs extensions in their own schema and puts that schema on
+-- the database's default search_path. A function that pins
+-- "set search_path = public" cannot see them there, so the cluster mirrors
+-- that layout: an unqualified gen_random_bytes() or similarity() inside such
+-- a function fails here exactly as it does on Supabase.
+create schema if not exists extensions;
+-- pgcrypto is pre-installed there on every Supabase project.
+create extension if not exists pgcrypto with schema extensions;
+-- pg_trgm is created by our own migration, so it lands in public there.
+create extension if not exists pg_trgm with schema public;
+alter database schematest set search_path = public, extensions;
+set search_path = public, extensions;
 
 create schema if not exists auth;
 create table auth.users (

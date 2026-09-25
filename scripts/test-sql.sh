@@ -93,6 +93,24 @@ for fn in "${FUNCTIONS[@]}"; do
   extract_function "$fn"
 done
 
+# A later migration may re-point a function's search_path with ALTER FUNCTION
+# (see *_functions_see_extensions.sql). Apply those in migration order, so
+# the cluster ends up as Postgres would after running every file.
+awk -v names="${FUNCTIONS[*]}" '
+  BEGIN { n = split(names, a, " "); for (i = 1; i <= n; i++) want[a[i]] = 1 }
+  FNR == 1 { buf = ""; on = 0 }
+  /^alter function public\./ {
+    fn = $0; sub(/^alter function public\./, "", fn); sub(/\(.*/, "", fn)
+    if (fn in want) { on = 1; buf = "" }
+  }
+  on { buf = buf $0 "\n" }
+  on && /;[[:space:]]*$/ { printf "%s", buf; on = 0 }
+' "$MIGRATIONS"/*.sql > "$TMP/alters.sql"
+if [ -s "$TMP/alters.sql" ]; then
+  echo "==> applying ALTER FUNCTION statements from migrations"
+  psql_run -f "$TMP/alters.sql" >/dev/null
+fi
+
 for t in "${TESTS[@]}"; do
   echo "==> running supabase/tests/$t"
   # PASS lines are RAISE NOTICE, which psql writes to stderr.
