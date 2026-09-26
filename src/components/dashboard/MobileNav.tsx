@@ -1,13 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { Menu, X } from "lucide-react";
 import { SidebarNav } from "./SidebarNav";
 import { cn } from "@/lib/utils";
 import type { MemberRole } from "@/types/db";
 
+// false while server-rendering and during hydration, true afterwards. Written
+// with useSyncExternalStore rather than a setState in an effect, which the
+// lint rules disallow — and which would render one extra time for no reason.
+const neverChanges = () => () => {};
+const useMounted = () =>
+  useSyncExternalStore(
+    neverChanges,
+    () => true,
+    () => false,
+  );
+
 // Hamburger-triggered slide-over sidebar for small screens. On >=lg the static
 // sidebar in the layout is shown instead and this button is hidden.
+//
+// The drawer is rendered into document.body rather than in place. It has to
+// be: this component sits inside the dashboard's sticky <header>, and that
+// header carries `backdrop-blur`. A non-none backdrop-filter makes an element
+// a containing block for fixed-position descendants, so `fixed inset-0` would
+// resolve against the 56px-tall header instead of the viewport — the overlay
+// and the panel background would stop just below the topbar and the nav items
+// would spill down over the page.
 export function MobileNav({
   restaurantName,
   role,
@@ -16,18 +36,11 @@ export function MobileNav({
   role: MemberRole;
 }) {
   const [open, setOpen] = useState(false);
+  // document.body only exists in the browser, so the portal is skipped on the
+  // server and on the hydrating pass.
+  const mounted = useMounted();
 
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Open navigation"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100 lg:hidden dark:text-neutral-300 dark:hover:bg-neutral-800"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
-
+  const drawer = (
       <div
         className={cn(
           "fixed inset-0 z-40 lg:hidden",
@@ -71,6 +84,19 @@ export function MobileNav({
           </div>
         </div>
       </div>
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Open navigation"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100 lg:hidden dark:text-neutral-300 dark:hover:bg-neutral-800"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+      {mounted ? createPortal(drawer, document.body) : null}
     </>
   );
 }
