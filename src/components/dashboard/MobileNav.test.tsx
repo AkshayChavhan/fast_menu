@@ -66,4 +66,34 @@ describe("MobileNav", () => {
     await user.click(screen.getByRole("link", { name: /Overview/ }));
     expect(isInert()).toBe(true);
   });
+
+  // The dashboard renders this inside a sticky <header> that has backdrop-blur,
+  // and a non-none backdrop-filter is a containing block for fixed-position
+  // descendants. Rendered in place, `fixed inset-0` resolves against the 56px
+  // header: the overlay and panel background stop under the topbar and the nav
+  // items spill down over the page. The portal is what prevents that.
+  it("renders the drawer into document.body, not beside the button", async () => {
+    const user = userEvent.setup();
+    const { container } = setup();
+    await user.click(screen.getByLabelText("Open navigation"));
+
+    // Nothing but the hamburger lives at the component's own mount point.
+    expect(container.querySelector(".fixed.inset-0")).toBeNull();
+    expect(panel().parentElement).toBe(document.body);
+  });
+
+  it("survives being mounted inside a backdrop-blurred header", async () => {
+    const user = userEvent.setup();
+    const header = document.createElement("header");
+    header.className = "backdrop-blur";
+    document.body.appendChild(header);
+
+    render(<MobileNav restaurantName="Yaadi Jagadamba" role="owner" />, {
+      container: header,
+    });
+    await user.click(screen.getByLabelText("Open navigation"));
+
+    expect(header.contains(panel())).toBe(false);
+    expect(panel().parentElement).toBe(document.body);
+  });
 });
