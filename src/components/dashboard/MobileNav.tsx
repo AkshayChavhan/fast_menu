@@ -34,6 +34,7 @@ export function MobileNav({
           open ? "pointer-events-auto" : "pointer-events-none",
         )}
         aria-hidden={!open}
+        inert={!open}
       >
         <div
           onClick={() => setOpen(false)}
@@ -44,7 +45,7 @@ export function MobileNav({
         />
         <div
           className={cn(
-            "absolute left-0 top-0 flex h-full w-72 max-w-[80%] flex-col gap-6 bg-white p-4 shadow-xl transition-transform dark:bg-neutral-900",
+            "absolute left-0 top-0 flex h-full w-72 max-w-[80%] flex-col gap-4 overflow-hidden bg-white p-4 shadow-xl transition-transform dark:bg-neutral-900",
             open ? "translate-x-0" : "-translate-x-full",
           )}
         >
@@ -62,7 +63,12 @@ export function MobileNav({
           <p className="truncate px-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
             {restaurantName}
           </p>
-          <SidebarNav role={role} onNavigate={() => setOpen(false)} />
+          {/* The nav scrolls, not the panel: `min-h-0` is what lets a flex
+              child shrink below its content height. Without it the items
+              overflow `h-full` and paint over the page behind the drawer. */}
+          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-2">
+            <SidebarNav role={role} onNavigate={() => setOpen(false)} />
+          </div>
         </div>
       </div>
     </>
