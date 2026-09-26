@@ -71,7 +71,7 @@ export default async function DashboardLayout({
 
       <div className="mx-auto flex w-full max-w-7xl">
         {/* Static sidebar (desktop) */}
-        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 border-r border-neutral-200 p-4 lg:block dark:border-neutral-800">
+        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-neutral-200 p-4 lg:block dark:border-neutral-800">
           <p className="mb-3 px-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
             Manage
           </p>
