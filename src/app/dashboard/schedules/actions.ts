@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireRestaurantAccess, type ActionResult } from "../lib";
+import {
+  requireRestaurantAccess,
+  requirePlanFeature,
+  type ActionResult,
+} from "../lib";
 
 const SCHEDULES_MAX = 20;
 
@@ -50,6 +54,11 @@ export async function createSchedule(input: {
 
   const guard = await requireRestaurantAccess(restaurantId, "menu:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
+
+  // Schedules are a Pro feature. Gated here as well as in the nav:
+  // hiding a link is not the same as refusing the write.
+  const gate = await requirePlanFeature(guard.supabase, restaurantId, "schedules");
+  if (!gate.ok) return gate;
 
   const { count } = await guard.supabase
     .from("menu_schedules")
@@ -101,6 +110,11 @@ export async function updateSchedule(input: {
   const guard = await requireRestaurantAccess(restaurantId, "menu:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
 
+  // Schedules are a Pro feature. Gated here as well as in the nav:
+  // hiding a link is not the same as refusing the write.
+  const gate = await requirePlanFeature(guard.supabase, restaurantId, "schedules");
+  if (!gate.ok) return gate;
+
   const { error } = await guard.supabase
     .from("menu_schedules")
     .update({ name, days, starts_at: startsAt, ends_at: endsAt, is_active: isActive })
@@ -129,6 +143,11 @@ export async function setScheduleActive(input: {
   const guard = await requireRestaurantAccess(restaurantId, "menu:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
 
+  // Schedules are a Pro feature. Gated here as well as in the nav:
+  // hiding a link is not the same as refusing the write.
+  const gate = await requirePlanFeature(guard.supabase, restaurantId, "schedules");
+  if (!gate.ok) return gate;
+
   const { error } = await guard.supabase
     .from("menu_schedules")
     .update({ is_active: isActive })
@@ -151,6 +170,11 @@ export async function deleteSchedule(input: {
 
   const guard = await requireRestaurantAccess(restaurantId, "menu:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
+
+  // Schedules are a Pro feature. Gated here as well as in the nav:
+  // hiding a link is not the same as refusing the write.
+  const gate = await requirePlanFeature(guard.supabase, restaurantId, "schedules");
+  if (!gate.ok) return gate;
 
   const { error } = await guard.supabase
     .from("menu_schedules")

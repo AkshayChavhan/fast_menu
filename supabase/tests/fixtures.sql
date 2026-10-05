@@ -119,6 +119,13 @@ create table public.restaurants (
   pincode           text,
   trial_status      text not null default 'pending'
                     check (trial_status in ('pending', 'active', 'needs_review', 'denied')),
+  -- Production defaults to 'starter'. The fixture defaults to 'pro' so the
+  -- ordering, billing and kitchen suites exercise what they are about instead
+  -- of every one of them having to opt in. plans.test.sql sets 'starter'
+  -- explicitly and is what covers the gate itself.
+  plan              text not null default 'pro'
+                    check (plan in ('starter', 'pro')),
+  plan_expires_at   timestamptz,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
@@ -129,6 +136,22 @@ create table public.platform_settings (
   updated_at timestamptz not null default now()
 );
 insert into public.platform_settings (key, value) values ('trial_verification', 'phone');
+
+create table public.payments (
+  id                  uuid primary key default gen_random_uuid(),
+  restaurant_id       uuid not null references public.restaurants (id) on delete cascade,
+  provider            text not null default 'razorpay',
+  provider_order_id   text not null unique,
+  provider_payment_id text,
+  plan                text not null check (plan in ('starter', 'pro')),
+  months              int  not null check (months > 0 and months <= 120),
+  amount_paise        int  not null check (amount_paise >= 0),
+  status              text not null default 'created'
+                      check (status in ('created', 'paid', 'failed')),
+  created_by          uuid,
+  created_at          timestamptz not null default now(),
+  paid_at             timestamptz
+);
 
 create table public.platform_admins (
   email      text primary key,

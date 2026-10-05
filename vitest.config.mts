@@ -10,6 +10,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // See the stub: `server-only` is a build-time guard, not something a
+      // unit test can satisfy.
+      "server-only": fileURLToPath(
+        new URL("./vitest.server-only-stub.ts", import.meta.url),
+      ),
     },
   },
   test: {

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireRestaurantAccess, type ActionResult } from "../lib";
+import { requireRestaurantAccess, ensureStaffRoom, type ActionResult } from "../lib";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { removeRestaurantImages } from "@/lib/storage-cleanup";
 import { canManageRole } from "@/lib/permissions";
@@ -55,6 +55,11 @@ export async function createStaff(input: {
   if (!canManageRole(guard.role, role)) {
     return { ok: false, error: "Only the owner can add managers" };
   }
+
+  // Before the admin client touches auth.users: a seat check that ran after
+  // createUser() would reject the hire and leave an orphaned login behind.
+  const room = await ensureStaffRoom(guard.supabase, restaurantId);
+  if (!room.ok) return room;
 
   const admin = createAdminClient();
   const { data: created, error: createError } = await admin.auth.admin.createUser({
@@ -149,6 +154,13 @@ export async function setStaffActive(input: {
 
   const target = await loadManagedStaff(guard, restaurantId, staffId);
   if (!target.ok) return target;
+
+  // Deactivate -> hire someone else -> reactivate is the other way past the
+  // seat limit, so switching someone back on counts as taking a seat.
+  if (isActive) {
+    const room = await ensureStaffRoom(guard.supabase, restaurantId);
+    if (!room.ok) return room;
+  }
 
   const { error } = await guard.supabase
     .from("restaurant_staff")

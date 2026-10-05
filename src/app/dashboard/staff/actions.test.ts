@@ -24,6 +24,8 @@ const state = vi.hoisted(() => ({
   passwordUpdates: [] as { uid: string; password: string }[],
   // Storage paths handed to remove().
   removed: [] as string[],
+  // What ensureStaffRoom() answers — the plan's seat limit.
+  staffRoom: { ok: true } as { ok: true } | { ok: false; error: string },
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -71,6 +73,7 @@ vi.mock("@/app/dashboard/lib", () => ({
       },
     };
   },
+  ensureStaffRoom: async () => state.staffRoom,
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -129,6 +132,7 @@ const validCreate = {
 };
 
 beforeEach(() => {
+    state.staffRoom = { ok: true };
   state.actorRole = "owner";
   state.guardError = null;
   state.target = { id: SID, user_id: "user-9", role: "waiter", avatar_url: null };
@@ -349,3 +353,51 @@ describe("deleteStaff()", () => {
     expect(state.deletedUsers).toHaveLength(0);
   });
 });
+
+describe("the plan's seat limit", () => {
+  const FULL = { ok: false as const, error: "Your plan includes 10 staff logins." };
+
+  it("refuses a new hire when the plan has no room", async () => {
+    state.staffRoom = FULL;
+    const res = await createStaff({
+      restaurantId: RID,
+      displayName: "Asha",
+      email: "asha@example.com",
+      password: "hunter2hunter2",
+      role: "waiter",
+    });
+    expect(res).toEqual(FULL);
+  });
+
+  // The seat check has to run before the admin client touches auth.users, or a
+  // refused hire leaves a login nobody can see behind.
+  it("leaves no orphaned login behind when it refuses", async () => {
+    state.staffRoom = FULL;
+    await createStaff({
+      restaurantId: RID,
+      displayName: "Asha",
+      email: "asha@example.com",
+      password: "hunter2hunter2",
+      role: "waiter",
+    });
+    expect(state.createdUsers).toEqual([]);
+    expect(state.inserted).toEqual([]);
+  });
+
+  // Deactivate -> hire someone else -> reactivate is the way past a seat cap.
+  it("counts reactivating someone as taking a seat", async () => {
+    state.staffRoom = FULL;
+    const res = await setStaffActive({ restaurantId: RID, staffId: SID, isActive: true });
+    expect(res).toEqual(FULL);
+    expect(state.updated).toEqual([]);
+  });
+
+  // Letting someone go must never be blocked — that is how you make room.
+  it("always allows deactivating, even with no seats left", async () => {
+    state.staffRoom = FULL;
+    const res = await setStaffActive({ restaurantId: RID, staffId: SID, isActive: false });
+    expect(res).toEqual({ ok: true });
+    expect(state.updated).toEqual([{ is_active: false }]);
+  });
+});
+

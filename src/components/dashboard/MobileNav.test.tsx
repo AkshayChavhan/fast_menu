@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/reviews" }));
 afterEach(cleanup);
 
 const setup = () =>
-  render(<MobileNav restaurantName="Yaadi Jagadamba" role="owner" />);
+  render(<MobileNav restaurantName="Yaadi Jagadamba" role="owner" plan="pro" />);
 
 // The drawer stays mounted so it can slide, which is what made both of these
 // bugs possible: it was overflowing and focusable while "closed".
@@ -88,7 +88,7 @@ describe("MobileNav", () => {
     header.className = "backdrop-blur";
     document.body.appendChild(header);
 
-    render(<MobileNav restaurantName="Yaadi Jagadamba" role="owner" />, {
+    render(<MobileNav restaurantName="Yaadi Jagadamba" role="owner" plan="pro" />, {
       container: header,
     });
     await user.click(screen.getByLabelText("Open navigation"));

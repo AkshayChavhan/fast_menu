@@ -39,11 +39,18 @@ export interface Restaurant {
   city: string | null;
   pincode: string | null;
   trial_status: TrialStatus;
+  // Subscription (see migrations/*_plans.sql). Read the effective plan through
+  // effectivePlan() in lib/plans.ts, never this column directly — an expired
+  // pro is a starter, and a live trial is a pro.
+  plan: Plan;
+  plan_expires_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export type TrialStatus = "pending" | "active" | "needs_review" | "denied";
+
+export type Plan = "starter" | "pro";
 
 // What a guest may see of a restaurant: the restaurants_public view (see
 // migrations/*_restaurants_public_view) leaves out the owner, the trial and
@@ -54,7 +61,11 @@ export type PublicRestaurant = Pick<
   | "default_locale" | "locales" | "timezone" | "ordering_enabled"
   | "ordering_paused" | "pause_message" | "table_qr_enabled" | "kds_enabled"
   | "allow_takeaway" | "google_review_url" | "created_at" | "updated_at"
->;
+> & {
+  // Derived in the view from the plan, so a guest never learns the tier and
+  // the page cannot decide this for itself (see *_white_label.sql).
+  hide_branding: boolean;
+};
 
 // --- Staff -----------------------------------------------------------------
 

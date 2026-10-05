@@ -33,8 +33,15 @@ update public.restaurants set is_published = false where id = :'R';
 select public.assert(public.resolve_table_token('token-cafe', 'tok-live') is null, 'an unpublished restaurant');
 -- The publish gate keeps a restaurant with an inactive trial unpublished,
 -- so the remaining way a live menu goes dark is the trial running out.
+-- A lapsed trial no longer darkens the menu at once: printed QR codes get a
+-- grace period first (see *_plan_grace.sql). Ordering stops immediately
+-- because restaurant_plan() drops to starter; the code still resolves.
 update public.restaurants set is_published = true, trial_ends_at = now() - interval '1 day' where id = :'R';
-select public.assert(public.resolve_table_token('token-cafe', 'tok-live') is null, 'an expired trial');
+select public.assert(public.resolve_table_token('token-cafe', 'tok-live') is not null,
+  'a just-lapsed trial still resolves, inside the grace period');
+update public.restaurants set trial_ends_at = now() - interval '400 days' where id = :'R';
+select public.assert(public.resolve_table_token('token-cafe', 'tok-live') is null,
+  'past the grace period the code goes dark');
 
 delete from public.restaurants where id = :'R';
 

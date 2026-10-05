@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { Clock, LogOut } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Clock, LogOut } from "lucide-react";
 import { getActiveContext } from "./lib";
 import { homeFor, ROLE_LABELS } from "@/lib/permissions";
+import { effectivePlan, graceEndsAt, PLAN_LABELS } from "@/lib/plans";
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
 import { MobileNav } from "@/components/dashboard/MobileNav";
 
@@ -16,6 +18,10 @@ export default async function DashboardLayout({
   // Waiters and kitchen staff have their own apps; the dashboard is the back
   // office. Navigation never links here for them, so this only catches a
   // typed URL.
+  const plan = effectivePlan(restaurant);
+  // Lapsed, but the menu is still up. Says when that ends.
+  const graceUntil = graceEndsAt(restaurant);
+
   const home = homeFor(role);
   if (home !== "/dashboard") redirect(home);
 
@@ -23,7 +29,7 @@ export default async function DashboardLayout({
     <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       {/* Topbar */}
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-neutral-200 bg-white/90 px-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/90">
-        <MobileNav restaurantName={restaurant.name} role={role} />
+        <MobileNav restaurantName={restaurant.name} role={role} plan={plan} />
         <div className="flex min-w-0 items-center gap-2">
           <span className="hidden text-lg font-bold text-brand-600 lg:inline">
             fast_menu
@@ -41,6 +47,9 @@ export default async function DashboardLayout({
             }
           >
             {restaurant.is_published ? "Published" : "Draft"}
+          </span>
+          <span className="ml-1 hidden shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 dark:bg-brand-950/50 dark:text-brand-300 sm:inline">
+            {PLAN_LABELS[plan]}
           </span>
         </div>
 
@@ -61,6 +70,22 @@ export default async function DashboardLayout({
         </div>
       </header>
 
+      {graceUntil ? (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />
+          Your subscription has ended. Your menu stays live until{" "}
+          {graceUntil.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+          , but Pro features are switched off.{" "}
+          <Link href="/dashboard/upgrade" className="underline">
+            Renew
+          </Link>
+        </div>
+      ) : null}
+
       {restaurant.trial_status === "needs_review" ? (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           <Clock className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />
@@ -75,7 +100,7 @@ export default async function DashboardLayout({
           <p className="mb-3 px-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
             Manage
           </p>
-          <SidebarNav role={role} />
+          <SidebarNav role={role} plan={plan} />
         </aside>
 
         <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>

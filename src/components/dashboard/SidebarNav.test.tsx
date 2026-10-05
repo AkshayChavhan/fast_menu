@@ -31,6 +31,7 @@ vi.mock("next/link", () => ({
 }));
 
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
+import type { Plan } from "@/lib/plans";
 import type { MemberRole } from "@/types/db";
 
 afterEach(cleanup);
@@ -39,9 +40,10 @@ function renderAt(
   pathname: string,
   onNavigate?: () => void,
   role: MemberRole = "owner",
+  plan: Plan = "pro",
 ) {
   usePathname.mockReturnValue(pathname);
-  return render(<SidebarNav role={role} onNavigate={onNavigate} />);
+  return render(<SidebarNav role={role} plan={plan} onNavigate={onNavigate} />);
 }
 
 // The active item is the one carrying the brand background.
@@ -200,3 +202,54 @@ describe("SidebarNav — roles", () => {
     expect(labels()).toEqual(["Overview", "Orders"]);
   });
 });
+
+describe("plan gating", () => {
+  // A role limit is permanent, so those rows are filtered out entirely. A plan
+  // limit is something the owner can change today, so the row stays, says Pro,
+  // and stops being a link.
+  const PRO_ONLY = ["Orders", "Schedules", "Tables", "Staff"];
+
+  it("keeps the Pro destinations as links on pro", () => {
+    renderAt("/dashboard", undefined, "owner", "pro");
+    for (const label of PRO_ONLY) {
+      expect(screen.getByRole("link", { name: label })).toBeTruthy();
+    }
+  });
+
+  it("badges them on starter and points them at the upgrade page", () => {
+    renderAt("/dashboard", undefined, "owner", "starter");
+    for (const label of PRO_ONLY) {
+      // Not the destination itself any more...
+      expect(screen.queryByRole("link", { name: label })).toBeNull();
+      // ...but a link all the same: the badge is the only upgrade path an
+      // owner has, so a dead row would be a dead end.
+      const row = screen.getByTitle(`${label} is part of the Pro plan`);
+      expect(row.tagName).toBe("A");
+      expect(row.getAttribute("href")).toBe("/dashboard/upgrade");
+    }
+    expect(screen.getAllByText("Pro")).toHaveLength(PRO_ONLY.length);
+  });
+
+  it("closes the mobile drawer when a badge is followed", async () => {
+    const onNavigate = vi.fn();
+    renderAt("/dashboard", onNavigate, "owner", "starter");
+    screen.getByTitle("Orders is part of the Pro plan").click();
+    expect(onNavigate).toHaveBeenCalled();
+  });
+
+  it("leaves the Starter destinations alone", () => {
+    renderAt("/dashboard", undefined, "owner", "starter");
+    for (const label of ["Overview", "Menu", "Preview & QR", "Import / Export", "Settings"]) {
+      expect(screen.getByRole("link", { name: label })).toBeTruthy();
+    }
+  });
+
+  // The capability filter runs first: a cashier has no staff:manage, so the
+  // Staff row should be absent rather than badged.
+  it("hides what the role cannot do, rather than badging it", () => {
+    renderAt("/dashboard", undefined, "cashier", "starter");
+    expect(screen.queryByTitle("Staff is part of the Pro plan")).toBeNull();
+    expect(screen.queryByText("Menu")).toBeNull();
+  });
+});
+
