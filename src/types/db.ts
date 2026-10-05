@@ -39,11 +39,18 @@ export interface Restaurant {
   city: string | null;
   pincode: string | null;
   trial_status: TrialStatus;
+  // Subscription (see migrations/*_plans.sql). Read the effective plan through
+  // effectivePlan() in lib/plans.ts, never this column directly — an expired
+  // pro is a starter, and a live trial is a pro.
+  plan: Plan;
+  plan_expires_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export type TrialStatus = "pending" | "active" | "needs_review" | "denied";
+
+export type Plan = "starter" | "pro";
 
 // What a guest may see of a restaurant: the restaurants_public view (see
 // migrations/*_restaurants_public_view) leaves out the owner, the trial and

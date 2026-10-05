@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { isValidTimezone } from "@/lib/time";
 import { z } from "zod";
-import { requireRestaurantAccess, type ActionResult } from "../lib";
+import { requireRestaurantAccess, getPlan, type ActionResult } from "../lib";
+import { localeLimit, planAllows, UPGRADE_PROMPTS } from "@/lib/plans";
 import { removeRestaurantImages } from "@/lib/storage-cleanup";
 import { slugify } from "@/lib/utils";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/lib/constants";
@@ -67,6 +68,16 @@ export async function updateRestaurantSettings(
 
   const guard = await requireRestaurantAccess(data.restaurantId, "settings:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
+
+  // Say no rather than silently dropping languages. The form holds its state,
+  // so nothing else the owner typed is lost by rejecting the save.
+  const limit = localeLimit(await getPlan(guard.supabase, data.restaurantId));
+  if (locales.length > limit) {
+    return {
+      ok: false,
+      error: `Your plan includes ${limit} languages. ${UPGRADE_PROMPTS.languages}`,
+    };
+  }
 
   const { error } = await guard.supabase
     .from("restaurants")
@@ -209,6 +220,22 @@ export async function updateOrderingSettings(
 
   const guard = await requireRestaurantAccess(restaurantId, "settings:manage");
   if (!guard.ok) return { ok: false, error: guard.error };
+
+  // The timezone is free — reports and schedules read it whatever the plan.
+  // The four switches are the Pro feature, so a starter account may save this
+  // form but may not turn any of them on. place_order() and
+  // staff_create_order() check the plan again at order time, which is what
+  // covers a restaurant that had them on and then downgraded.
+  if (!planAllows(await getPlan(guard.supabase, restaurantId), "ordering")) {
+    if (
+      settings.ordering_enabled ||
+      settings.allow_takeaway ||
+      settings.table_qr_enabled ||
+      settings.kds_enabled
+    ) {
+      return { ok: false, error: UPGRADE_PROMPTS.ordering };
+    }
+  }
 
   const { error } = await guard.supabase
     .from("restaurants")

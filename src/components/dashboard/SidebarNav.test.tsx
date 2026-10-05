@@ -31,6 +31,7 @@ vi.mock("next/link", () => ({
 }));
 
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
+import type { Plan } from "@/lib/plans";
 import type { MemberRole } from "@/types/db";
 
 afterEach(cleanup);
@@ -39,9 +40,10 @@ function renderAt(
   pathname: string,
   onNavigate?: () => void,
   role: MemberRole = "owner",
+  plan: Plan = "pro",
 ) {
   usePathname.mockReturnValue(pathname);
-  return render(<SidebarNav role={role} onNavigate={onNavigate} />);
+  return render(<SidebarNav role={role} plan={plan} onNavigate={onNavigate} />);
 }
 
 // The active item is the one carrying the brand background.
@@ -200,3 +202,42 @@ describe("SidebarNav — roles", () => {
     expect(labels()).toEqual(["Overview", "Orders"]);
   });
 });
+
+describe("plan gating", () => {
+  // A role limit is permanent, so those rows are filtered out entirely. A plan
+  // limit is something the owner can change today, so the row stays, says Pro,
+  // and stops being a link.
+  const PRO_ONLY = ["Orders", "Schedules", "Tables", "Staff"];
+
+  it("keeps the Pro destinations as links on pro", () => {
+    renderAt("/dashboard", undefined, "owner", "pro");
+    for (const label of PRO_ONLY) {
+      expect(screen.getByRole("link", { name: label })).toBeTruthy();
+    }
+  });
+
+  it("shows them badged, and not as links, on starter", () => {
+    renderAt("/dashboard", undefined, "owner", "starter");
+    for (const label of PRO_ONLY) {
+      expect(screen.queryByRole("link", { name: label })).toBeNull();
+      expect(screen.getByTitle(`${label} is part of the Pro plan`)).toBeTruthy();
+    }
+    expect(screen.getAllByText("Pro")).toHaveLength(PRO_ONLY.length);
+  });
+
+  it("leaves the Starter destinations alone", () => {
+    renderAt("/dashboard", undefined, "owner", "starter");
+    for (const label of ["Overview", "Menu", "Preview & QR", "Import / Export", "Settings"]) {
+      expect(screen.getByRole("link", { name: label })).toBeTruthy();
+    }
+  });
+
+  // The capability filter runs first: a cashier has no staff:manage, so the
+  // Staff row should be absent rather than badged.
+  it("hides what the role cannot do, rather than badging it", () => {
+    renderAt("/dashboard", undefined, "cashier", "starter");
+    expect(screen.queryByTitle("Staff is part of the Pro plan")).toBeNull();
+    expect(screen.queryByText("Menu")).toBeNull();
+  });
+});
+

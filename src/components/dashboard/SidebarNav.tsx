@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { can, type Capability } from "@/lib/permissions";
+import { planAllows, type Plan, type PlanFeature } from "@/lib/plans";
 import type { MemberRole } from "@/types/db";
 
 type NavLeaf = {
@@ -28,6 +29,8 @@ type NavLeaf = {
   exact?: boolean;
   /** Hidden from roles without this capability. Omit for everyone. */
   capability?: Capability;
+  /** Shown with a Pro badge, not a link, on a plan without this feature. */
+  feature?: PlanFeature;
 };
 
 type NavGroup = {
@@ -37,6 +40,7 @@ type NavGroup = {
   match: string;
   children: { href: string; label: string; exact?: boolean }[];
   capability?: Capability;
+  feature?: PlanFeature;
 };
 
 type NavItem = NavLeaf | NavGroup;
@@ -50,6 +54,7 @@ const NAV: NavItem[] = [
     label: "Orders",
     icon: Receipt,
     capability: "billing:settle",
+    feature: "ordering",
   },
   {
     href: "/dashboard/menu",
@@ -62,6 +67,7 @@ const NAV: NavItem[] = [
     label: "Schedules",
     icon: Clock,
     capability: "menu:manage",
+    feature: "schedules",
   },
   {
     href: "/dashboard/qr",
@@ -90,12 +96,14 @@ const NAV: NavItem[] = [
     label: "Tables",
     icon: LayoutGrid,
     capability: "tables:manage",
+    feature: "ordering",
   },
   {
     href: "/dashboard/staff",
     label: "Staff",
     icon: Users,
     capability: "staff:manage",
+    feature: "staff",
   },
   {
     href: "/dashboard/settings",
@@ -114,9 +122,11 @@ const idleCls =
 
 export function SidebarNav({
   role,
+  plan,
   onNavigate,
 }: {
   role: MemberRole;
+  plan: Plan;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -130,6 +140,12 @@ export function SidebarNav({
   return (
     <nav className="flex flex-col gap-1">
       {items.map((item) => {
+        // A role limit is permanent, so those items are filtered out above.
+        // A plan limit is a thing the owner can change today, so the row stays
+        // and says so.
+        if (item.feature && !planAllows(plan, item.feature)) {
+          return <LockedItem key={item.label} label={item.label} icon={item.icon} />;
+        }
         if (!isGroup(item)) {
           const active = item.exact
             ? pathname === item.href
@@ -157,6 +173,27 @@ export function SidebarNav({
         );
       })}
     </nav>
+  );
+}
+
+function LockedItem({
+  label,
+  icon: Icon,
+}: {
+  label: string;
+  icon: LucideIcon;
+}) {
+  return (
+    <div
+      className={cn(linkBase, "cursor-default text-neutral-400 dark:text-neutral-600")}
+      title={`${label} is part of the Pro plan`}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      {label}
+      <span className="ml-auto rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
+        Pro
+      </span>
+    </div>
   );
 }
 

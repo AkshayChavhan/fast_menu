@@ -119,6 +119,13 @@ create table public.restaurants (
   pincode           text,
   trial_status      text not null default 'pending'
                     check (trial_status in ('pending', 'active', 'needs_review', 'denied')),
+  -- Production defaults to 'starter'. The fixture defaults to 'pro' so the
+  -- ordering, billing and kitchen suites exercise what they are about instead
+  -- of every one of them having to opt in. plans.test.sql sets 'starter'
+  -- explicitly and is what covers the gate itself.
+  plan              text not null default 'pro'
+                    check (plan in ('starter', 'pro')),
+  plan_expires_at   timestamptz,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );

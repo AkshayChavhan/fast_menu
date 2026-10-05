@@ -1,5 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { can, isMemberRole, type Capability } from "@/lib/permissions";
+import {
+  effectivePlan,
+  planAllows,
+  staffLimit,
+  UPGRADE_PROMPTS,
+  type Plan,
+  type PlanFeature,
+} from "@/lib/plans";
 import { requireContext, type ActiveContext } from "@/lib/membership";
 import type { MemberRole } from "@/types/db";
 
@@ -63,3 +71,77 @@ export async function requireRestaurantAccess(
   }
   return { ok: true, supabase, userId: user.id, role };
 }
+
+// ---------------------------------------------------------------------------
+// Plan gates
+//
+// Always read the plan from the database inside the action. A plan passed in
+// from the client is a plan the client can edit, and these gates are what
+// stands between a starter account and the Pro features.
+// ---------------------------------------------------------------------------
+
+type PlanRow = {
+  plan: Plan;
+  plan_expires_at: string | null;
+  trial_status: "pending" | "active" | "needs_review" | "denied";
+  trial_ends_at: string;
+};
+
+export async function getPlan(
+  supabase: Db,
+  restaurantId: string,
+): Promise<Plan> {
+  const { data } = await supabase
+    .from("restaurants")
+    .select("plan, plan_expires_at, trial_status, trial_ends_at")
+    .eq("id", restaurantId)
+    .maybeSingle<PlanRow>();
+
+  // A restaurant we cannot read is not one we hand Pro features to.
+  if (!data) return "starter";
+  return effectivePlan(data);
+}
+
+// Fails with the upgrade wording rather than a permission error: the actor is
+// allowed to do this, the plan isn't.
+export async function requirePlanFeature(
+  supabase: Db,
+  restaurantId: string,
+  feature: PlanFeature,
+): Promise<ActionResult> {
+  const plan = await getPlan(supabase, restaurantId);
+  if (planAllows(plan, feature)) return { ok: true };
+  return { ok: false, error: UPGRADE_PROMPTS[feature] };
+}
+
+// Room for one more active staff login? Counts only active rows, so a
+// restaurant with turnover is not punished for the people who have left. The
+// owner is not a restaurant_staff row and never counts.
+export async function ensureStaffRoom(
+  supabase: Db,
+  restaurantId: string,
+): Promise<ActionResult> {
+  const plan = await getPlan(supabase, restaurantId);
+  const limit = staffLimit(plan);
+
+  if (limit === 0) {
+    return { ok: false, error: UPGRADE_PROMPTS.staff };
+  }
+
+  const { count, error } = await supabase
+    .from("restaurant_staff")
+    .select("id", { count: "exact", head: true })
+    .eq("restaurant_id", restaurantId)
+    .eq("is_active", true);
+
+  if (error) return { ok: false, error: error.message };
+
+  if ((count ?? 0) >= limit) {
+    return {
+      ok: false,
+      error: `Your plan includes ${limit} staff logins. Deactivate someone, or get in touch to add more.`,
+    };
+  }
+  return { ok: true };
+}
+
