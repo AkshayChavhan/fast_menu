@@ -154,6 +154,84 @@ select public.assert(
 
 update public.test_auth set uid = null;
 
+\echo ''
+\echo '=== the operator sets the plan ==='
+
+-- Start from a restaurant with nothing paid.
+update public.restaurants set plan = 'starter', plan_expires_at = null,
+       trial_status = 'denied', trial_ends_at = now() - interval '90 days'
+ where id = :'R';
+update public.test_auth set uid = null, email = 'nobody@example.com';
+
+do $$
+declare refused boolean := false;
+begin
+  begin
+    perform public.set_restaurant_plan('b1a40000-0000-0000-0000-000000000001'::uuid, 'pro', 12);
+  exception when others then refused := true;
+  end;
+  perform public.assert(refused, 'a non-admin cannot hand out a plan');
+end
+$$;
+
+select public.assert(public.restaurant_plan(:'R') = 'starter', 'and nothing changed');
+
+insert into public.platform_admins (email) values ('ops@example.com');
+update public.test_auth set email = 'ops@example.com';
+
+select public.set_restaurant_plan(:'R', 'pro', 12);
+select public.assert(public.restaurant_plan(:'R') = 'pro', 'the admin can grant pro');
+select public.assert(
+  (select plan_expires_at between now() + interval '360 days' and now() + interval '370 days'
+   from public.restaurants where id = :'R'),
+  'the term runs a year from now');
+
+-- Renewing early must add to the term, not reset it to a year from today.
+select public.set_restaurant_plan(:'R', 'pro', 12);
+select public.assert(
+  (select plan_expires_at > now() + interval '700 days'
+   from public.restaurants where id = :'R'),
+  'renewing early stacks onto the term it has left');
+
+-- Dropping a tier keeps the paid term: they bought time, not just features.
+select public.set_restaurant_plan(:'R', 'starter', 0);
+select public.assert(
+  (select plan = 'starter' and plan_expires_at is null
+   from public.restaurants where id = :'R'),
+  'zero months clears the paid term');
+select public.assert(public.restaurant_plan(:'R') = 'starter', 'which drops them off pro');
+
+-- The menu must not go dark the instant an operator ends a subscription.
+update public.restaurants set is_published = true where id = :'R';
+select public.assert(public.restaurant_is_live(:'R') = false,
+  'a long-dead trial plus no paid term is past grace already');
+
+select public.set_restaurant_plan(:'R', 'pro', 1);
+select public.assert(public.restaurant_is_live(:'R'), 'granting a term brings the menu back');
+
+do $$
+declare refused boolean := false;
+begin
+  begin
+    perform public.set_restaurant_plan('b1a40000-0000-0000-0000-000000000001'::uuid, 'enterprise', 12);
+  exception when others then refused := true;
+  end;
+  perform public.assert(refused, 'an unknown tier is refused');
+end
+$$;
+
+select public.assert(
+  (select count(*) from public.list_restaurant_plans() where restaurant_id = :'R') = 1,
+  'the restaurant shows up in the operator listing');
+
+update public.test_auth set email = 'nobody@example.com';
+select public.assert(
+  (select count(*) from public.list_restaurant_plans()) = 0,
+  'and the listing is empty for everyone else');
+
+delete from public.platform_admins where email = 'ops@example.com';
+update public.test_auth set uid = null, email = null;
+
 delete from public.restaurants where id = :'R';
 
 \echo ''
