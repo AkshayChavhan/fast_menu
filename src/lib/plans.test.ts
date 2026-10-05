@@ -9,6 +9,7 @@ import {
   isPlan,
   isLive,
   isInGrace,
+  graceEndsAt,
   STARTER_LOCALE_LIMIT,
   PRO_STAFF_LIMIT,
   PLAN_GRACE_DAYS,
@@ -198,5 +199,23 @@ describe("isLive", () => {
     expect(
       isInGrace({ ...base, plan: "pro", plan_expires_at: daysAgo(PLAN_GRACE_DAYS + 1) }, NOW),
     ).toBe(false);
+  });
+
+  it("says when the menu will go dark, and only while lapsed", () => {
+    const base = {
+      is_published: true,
+      trial_status: "denied" as const,
+      trial_ends_at: past,
+    };
+    const lapsed = { ...base, plan: "pro" as const, plan_expires_at: daysAgo(1) };
+    const ends = graceEndsAt(lapsed, NOW);
+    expect(ends).not.toBeNull();
+    // A day lapsed, so the menu has the rest of the grace window left.
+    expect(ends!.getTime() - NOW.getTime()).toBeGreaterThan(
+      (PLAN_GRACE_DAYS - 2) * 24 * 60 * 60 * 1000,
+    );
+
+    // Nothing to warn about while they are paying.
+    expect(graceEndsAt({ ...base, plan: "pro", plan_expires_at: future }, NOW)).toBeNull();
   });
 });

@@ -216,13 +216,25 @@ describe("plan gating", () => {
     }
   });
 
-  it("shows them badged, and not as links, on starter", () => {
+  it("badges them on starter and points them at the upgrade page", () => {
     renderAt("/dashboard", undefined, "owner", "starter");
     for (const label of PRO_ONLY) {
+      // Not the destination itself any more...
       expect(screen.queryByRole("link", { name: label })).toBeNull();
-      expect(screen.getByTitle(`${label} is part of the Pro plan`)).toBeTruthy();
+      // ...but a link all the same: the badge is the only upgrade path an
+      // owner has, so a dead row would be a dead end.
+      const row = screen.getByTitle(`${label} is part of the Pro plan`);
+      expect(row.tagName).toBe("A");
+      expect(row.getAttribute("href")).toBe("/dashboard/upgrade");
     }
     expect(screen.getAllByText("Pro")).toHaveLength(PRO_ONLY.length);
+  });
+
+  it("closes the mobile drawer when a badge is followed", async () => {
+    const onNavigate = vi.fn();
+    renderAt("/dashboard", onNavigate, "owner", "starter");
+    screen.getByTitle("Orders is part of the Pro plan").click();
+    expect(onNavigate).toHaveBeenCalled();
   });
 
   it("leaves the Starter destinations alone", () => {

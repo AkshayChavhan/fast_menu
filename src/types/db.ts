@@ -61,7 +61,11 @@ export type PublicRestaurant = Pick<
   | "default_locale" | "locales" | "timezone" | "ordering_enabled"
   | "ordering_paused" | "pause_message" | "table_qr_enabled" | "kds_enabled"
   | "allow_takeaway" | "google_review_url" | "created_at" | "updated_at"
->;
+> & {
+  // Derived in the view from the plan, so a guest never learns the tier and
+  // the page cannot decide this for itself (see *_white_label.sql).
+  hide_branding: boolean;
+};
 
 // --- Staff -----------------------------------------------------------------
 

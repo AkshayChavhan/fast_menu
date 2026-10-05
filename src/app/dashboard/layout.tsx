@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { Clock, LogOut } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Clock, LogOut } from "lucide-react";
 import { getActiveContext } from "./lib";
 import { homeFor, ROLE_LABELS } from "@/lib/permissions";
-import { effectivePlan, PLAN_LABELS } from "@/lib/plans";
+import { effectivePlan, graceEndsAt, PLAN_LABELS } from "@/lib/plans";
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
 import { MobileNav } from "@/components/dashboard/MobileNav";
 
@@ -18,6 +19,8 @@ export default async function DashboardLayout({
   // office. Navigation never links here for them, so this only catches a
   // typed URL.
   const plan = effectivePlan(restaurant);
+  // Lapsed, but the menu is still up. Says when that ends.
+  const graceUntil = graceEndsAt(restaurant);
 
   const home = homeFor(role);
   if (home !== "/dashboard") redirect(home);
@@ -66,6 +69,22 @@ export default async function DashboardLayout({
           </form>
         </div>
       </header>
+
+      {graceUntil ? (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />
+          Your subscription has ended. Your menu stays live until{" "}
+          {graceUntil.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+          , but Pro features are switched off.{" "}
+          <Link href="/dashboard/upgrade" className="underline">
+            Renew
+          </Link>
+        </div>
+      ) : null}
 
       {restaurant.trial_status === "needs_review" ? (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">

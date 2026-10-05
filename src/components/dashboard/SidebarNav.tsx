@@ -144,7 +144,14 @@ export function SidebarNav({
         // A plan limit is a thing the owner can change today, so the row stays
         // and says so.
         if (item.feature && !planAllows(plan, item.feature)) {
-          return <LockedItem key={item.label} label={item.label} icon={item.icon} />;
+          return (
+            <LockedItem
+              key={item.label}
+              label={item.label}
+              icon={item.icon}
+              onNavigate={onNavigate}
+            />
+          );
         }
         if (!isGroup(item)) {
           const active = item.exact
@@ -179,13 +186,18 @@ export function SidebarNav({
 function LockedItem({
   label,
   icon: Icon,
+  onNavigate,
 }: {
   label: string;
   icon: LucideIcon;
+  onNavigate?: () => void;
 }) {
+  // A link, not a dead row: the badge is the only upgrade path an owner has.
   return (
-    <div
-      className={cn(linkBase, "cursor-default text-neutral-400 dark:text-neutral-600")}
+    <Link
+      href="/dashboard/upgrade"
+      onClick={onNavigate}
+      className={cn(linkBase, "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:text-neutral-600 dark:hover:bg-neutral-800")}
       title={`${label} is part of the Pro plan`}
     >
       <Icon className="h-4 w-4 shrink-0" />
@@ -193,7 +205,7 @@ function LockedItem({
       <span className="ml-auto rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
         Pro
       </span>
-    </div>
+    </Link>
   );
 }
 

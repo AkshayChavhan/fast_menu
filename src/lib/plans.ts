@@ -153,3 +153,15 @@ function isPaidNow(r: PlanSource, now: Date): boolean {
   return paid !== null && paid > now.getTime();
 }
 
+/** When the public menu goes dark, or null if nothing has lapsed. */
+export function graceEndsAt(r: LiveSource, now: Date = new Date()): Date | null {
+  if (!isInGrace(r, now)) return null;
+
+  const trialEnds = Date.parse(r.trial_ends_at);
+  const ends = Math.max(
+    paidTermEnd(r) ?? Number.NEGATIVE_INFINITY,
+    Number.isFinite(trialEnds) ? trialEnds : Number.NEGATIVE_INFINITY,
+  );
+  return Number.isFinite(ends) ? new Date(ends + GRACE_MS) : null;
+}
+

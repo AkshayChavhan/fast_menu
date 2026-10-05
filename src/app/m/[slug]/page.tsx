@@ -264,10 +264,17 @@ export default async function PublicMenuPage({
 
       <footer className="border-t border-neutral-200/70 py-8 text-center dark:border-neutral-800/70">
         <p className="text-xs text-neutral-400 dark:text-neutral-500">
-          {name} · Digital menu powered by{" "}
-          <span translate="no" className="font-semibold text-brand-500">
-            fast_menu
-          </span>
+          {name}
+          {/* Pro removes the branding. The view decides, not this page: the
+              anon key is in the guest's browser. */}
+          {restaurant.hide_branding ? null : (
+            <>
+              {" · Digital menu powered by "}
+              <span translate="no" className="font-semibold text-brand-500">
+                fast_menu
+              </span>
+            </>
+          )}
         </p>
       </footer>
     </div>

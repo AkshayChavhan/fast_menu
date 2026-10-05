@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+
+import { requirePlanFeature } from "../lib";
 import { createClient } from "@/lib/supabase/server";
 import { ALLERGENS, DIETARY_TAGS } from "@/lib/constants";
 import { can } from "@/lib/permissions";
@@ -308,6 +310,15 @@ export async function createDish(input: {
   if (!(await canManageRestaurant(supabase, d.restaurantId)))
     return { ok: false, error: "Restaurant not found" };
 
+  // Daily specials ride with schedules. On a plan without them the dates are
+  // dropped rather than the whole save refused: the editor hides those fields,
+  // so a value arriving here is stale client state or a crafted request.
+  const canSpecial = (
+    await requirePlanFeature(supabase, d.restaurantId, "schedules")
+  ).ok;
+  const specialFrom = canSpecial ? d.specialFrom : null;
+  const specialUntil = canSpecial ? d.specialUntil : null;
+
   // If a category was chosen, ensure it belongs to this restaurant.
   if (d.categoryId) {
     const owned = await managedCategoryRestaurant(supabase, d.categoryId);
@@ -337,8 +348,8 @@ export async function createDish(input: {
       dietary_tags: d.dietaryTags,
       is_featured: d.isFeatured,
       image_url: d.imageUrl,
-      special_from: d.specialFrom,
-      special_until: d.specialUntil,
+      special_from: specialFrom,
+      special_until: specialUntil,
       sort_order: nextOrder,
     })
     .select("id")
@@ -379,6 +390,14 @@ export async function updateDish(input: {
   const restaurantId = await managedDishRestaurant(supabase, d.dishId);
   if (!restaurantId) return { ok: false, error: "Dish not found" };
 
+  // Same rule as creating a dish: a plan without schedules cannot set special
+  // dates, so they are dropped rather than the edit refused.
+  const canSpecial = (
+    await requirePlanFeature(supabase, restaurantId, "schedules")
+  ).ok;
+  const specialFrom = canSpecial ? d.specialFrom : null;
+  const specialUntil = canSpecial ? d.specialUntil : null;
+
   if (d.categoryId) {
     const owned = await managedCategoryRestaurant(supabase, d.categoryId);
     if (owned !== restaurantId)
@@ -402,8 +421,8 @@ export async function updateDish(input: {
       dietary_tags: d.dietaryTags,
       is_featured: d.isFeatured,
       image_url: d.imageUrl,
-      special_from: d.specialFrom,
-      special_until: d.specialUntil,
+      special_from: specialFrom,
+      special_until: specialUntil,
     })
     .eq("id", d.dishId);
   if (error) return { ok: false, error: error.message };
