@@ -67,6 +67,18 @@ export function isPlan(value: string): value is Plan {
   return (PLANS as readonly string[]).includes(value);
 }
 
+// How long a menu stays readable after the last entitlement ends. QR codes are
+// printed and glued to tables, so a failed card must not be a dinner-service
+// outage — ordering stops at once, the menu does not. Mirrors plan_grace().
+export const PLAN_GRACE_DAYS = 30;
+const GRACE_MS = PLAN_GRACE_DAYS * 24 * 60 * 60 * 1000;
+
+function paidTermEnd(r: { plan_expires_at: string | null }): number | null {
+  if (!r.plan_expires_at) return null;
+  const t = Date.parse(r.plan_expires_at);
+  return Number.isFinite(t) ? t : null;
+}
+
 type PlanSource = Pick<
   Restaurant,
   "plan" | "plan_expires_at" | "trial_status" | "trial_ends_at"
@@ -78,9 +90,11 @@ type PlanSource = Pick<
 export function effectivePlan(r: PlanSource, now: Date = new Date()): Plan {
   const t = now.getTime();
 
-  const paidUntil = r.plan_expires_at ? Date.parse(r.plan_expires_at) : null;
-  // A null expiry means no end date has been set, not "expired".
-  if (r.plan === "pro" && (paidUntil === null || paidUntil > t)) return "pro";
+  // A null expiry means no paid subscription, not "forever": comping an
+  // account is done by setting the date far out, the same idiom the baseline
+  // documents for trial_ends_at.
+  const paidUntil = paidTermEnd(r);
+  if (r.plan === "pro" && paidUntil !== null && paidUntil > t) return "pro";
 
   // The trial runs as pro so an owner feels the ordering system before paying.
   // needs_review is included because publishing is blocked separately and a
@@ -110,3 +124,32 @@ export const UPGRADE_PROMPTS: Record<PlanFeature, string> = {
   languages: `Offer more than ${STARTER_LOCALE_LIMIT} languages with the Pro plan.`,
   white_label: "Remove fast_menu branding with the Pro plan.",
 };
+
+type LiveSource = PlanSource & Pick<Restaurant, "is_published">;
+
+// Is the public menu up? Mirrors restaurant_is_live(). Three states in all:
+// entitled (full plan), grace (menu up, plan already dropped to starter so
+// ordering is off), and dark.
+export function isLive(r: LiveSource, now: Date = new Date()): boolean {
+  if (!r.is_published) return false;
+
+  const trialEnds = Date.parse(r.trial_ends_at);
+  const ends = Math.max(
+    paidTermEnd(r) ?? Number.NEGATIVE_INFINITY,
+    Number.isFinite(trialEnds) ? trialEnds : Number.NEGATIVE_INFINITY,
+  );
+  if (!Number.isFinite(ends)) return false;
+
+  return now.getTime() < ends + GRACE_MS;
+}
+
+/** In the window where the menu is up but the subscription has lapsed. */
+export function isInGrace(r: LiveSource, now: Date = new Date()): boolean {
+  return isLive(r, now) && effectivePlan(r, now) === "starter" && !isPaidNow(r, now);
+}
+
+function isPaidNow(r: PlanSource, now: Date): boolean {
+  const paid = paidTermEnd(r);
+  return paid !== null && paid > now.getTime();
+}
+

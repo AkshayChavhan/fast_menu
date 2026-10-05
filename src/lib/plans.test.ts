@@ -7,8 +7,11 @@ import {
   staffLimit,
   localeLimit,
   isPlan,
+  isLive,
+  isInGrace,
   STARTER_LOCALE_LIMIT,
   PRO_STAFF_LIMIT,
+  PLAN_GRACE_DAYS,
 } from "@/lib/plans";
 import type { Restaurant } from "@/types/db";
 
@@ -54,8 +57,10 @@ describe("limits", () => {
 });
 
 describe("effectivePlan", () => {
-  it("honours a paid plan with no end date", () => {
-    expect(at({ plan: "pro", plan_expires_at: null })).toBe("pro");
+  // NULL means no paid subscription, not "forever" — comping an account is
+  // done by setting the date far out.
+  it("does not treat a missing end date as a subscription", () => {
+    expect(at({ plan: "pro", plan_expires_at: null })).toBe("starter");
   });
 
   it("honours a paid plan inside its term", () => {
@@ -103,5 +108,95 @@ describe("isPlan", () => {
     expect(isPlan("pro")).toBe(true);
     expect(isPlan("enterprise")).toBe(false);
     expect(isPlan("")).toBe(false);
+  });
+});
+
+describe("isLive", () => {
+  const live = (
+    o: Partial<
+      Pick<
+        Restaurant,
+        "is_published" | "plan" | "plan_expires_at" | "trial_status" | "trial_ends_at"
+      >
+    >,
+  ) =>
+    isLive(
+      {
+        is_published: true,
+        plan: "starter",
+        plan_expires_at: null,
+        trial_status: "pending",
+        trial_ends_at: past,
+        ...o,
+      },
+      NOW,
+    );
+
+  const daysAgo = (n: number) =>
+    new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000).toISOString();
+
+  it("is never live while unpublished, whatever has been paid", () => {
+    expect(live({ is_published: false, plan: "pro", plan_expires_at: future })).toBe(false);
+  });
+
+  it("is live on a current paid term", () => {
+    expect(live({ plan_expires_at: future })).toBe(true);
+  });
+
+  // The reason the grace period exists: a printed QR code glued to a table
+  // must not stop working the day a card fails.
+  it("stays live just inside the grace period", () => {
+    expect(live({ plan_expires_at: daysAgo(PLAN_GRACE_DAYS - 1) })).toBe(true);
+  });
+
+  it("goes dark just past it", () => {
+    expect(live({ plan_expires_at: daysAgo(PLAN_GRACE_DAYS + 1) })).toBe(false);
+  });
+
+  it("gives a lapsed trial the same grace", () => {
+    expect(live({ trial_ends_at: daysAgo(1) })).toBe(true);
+    expect(live({ trial_ends_at: daysAgo(PLAN_GRACE_DAYS + 1) })).toBe(false);
+  });
+
+  // The whole point of the INR 2,000 plan: a live menu, no ordering.
+  it("keeps a paid starter live without making it pro", () => {
+    const r = {
+      is_published: true,
+      plan: "starter" as const,
+      plan_expires_at: future,
+      trial_status: "denied" as const,
+      trial_ends_at: past,
+    };
+    expect(isLive(r, NOW)).toBe(true);
+    expect(effectivePlan(r, NOW)).toBe("starter");
+  });
+
+  // In grace the menu is up but ordering is already off.
+  it("drops to starter in grace while the menu stays up", () => {
+    const r = {
+      is_published: true,
+      plan: "pro" as const,
+      plan_expires_at: daysAgo(1),
+      trial_status: "denied" as const,
+      trial_ends_at: past,
+    };
+    expect(isLive(r, NOW)).toBe(true);
+    expect(effectivePlan(r, NOW)).toBe("starter");
+  });
+
+  it("names the lapsed-but-still-up window", () => {
+    const base = {
+      is_published: true,
+      trial_status: "denied" as const,
+      trial_ends_at: past,
+    };
+    // Lapsed a day ago: menu up, ordering off.
+    expect(isInGrace({ ...base, plan: "pro", plan_expires_at: daysAgo(1) }, NOW)).toBe(true);
+    // Still paying: not grace.
+    expect(isInGrace({ ...base, plan: "pro", plan_expires_at: future }, NOW)).toBe(false);
+    // Long dead: dark, not grace.
+    expect(
+      isInGrace({ ...base, plan: "pro", plan_expires_at: daysAgo(PLAN_GRACE_DAYS + 1) }, NOW),
+    ).toBe(false);
   });
 });

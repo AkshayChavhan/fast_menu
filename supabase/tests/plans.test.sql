@@ -22,8 +22,11 @@ values
 
 select public.assert(public.restaurant_plan(:'R') = 'starter', 'a starter with no live trial is a starter');
 
+-- NULL plan_expires_at means no paid subscription, not "pro forever". Comping
+-- an account is done by setting the date far out.
 update public.restaurants set plan = 'pro', plan_expires_at = null where id = :'R';
-select public.assert(public.restaurant_plan(:'R') = 'pro', 'a paid plan with no end date is pro');
+select public.assert(public.restaurant_plan(:'R') = 'starter',
+  'plan = pro with no paid term is not pro');
 
 update public.restaurants set plan_expires_at = now() + interval '30 days' where id = :'R';
 select public.assert(public.restaurant_plan(:'R') = 'pro', 'a paid plan inside its term is pro');
@@ -45,6 +48,42 @@ select public.assert(public.restaurant_plan(:'R') = 'starter', 'an expired trial
 
 update public.restaurants set trial_status = 'pending', trial_ends_at = now() + interval '5 days' where id = :'R';
 select public.assert(public.restaurant_plan(:'R') = 'starter', 'an unclaimed trial grants nothing');
+
+\echo ''
+\echo '=== the grace period ==='
+
+-- The point of the grace period: a printed QR code glued to a table must not
+-- stop working the day a card fails.
+update public.restaurants set is_published = true, plan = 'pro',
+       plan_expires_at = now() - interval '1 day',
+       trial_status = 'denied', trial_ends_at = now() - interval '90 days'
+ where id = :'R';
+
+select public.assert(public.restaurant_plan(:'R') = 'starter',
+  'an expired paid term stops being pro at once');
+select public.assert(public.restaurant_is_live(:'R'),
+  'but the menu stays up inside the grace period');
+
+update public.restaurants set plan_expires_at = now() - interval '400 days' where id = :'R';
+select public.assert(not public.restaurant_is_live(:'R'),
+  'past the grace period the menu goes dark');
+
+-- Renewing moves the entitlement forward again.
+update public.restaurants set plan_expires_at = now() + interval '365 days' where id = :'R';
+select public.assert(public.restaurant_plan(:'R') = 'pro', 'renewing restores pro');
+select public.assert(public.restaurant_is_live(:'R'), 'and the menu with it');
+
+-- A paid starter is live without ever being pro: the whole point of the
+-- INR 2,000 plan.
+update public.restaurants set plan = 'starter', plan_expires_at = now() + interval '365 days'
+ where id = :'R';
+select public.assert(public.restaurant_is_live(:'R'), 'a paid starter has a live menu');
+select public.assert(public.restaurant_plan(:'R') = 'starter', 'and is still not pro');
+
+-- An unpublished restaurant is never live, whatever it has paid.
+update public.restaurants set is_published = false where id = :'R';
+select public.assert(not public.restaurant_is_live(:'R'), 'unpublished is never live');
+update public.restaurants set is_published = true where id = :'R';
 
 \echo ''
 \echo '=== the ordering gate ==='
@@ -98,7 +137,9 @@ select public.assert(
   (select count(*) from public.orders where restaurant_id = :'R') = 0,
   'no order row survives the refusal');
 
-update public.restaurants set plan = 'pro' where id = :'R';
+-- A paid term, not just the column: NULL plan_expires_at is no subscription.
+update public.restaurants set plan = 'pro', plan_expires_at = now() + interval '365 days'
+ where id = :'R';
 select public.assert(public.restaurant_plan(:'R') = 'pro', 'setup: now on pro');
 
 select public.staff_create_order(
