@@ -8,6 +8,8 @@ import {
   upgradeMailto,
   upgradeWhatsapp,
 } from "@/lib/support";
+import { paymentsConfigured } from "@/lib/payments/razorpay";
+import { UpgradeCheckout } from "@/components/dashboard/UpgradeCheckout";
 
 export const metadata: Metadata = {
   title: "Upgrade — fast_menu",
@@ -35,7 +37,7 @@ const PRO = [
 ];
 
 export default async function UpgradePage() {
-  const { restaurant } = await getActiveContext();
+  const { restaurant, email } = await getActiveContext();
   const plan = effectivePlan(restaurant);
   const isPro = plan === "pro";
 
@@ -97,10 +99,21 @@ export default async function UpgradePage() {
       {isPro ? null : (
         <section className="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
           <h2 className="text-sm font-semibold">Ready to upgrade?</h2>
+
+          {paymentsConfigured() ? (
+            <div className="mt-3">
+              <UpgradeCheckout
+                restaurantId={restaurant.id}
+                restaurantName={restaurant.name}
+                email={email}
+              />
+            </div>
+          ) : null}
+
           {hasSupportContact() ? (
             <>
-              <p className="mt-1 text-sm text-neutral-500">
-                Get in touch and we&apos;ll switch Pro on for {restaurant.name}.
+              <p className="mt-3 text-sm text-neutral-500">
+                Prefer to pay another way, or have a question? Get in touch.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {mailto ? (

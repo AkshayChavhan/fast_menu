@@ -137,6 +137,22 @@ create table public.platform_settings (
 );
 insert into public.platform_settings (key, value) values ('trial_verification', 'phone');
 
+create table public.payments (
+  id                  uuid primary key default gen_random_uuid(),
+  restaurant_id       uuid not null references public.restaurants (id) on delete cascade,
+  provider            text not null default 'razorpay',
+  provider_order_id   text not null unique,
+  provider_payment_id text,
+  plan                text not null check (plan in ('starter', 'pro')),
+  months              int  not null check (months > 0 and months <= 120),
+  amount_paise        int  not null check (amount_paise >= 0),
+  status              text not null default 'created'
+                      check (status in ('created', 'paid', 'failed')),
+  created_by          uuid,
+  created_at          timestamptz not null default now(),
+  paid_at             timestamptz
+);
+
 create table public.platform_admins (
   email      text primary key,
   created_at timestamptz not null default now()

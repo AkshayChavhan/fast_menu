@@ -232,6 +232,76 @@ select public.assert(
 delete from public.platform_admins where email = 'ops@example.com';
 update public.test_auth set uid = null, email = null;
 
+\echo ''
+\echo '=== a payment buys a term, once ==='
+
+-- A gateway will deliver the same webhook more than once. Applying it twice
+-- would hand out a free year, so this is the assertion that matters most.
+update public.restaurants set plan = 'starter', plan_expires_at = null,
+       trial_status = 'denied', trial_ends_at = now() - interval '90 days'
+ where id = :'R';
+
+insert into public.payments
+  (restaurant_id, provider_order_id, plan, months, amount_paise)
+values (:'R', 'order_live_1', 'pro', 12, 500000);
+
+do $$
+declare refused boolean := false;
+begin
+  begin
+    perform public.apply_paid_term('order_nope', 'pay_1', 500000);
+  exception when others then refused := true;
+  end;
+  perform public.assert(refused, 'an unknown order is refused');
+end
+$$;
+
+select public.assert(
+  (public.apply_paid_term('order_live_1', 'pay_1', 500000) ->> 'applied')::boolean,
+  'the first delivery applies the payment');
+select public.assert(public.restaurant_plan(:'R') = 'pro', 'which puts them on pro');
+select public.assert(
+  (select plan_expires_at between now() + interval '360 days' and now() + interval '370 days'
+   from public.restaurants where id = :'R'),
+  'with a year on the clock');
+select public.assert(
+  (select status = 'paid' and provider_payment_id = 'pay_1' and paid_at is not null
+   from public.payments where provider_order_id = 'order_live_1'),
+  'and the payment row is settled');
+
+select public.assert(
+  (public.apply_paid_term('order_live_1', 'pay_1', 500000) ->> 'applied')::boolean = false,
+  'a redelivery does nothing');
+select public.assert(
+  (select plan_expires_at < now() + interval '400 days'
+   from public.restaurants where id = :'R'),
+  'and above all does not extend the term a second time');
+
+-- A tampered checkout must not buy a year for one rupee.
+insert into public.payments
+  (restaurant_id, provider_order_id, plan, months, amount_paise)
+values (:'R', 'order_short', 'pro', 12, 500000);
+
+select public.assert(
+  (public.apply_paid_term('order_short', 'pay_2', 100) ->> 'reason') = 'amount_short',
+  'an amount short of the price buys nothing');
+
+select public.assert(
+  (select status = 'failed' from public.payments where provider_order_id = 'order_short'),
+  'and that payment is marked failed rather than left pending');
+
+-- Paying again while still subscribed adds to the term.
+insert into public.payments
+  (restaurant_id, provider_order_id, plan, months, amount_paise)
+values (:'R', 'order_renew', 'pro', 12, 500000);
+select public.apply_paid_term('order_renew', 'pay_3', 500000);
+select public.assert(
+  (select plan_expires_at > now() + interval '700 days'
+   from public.restaurants where id = :'R'),
+  'renewing early stacks onto the term that is left');
+
+delete from public.payments where restaurant_id = :'R';
+
 delete from public.restaurants where id = :'R';
 
 \echo ''
