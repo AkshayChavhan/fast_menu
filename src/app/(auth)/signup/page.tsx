@@ -5,6 +5,8 @@ import Link from "next/link";
 import { CheckCircle2, Loader2, MailCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PasswordInput } from "@/components/auth/PasswordInput";
+import { ResendConfirmation } from "@/components/auth/ResendConfirmation";
+import { friendlyAuthError } from "@/lib/auth-errors";
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState("");
@@ -38,7 +40,7 @@ export default function SignupPage() {
     });
 
     if (signUpError) {
-      setError(signUpError.message);
+      setError(friendlyAuthError(signUpError));
       setPending(false);
       return;
     }
@@ -81,6 +83,9 @@ export default function SignupPage() {
               <span className="font-medium text-neutral-700">{email}</span>.
               Click it to activate your account, then sign in.
             </p>
+            <div className="mt-4">
+              <ResendConfirmation email={email} />
+            </div>
             <Link
               href="/login"
               className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"

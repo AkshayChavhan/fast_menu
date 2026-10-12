@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PasswordInput } from "@/components/auth/PasswordInput";
+import { ResendConfirmation } from "@/components/auth/ResendConfirmation";
+import { friendlyAuthError, isEmailNotConfirmed } from "@/lib/auth-errors";
 
 const ERROR_MESSAGES: Record<string, string> = {
   confirmation_failed:
@@ -25,11 +27,17 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(
     () => ERROR_MESSAGES[searchParams.get("error") ?? ""] ?? null,
   );
+  // Offer a fresh confirmation email when the account exists but was never
+  // confirmed, or when the link that brought them here didn't work.
+  const [canResend, setCanResend] = useState(
+    () => searchParams.get("error") === "confirmation_failed",
+  );
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setCanResend(false);
     setPending(true);
 
     const supabase = createClient();
@@ -39,7 +47,8 @@ function LoginForm() {
     });
 
     if (signInError) {
-      setError(signInError.message);
+      setError(friendlyAuthError(signInError));
+      setCanResend(isEmailNotConfirmed(signInError));
       setPending(false);
       return;
     }
@@ -120,6 +129,8 @@ function LoginForm() {
             {error}
           </p>
         )}
+
+        {canResend && <ResendConfirmation email={email} />}
 
         <button
           type="submit"
