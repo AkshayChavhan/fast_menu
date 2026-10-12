@@ -175,6 +175,10 @@ yourself in with:
 insert into public.platform_admins (email) values ('you.com');
 ```
 
+The same login opens `/admin`, which shows every restaurant's plan, setup and
+order activity and lists who needs a follow-up, and `/admin/plans`, where a
+plan is set by hand. Everyone else gets a 404 on all three.
+
 **Push notifications (optional).** Waiters can get a buzz when a guest orders
 or calls. Generate a key pair once and put it in the env:
 

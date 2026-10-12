@@ -32,6 +32,11 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
 - **One trial per hotel** — a 15-day trial claimed once with a verified mobile
   number, GSTIN and name + pincode checks, and a platform-admin review queue
   for look-alikes.
+- **Operator dashboard** (`/admin`, platform admins only) — every restaurant
+  with its plan, how far through setup it is and how many orders it took this
+  week, a status for each (active, quiet, at risk, stalled setup, lapsed), and
+  a list of who needs a call today: trials about to end, lapsed plans still in
+  their grace period, failed payments. Orders are counted, never totalled.
 - **Sizes, variants & add-ons** — half / full plates, spice levels, extra
   toppings, defined per dish by the owner; the public menu shows "from" prices.
 - **Schedules & daily specials** — breakfast / lunch / happy-hour windows in
@@ -271,6 +276,8 @@ src/
     waiter/               Waiter app: home, scan, order review, composer, tables, bills
     kitchen/              Kitchen ticket screen (tablet)
     onboarding/claim/     One-time trial claim (phone OTP, GSTIN, pincode)
+    admin/                Platform-admin dashboard: who is active, who needs a call
+    admin/plans/          Platform-admin control of each restaurant's plan
     admin/trials/         Platform-admin review of flagged trials
   components/
     menu/                 Public menu UI (dish cards, pairings, language switcher)

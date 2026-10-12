@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { TrialReviewList, type TrialReviewRow } from "@/components/admin/TrialReviewList";
 
 export const metadata: Metadata = {
@@ -40,12 +40,7 @@ export default async function TrialReviewsPage() {
             <span className="text-xs font-semibold uppercase tracking-wide">
               Platform admin
             </span>
-            <Link
-              href="/admin/plans"
-              className="ml-auto text-xs font-medium text-neutral-500 underline hover:text-neutral-800 dark:hover:text-neutral-200"
-            >
-              Plans
-            </Link>
+            <AdminNav current="trials" />
           </div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Trial reviews</h1>
           <p className="text-sm text-neutral-500">
