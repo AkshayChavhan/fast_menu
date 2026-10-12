@@ -23,7 +23,8 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
   your menu is offered in; publish/unpublish the menu.
 - **QR studio** (`/dashboard/qr`) — generate the menu QR, download PNG/SVG, and
   print ready-made table tents, sticker sheets and window decals.
-- **Marketing landing page** (`/`) with a live demo link.
+- **Marketing landing page** (`/`) with the two plans and their prices. It
+  shows no demo restaurant and no sample data.
 - **Multi-tenant & secure** — every restaurant is isolated by Postgres
   Row-Level Security; owners can only touch their own data.
 - **Roles & staff logins** — owner, manager, cashier, waiter and kitchen. One
@@ -143,20 +144,24 @@ Open [http://localhost:3000](http://localhost:3000).
 > (or disable **Confirm email** under Supabase → Authentication → Providers for
 > local development).
 
-### 6. (Optional) Load the demo menu
+### 6. (Local development only) Load a sample restaurant
 
-Want the landing page's **"See a live demo"** link (`/m/demo`) to work with a
-fully-populated menu? After signing up once, run the seed in the SQL Editor:
+To have a menu to look at while developing, run the seed in the SQL Editor of
+a **local or throwaway** database after signing up once:
 
 ```
 supabase/seed.sql
 ```
 
-It creates a published demo restaurant — *The Copper Fork* — at `/m/demo` with
-categories, photographed dishes, allergens, dietary tags, a sold-out (86'd)
-dish, multi-language names, and upsell pairings. Re-running it resets the demo.
-(It attaches the demo to your first signed-up user, since every restaurant needs
-an owner.)
+It creates a published, fictional restaurant — *The Copper Fork* — at `/m/demo`
+with categories, photographed dishes, allergens, dietary tags, an 86'd dish,
+multi-language names, and upsell pairings. Re-running it resets it. (It
+attaches the restaurant to your first signed-up user, since every restaurant
+needs an owner.)
+
+**Never run it on the production database.** The live site shows only real
+restaurants, nothing links to `/m/demo`, and a seeded restaurant would be a
+public page of invented data that also counts as a restaurant on `/admin`.
 
 ---
 
@@ -299,7 +304,7 @@ src/
   types/db.ts             Domain types mirroring the schema
 supabase/
   migrations/             Versioned schema: baseline + one file per feature
-  seed.sql                Demo restaurant for /m/demo
+  seed.sql                Sample restaurant for local development; never run on production
 ```
 
 ---

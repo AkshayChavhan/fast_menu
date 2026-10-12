@@ -1,9 +1,13 @@
 -- ============================================================================
--- fast_menu — demo seed
--- Creates a published demo restaurant at slug "demo" so the public menu at
--- /m/demo (linked from the landing page) works out of the box, complete with
--- categories, photographed dishes, allergens, dietary tags, an 86'd dish,
--- multi-language names, and upsell pairings.
+-- fast_menu — sample restaurant, for LOCAL DEVELOPMENT ONLY
+-- Creates a published, fictional restaurant at slug "demo" so there is a menu
+-- to look at on /m/demo while developing: categories, photographed dishes,
+-- allergens, dietary tags, an 86'd dish, multi-language names, and upsell
+-- pairings.
+--
+-- NEVER run this on the production database. The live site shows only real
+-- restaurants; nothing links to /m/demo, and this would publish a page of
+-- invented data and add a restaurant to the operator's /admin counts.
 --
 -- Run AFTER the migrations in supabase/migrations/, and AFTER you have signed up at least one user
 -- (restaurants.owner_id references auth.users). Run it in the Supabase SQL

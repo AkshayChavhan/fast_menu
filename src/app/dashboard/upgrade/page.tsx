@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import { Check, Mail, MessageCircle, Sparkles } from "lucide-react";
 
 import { getActiveContext } from "../lib";
-import { effectivePlan, PLAN_LABELS } from "@/lib/plans";
+import {
+  effectivePlan,
+  PLAN_INCLUDES,
+  PLAN_LABELS,
+  PLAN_PRICE_LABELS,
+  PLAN_TERM_LABEL,
+} from "@/lib/plans";
 import {
   hasSupportContact,
   upgradeMailto,
@@ -15,27 +21,9 @@ export const metadata: Metadata = {
   title: "Upgrade — fast_menu",
 };
 
-const STARTER = [
-  "QR menu with photos, allergens and dietary tags",
-  "Unlimited categories and dishes",
-  "Sizes and add-ons, pairings, sold-out toggle",
-  "Two languages",
-  "Guest reviews and your Google review link",
-  "Import and export your whole menu",
-];
-
-const PRO = [
-  "Table ordering — guests order from the QR code",
-  "Per-table QR codes",
-  "Waiter app: take, edit and move orders",
-  "Kitchen screen",
-  "Billing counter and the day's history",
-  "Insights: sales by day, busiest hours and best sellers",
-  "Up to 10 staff logins",
-  "All 19 languages",
-  "Breakfast / lunch / dinner schedules and daily specials",
-  "No fast_menu branding on your menu",
-];
+// The same lists and prices the public pricing section shows.
+const STARTER = PLAN_INCLUDES.starter;
+const PRO = PLAN_INCLUDES.pro;
 
 export default async function UpgradePage() {
   const { restaurant, email } = await getActiveContext();
@@ -68,7 +56,8 @@ export default async function UpgradePage() {
         <section className="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
           <h2 className="text-sm font-semibold">Starter</h2>
           <p className="mt-0.5 text-2xl font-bold">
-            ₹2,000<span className="text-sm font-medium text-neutral-500">/year</span>
+            {PLAN_PRICE_LABELS.starter}
+            <span className="text-sm font-medium text-neutral-500">/{PLAN_TERM_LABEL}</span>
           </p>
           <ul className="mt-3 space-y-1.5">
             {STARTER.map((item) => (
@@ -83,7 +72,8 @@ export default async function UpgradePage() {
         <section className="rounded-xl border-2 border-brand-500 bg-white p-5 dark:bg-neutral-900">
           <h2 className="text-sm font-semibold text-brand-600">Pro</h2>
           <p className="mt-0.5 text-2xl font-bold">
-            ₹5,000<span className="text-sm font-medium text-neutral-500">/year</span>
+            {PLAN_PRICE_LABELS.pro}
+            <span className="text-sm font-medium text-neutral-500">/{PLAN_TERM_LABEL}</span>
           </p>
           <p className="mt-0.5 text-xs text-neutral-500">Everything in Starter, plus:</p>
           <ul className="mt-3 space-y-1.5">
