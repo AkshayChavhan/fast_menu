@@ -30,6 +30,7 @@ const PRO = [
   "Waiter app: take, edit and move orders",
   "Kitchen screen",
   "Billing counter and the day's history",
+  "Insights: sales by day, busiest hours and best sellers",
   "Up to 10 staff logins",
   "All 19 languages",
   "Breakfast / lunch / dinner schedules and daily specials",

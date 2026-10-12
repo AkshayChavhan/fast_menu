@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   Clock,
   Receipt,
+  BarChart3,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -54,6 +55,13 @@ const NAV: NavItem[] = [
     label: "Orders",
     icon: Receipt,
     capability: "billing:settle",
+    feature: "ordering",
+  },
+  {
+    href: "/dashboard/insights",
+    label: "Insights",
+    icon: BarChart3,
+    capability: "reports:view",
     feature: "ordering",
   },
   {

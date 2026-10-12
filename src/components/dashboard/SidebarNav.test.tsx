@@ -56,6 +56,7 @@ describe("SidebarNav — top-level items", () => {
     for (const label of [
       "Overview",
       "Orders",
+      "Insights",
       "Menu",
       "Schedules",
       "Preview & QR",
@@ -176,6 +177,7 @@ describe("SidebarNav — roles", () => {
     expect(labels()).toEqual([
       "Overview",
       "Orders",
+      "Insights",
       "Menu",
       "Schedules",
       "Preview & QR",
@@ -197,9 +199,11 @@ describe("SidebarNav — roles", () => {
     screen.getByRole("button", { name: /Review/ });
   });
 
-  it("leaves a cashier with Overview and Orders", () => {
+  // The staff form tells an owner a cashier gets "billing counter and reports
+  // only", and reports:view is what Insights asks for.
+  it("leaves a cashier with Overview, Orders and Insights", () => {
     renderAt("/dashboard", undefined, "cashier");
-    expect(labels()).toEqual(["Overview", "Orders"]);
+    expect(labels()).toEqual(["Overview", "Orders", "Insights"]);
   });
 });
 
@@ -207,7 +211,7 @@ describe("plan gating", () => {
   // A role limit is permanent, so those rows are filtered out entirely. A plan
   // limit is something the owner can change today, so the row stays, says Pro,
   // and stops being a link.
-  const PRO_ONLY = ["Orders", "Schedules", "Tables", "Staff"];
+  const PRO_ONLY = ["Orders", "Insights", "Schedules", "Tables", "Staff"];
 
   it("keeps the Pro destinations as links on pro", () => {
     renderAt("/dashboard", undefined, "owner", "pro");

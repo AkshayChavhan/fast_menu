@@ -61,6 +61,11 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
   first, mark them paid, and see today's paid bills and takings by the
   restaurant's own calendar; managers can reopen a mistake. Screens refresh
   through Supabase Realtime with a slow poll as fallback.
+- **Insights** (`/dashboard/insights`, Pro) — for the owner, managers and
+  cashiers: today's sales against the same weekday last week, sales by day for
+  30 days, the busiest hours and weekdays, best sellers, dishes nobody ordered,
+  popular add-ons, and how many orders guests placed themselves. Every chart
+  has a table view. All of it by the restaurant's own clock.
 - **Kitchen screen** (`/kitchen`, optional) — a dark tablet board of tickets,
   oldest first; lines move queued → cooking → ready → served, a ready ticket
   pushes the approving waiter, and any ticket prints at receipt width.
@@ -268,7 +273,7 @@ src/
     page.tsx              Marketing landing page
     (auth)/               Login & signup (route group)
     auth/                 Signout + email-confirm route handlers
-    dashboard/            Back office: overview, orders & billing, menu, schedules, tables, staff, settings, QR
+    dashboard/            Back office: overview, orders & billing, insights, menu, schedules, tables, staff, settings, QR
       menu/actions.ts     Server Actions (category/dish CRUD, 86 toggle)
       settings/actions.ts Server Actions (restaurant settings, publish)
     m/[slug]/             Public customer-facing menu, cart and live order page
