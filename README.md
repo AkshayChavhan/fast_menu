@@ -23,7 +23,8 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
   your menu is offered in; publish/unpublish the menu.
 - **QR studio** (`/dashboard/qr`) — generate the menu QR, download PNG/SVG, and
   print ready-made table tents, sticker sheets and window decals.
-- **Marketing landing page** (`/`) with a live demo link.
+- **Marketing landing page** (`/`) with the two plans and their prices. It
+  shows no demo restaurant and no sample data.
 - **Multi-tenant & secure** — every restaurant is isolated by Postgres
   Row-Level Security; owners can only touch their own data.
 - **Roles & staff logins** — owner, manager, cashier, waiter and kitchen. One
@@ -32,6 +33,11 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
 - **One trial per hotel** — a 15-day trial claimed once with a verified mobile
   number, GSTIN and name + pincode checks, and a platform-admin review queue
   for look-alikes.
+- **Operator dashboard** (`/admin`, platform admins only) — every restaurant
+  with its plan, how far through setup it is and how many orders it took this
+  week, a status for each (active, quiet, at risk, stalled setup, lapsed), and
+  a list of who needs a call today: trials about to end, lapsed plans still in
+  their grace period, failed payments. Orders are counted, never totalled.
 - **Sizes, variants & add-ons** — half / full plates, spice levels, extra
   toppings, defined per dish by the owner; the public menu shows "from" prices.
 - **Schedules & daily specials** — breakfast / lunch / happy-hour windows in
@@ -56,6 +62,11 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
   first, mark them paid, and see today's paid bills and takings by the
   restaurant's own calendar; managers can reopen a mistake. Screens refresh
   through Supabase Realtime with a slow poll as fallback.
+- **Insights** (`/dashboard/insights`, Pro) — for the owner, managers and
+  cashiers: today's sales against the same weekday last week, sales by day for
+  30 days, the busiest hours and weekdays, best sellers, dishes nobody ordered,
+  popular add-ons, and how many orders guests placed themselves. Every chart
+  has a table view. All of it by the restaurant's own clock.
 - **Kitchen screen** (`/kitchen`, optional) — a dark tablet board of tickets,
   oldest first; lines move queued → cooking → ready → served, a ready ticket
   pushes the approving waiter, and any ticket prints at receipt width.
@@ -133,20 +144,24 @@ Open [http://localhost:3000](http://localhost:3000).
 > (or disable **Confirm email** under Supabase → Authentication → Providers for
 > local development).
 
-### 6. (Optional) Load the demo menu
+### 6. (Local development only) Load a sample restaurant
 
-Want the landing page's **"See a live demo"** link (`/m/demo`) to work with a
-fully-populated menu? After signing up once, run the seed in the SQL Editor:
+To have a menu to look at while developing, run the seed in the SQL Editor of
+a **local or throwaway** database after signing up once:
 
 ```
 supabase/seed.sql
 ```
 
-It creates a published demo restaurant — *The Copper Fork* — at `/m/demo` with
-categories, photographed dishes, allergens, dietary tags, a sold-out (86'd)
-dish, multi-language names, and upsell pairings. Re-running it resets the demo.
-(It attaches the demo to your first signed-up user, since every restaurant needs
-an owner.)
+It creates a published, fictional restaurant — *The Copper Fork* — at `/m/demo`
+with categories, photographed dishes, allergens, dietary tags, an 86'd dish,
+multi-language names, and upsell pairings. Re-running it resets it. (It
+attaches the restaurant to your first signed-up user, since every restaurant
+needs an owner.)
+
+**Never run it on the production database.** The live site shows only real
+restaurants, nothing links to `/m/demo`, and a seeded restaurant would be a
+public page of invented data that also counts as a restaurant on `/admin`.
 
 ---
 
@@ -263,7 +278,7 @@ src/
     page.tsx              Marketing landing page
     (auth)/               Login & signup (route group)
     auth/                 Signout + email-confirm route handlers
-    dashboard/            Back office: overview, orders & billing, menu, schedules, tables, staff, settings, QR
+    dashboard/            Back office: overview, orders & billing, insights, menu, schedules, tables, staff, settings, QR
       menu/actions.ts     Server Actions (category/dish CRUD, 86 toggle)
       settings/actions.ts Server Actions (restaurant settings, publish)
     m/[slug]/             Public customer-facing menu, cart and live order page
@@ -271,6 +286,8 @@ src/
     waiter/               Waiter app: home, scan, order review, composer, tables, bills
     kitchen/              Kitchen ticket screen (tablet)
     onboarding/claim/     One-time trial claim (phone OTP, GSTIN, pincode)
+    admin/                Platform-admin dashboard: who is active, who needs a call
+    admin/plans/          Platform-admin control of each restaurant's plan
     admin/trials/         Platform-admin review of flagged trials
   components/
     menu/                 Public menu UI (dish cards, pairings, language switcher)
@@ -287,7 +304,7 @@ src/
   types/db.ts             Domain types mirroring the schema
 supabase/
   migrations/             Versioned schema: baseline + one file per feature
-  seed.sql                Demo restaurant for /m/demo
+  seed.sql                Sample restaurant for local development; never run on production
 ```
 
 ---

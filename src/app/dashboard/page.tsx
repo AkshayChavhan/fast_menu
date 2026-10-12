@@ -8,6 +8,7 @@ import {
   Receipt,
   Star,
   Ban,
+  BarChart3,
 } from "lucide-react";
 import { getActiveContext } from "./lib";
 import { can } from "@/lib/permissions";
@@ -151,6 +152,22 @@ export default async function OverviewPage() {
               <span className="block text-sm font-semibold">Orders &amp; billing</span>
               <span className="block text-xs text-neutral-500">
                 Open bills by table, mark paid, today&apos;s takings
+              </span>
+            </span>
+          </Link>
+        )}
+        {restaurant.ordering_enabled && can(role, "reports:view") && (
+          <Link
+            href="/dashboard/insights"
+            className="group flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-4 transition-colors hover:border-brand-300 hover:bg-brand-50/40 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-brand-700"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+              <BarChart3 className="h-5 w-5" />
+            </span>
+            <span>
+              <span className="block text-sm font-semibold">Insights</span>
+              <span className="block text-xs text-neutral-500">
+                Sales by day, busiest hours &amp; best sellers
               </span>
             </span>
           </Link>

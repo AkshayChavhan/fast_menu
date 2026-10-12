@@ -80,4 +80,28 @@ test.describe.serial("guest → waiter → billing", () => {
     await page.goto(`/m/${E2E.slug}/order/${code}?t=${state.tableToken}`);
     await expect(page.getByText("Paid. Thank you!")).toBeVisible();
   });
+
+  // The same order, read back as business. Counts are not pinned: this file
+  // runs once per browser project against one database, so the second run
+  // sees the first run's bill as well.
+  test("the owner sees the sale in Insights", async ({ page }) => {
+    await login(page, E2E.owner.email, E2E.owner.password);
+    await page.goto("/dashboard/insights");
+    await expect(page.getByRole("heading", { level: 1, name: "Insights" })).toBeVisible();
+
+    await expect(page.getByText("Sales today")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Sales by day, last 30 days" })).toBeVisible();
+
+    const best = page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Best sellers" }) });
+    await expect(best).toContainText("Masala Chai");
+    await expect(best).toContainText(/\d+ sold/);
+
+    const source = page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Who places the orders" }) });
+    await expect(source).toContainText("Guests, on their phones");
+    await expect(source).toContainText("100%");
+  });
 });

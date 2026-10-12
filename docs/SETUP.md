@@ -10,8 +10,8 @@ You'll do four things:
 3. [Wire up environment variables](#3-wire-up-environment-variables)
 4. [Run the app & create your first menu](#4-run-the-app)
 
-Then, optionally, [load the demo menu](#5-optional-load-the-demo-menu) so
-`/m/demo` works.
+For local development only, you can then
+[load a sample restaurant](#5-local-development-only-load-a-sample-restaurant).
 
 ---
 
@@ -129,20 +129,29 @@ That's it — you have a working QR menu. 🎉
 
 ---
 
-## 5. (Optional) Load the demo menu
+## 5. (Local development only) Load a sample restaurant
 
-The landing page's **"See a live demo"** button links to `/m/demo`. To make it
-show a fully-populated example menu:
+To have a menu to look at while developing, load a fictional restaurant into a
+**local or throwaway** database:
 
-1. Make sure you've **signed up at least once** (step 4) — the demo needs a user
-   to own it.
+1. Make sure you've **signed up at least once** (step 4) — the restaurant needs
+   a user to own it.
 2. In Supabase **SQL Editor**, open a new query, paste the contents of
    [`supabase/seed.sql`](../supabase/seed.sql), and **Run**.
 3. Visit **http://localhost:3000/m/demo** — you'll see *The Copper Fork* with
    categories, photos, allergens, a sold-out dish, multiple languages, and
    upsell pairings.
 
-Re-running `seed.sql` resets the demo to a clean state.
+Re-running `seed.sql` resets it to a clean state.
+
+**Never run it on the production database.** The live site shows only real
+restaurants: nothing links to `/m/demo`, and a seeded restaurant would be a
+public page of invented data that also counts as a restaurant on `/admin`. If
+one is there already, remove it with:
+
+```sql
+delete from public.restaurants where slug = 'demo';
+```
 
 ---
 
@@ -174,6 +183,10 @@ yourself in with:
 ```sql
 insert into public.platform_admins (email) values ('you.com');
 ```
+
+The same login opens `/admin`, which shows every restaurant's plan, setup and
+order activity and lists who needs a follow-up, and `/admin/plans`, where a
+plan is set by hand. Everyone else gets a 404 on all three.
 
 **Push notifications (optional).** Waiters can get a buzz when a guest orders
 or calls. Generate a key pair once and put it in the env:

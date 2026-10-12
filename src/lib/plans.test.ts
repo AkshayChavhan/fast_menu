@@ -13,7 +13,12 @@ import {
   STARTER_LOCALE_LIMIT,
   PRO_STAFF_LIMIT,
   PLAN_GRACE_DAYS,
+  PLAN_INCLUDES,
+  PLAN_PRICE_LABELS,
+  PLANS,
 } from "@/lib/plans";
+import { SUPPORTED_LOCALES } from "@/lib/constants";
+import { PLAN_PRICE_PAISE } from "@/lib/payments/razorpay";
 import type { Restaurant } from "@/types/db";
 
 const NOW = new Date("2026-10-05T12:00:00Z");
@@ -217,5 +222,28 @@ describe("isLive", () => {
 
     // Nothing to warn about while they are paying.
     expect(graceEndsAt({ ...base, plan: "pro", plan_expires_at: future }, NOW)).toBeNull();
+  });
+});
+
+describe("what an owner is told a plan costs and includes", () => {
+  // The pricing section and the upgrade page print these labels; the gateway
+  // charges PLAN_PRICE_PAISE. A price on the page that is not the price on the
+  // bill is the one mistake this file must not let through.
+  it("quotes the price that is actually charged", () => {
+    for (const plan of PLANS) {
+      const rupees = PLAN_PRICE_PAISE[plan] / 100;
+      expect(PLAN_PRICE_LABELS[plan]).toBe(`₹${rupees.toLocaleString("en-IN")}`);
+    }
+  });
+
+  it("states the limits the app enforces, not a rounder number", () => {
+    expect(PLAN_INCLUDES.pro).toContain(`Up to ${PRO_STAFF_LIMIT} staff logins`);
+    expect(PLAN_INCLUDES.pro).toContain(`All ${SUPPORTED_LOCALES.length} languages`);
+    expect(STARTER_LOCALE_LIMIT).toBe(2);
+    expect(PLAN_INCLUDES.starter).toContain("Two languages");
+  });
+
+  it("lists something for every plan", () => {
+    for (const plan of PLANS) expect(PLAN_INCLUDES[plan].length).toBeGreaterThan(0);
   });
 });

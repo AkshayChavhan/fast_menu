@@ -171,6 +171,18 @@ create table public.trial_claims (
 create unique index trial_claims_phone_hash_key on public.trial_claims (phone_hash) where phone_hash is not null;
 create unique index trial_claims_gstin_key on public.trial_claims (gstin) where gstin is not null;
 
+-- Staff logins, as far as list_restaurant_activity() counts them.
+create table public.restaurant_staff (
+  id            uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null references public.restaurants (id) on delete cascade,
+  user_id       uuid not null,
+  role          text not null check (role in ('manager', 'cashier', 'waiter', 'kitchen')),
+  display_name  text,
+  is_active     boolean not null default true,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------------------
 -- Variants and add-ons (set_dish_modifiers).
 -- ---------------------------------------------------------------------------

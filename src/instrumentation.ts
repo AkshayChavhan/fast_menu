@@ -10,8 +10,11 @@ export async function register() {
   if (!dsn) return;
   Sentry.init({
     dsn,
-    environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
-    release: process.env.VERCEL_GIT_COMMIT_SHA,
+    // Vercel and Netlify name these differently; without both, moving host
+    // silently costs you "which deploy broke this".
+    environment:
+      process.env.VERCEL_ENV ?? process.env.CONTEXT ?? process.env.NODE_ENV,
+    release: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.COMMIT_REF,
     // Errors matter; a small trace sample keeps the free tier comfortable.
     // Personal data is never attached: the SDK default is off, and
     // lib/monitoring.ts only sets ids and roles.

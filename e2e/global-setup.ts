@@ -2,7 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { mkdirSync, writeFileSync } from "node:fs";
 
 // Builds a small restaurant for the end-to-end run with the service-role
-// key: an owner, a waiter, a published menu with ordering on, and a table.
+// key: an owner, a waiter, a published menu with ordering on, and a table —
+// plus a platform admin, who owns nothing in it and may look at all of it.
 // Everything is keyed by fixed emails and the slug "e2e", and torn down and
 // rebuilt on every run so tests start from a known state.
 
@@ -10,6 +11,7 @@ export const E2E = {
   slug: "e2e",
   owner: { email: "e2e-owner@example.com", password: "e2e-owner-pass-123" },
   waiter: { email: "e2e-waiter@example.com", password: "e2e-waiter-pass-123" },
+  admin: { email: "e2e-admin@example.com", password: "e2e-admin-pass-123" },
   stateFile: "e2e/.state.json",
 };
 
@@ -44,6 +46,13 @@ export default async function globalSetup() {
   const waiterId = await ensureUser(E2E.waiter.email, E2E.waiter.password, "waiter");
   // A waiter who owns a restaurant is routed as an owner; make sure of it.
   await admin.from("restaurants").delete().eq("owner_id", waiterId);
+
+  // The operator. Being listed in platform_admins is the whole of the role.
+  await ensureUser(E2E.admin.email, E2E.admin.password);
+  const { error: aErr } = await admin
+    .from("platform_admins")
+    .upsert({ email: E2E.admin.email }, { onConflict: "email" });
+  if (aErr) throw aErr;
 
   // The signup trigger gave the owner a starter restaurant; take it over as
   // the e2e restaurant and reset it.

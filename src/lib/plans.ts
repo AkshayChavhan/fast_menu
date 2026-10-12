@@ -9,6 +9,7 @@
 // bypassable with the anon key, so anything that creates an order is checked
 // there too. Keep restaurant_plan() and effectivePlan() in step.
 
+import { SUPPORTED_LOCALES } from "@/lib/constants";
 import type { Restaurant } from "@/types/db";
 
 export const PLANS = ["starter", "pro"] as const;
@@ -114,6 +115,44 @@ export function effectivePlan(r: PlanSource, now: Date = new Date()): Plan {
 export const PLAN_LABELS: Record<Plan, string> = {
   starter: "Starter",
   pro: "Pro",
+};
+
+// What an owner is told a plan costs and includes — on the public pricing
+// section and on the upgrade page. One list, so the two cannot disagree, and
+// the numbers in it come from the limits above rather than being typed twice.
+//
+// The amount actually charged is PLAN_PRICE_PAISE in lib/payments/razorpay.ts;
+// plans.test.ts holds these labels to it.
+export const PLAN_PRICE_LABELS: Record<Plan, string> = {
+  starter: "₹2,000",
+  pro: "₹5,000",
+};
+
+/** Every plan is sold by the year. */
+export const PLAN_TERM_LABEL = "year";
+
+// Pro's list is what it adds: it is always shown under "Everything in Starter".
+export const PLAN_INCLUDES: Record<Plan, readonly string[]> = {
+  starter: [
+    "QR menu with photos, allergens and dietary tags",
+    "Unlimited categories and dishes",
+    "Sizes and add-ons, pairings, sold-out toggle",
+    "Two languages",
+    "Guest reviews and your Google review link",
+    "Import and export your whole menu",
+  ],
+  pro: [
+    "Table ordering — guests order from the QR code",
+    "Per-table QR codes",
+    "Waiter app: take, edit and move orders",
+    "Kitchen screen",
+    "Billing counter and the day's history",
+    "Insights: sales by day, busiest hours and best sellers",
+    `Up to ${PRO_STAFF_LIMIT} staff logins`,
+    `All ${SUPPORTED_LOCALES.length} languages`,
+    "Breakfast / lunch / dinner schedules and daily specials",
+    "No fast_menu branding on your menu",
+  ],
 };
 
 // Shown when a gate is hit. Phrased as what they'd gain, not what they lack.
