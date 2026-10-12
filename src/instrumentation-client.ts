@@ -8,7 +8,12 @@ const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 if (dsn) {
   Sentry.init({
     dsn,
-    environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV,
+    // The browser only sees NEXT_PUBLIC_* vars, and Netlify has no public
+    // equivalent of VERCEL_ENV — set NEXT_PUBLIC_DEPLOY_ENV there instead.
+    environment:
+      process.env.NEXT_PUBLIC_VERCEL_ENV ??
+      process.env.NEXT_PUBLIC_DEPLOY_ENV ??
+      process.env.NODE_ENV,
     tracesSampleRate: 0.05,
     // Guests type nothing sensitive, but staff phones show order notes;
     // keep replays off.
