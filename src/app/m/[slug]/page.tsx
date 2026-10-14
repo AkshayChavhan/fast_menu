@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Armchair, PauseCircle, UtensilsCrossed } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
+import { getPublicMenu, getPublicRestaurant, type PublicMenuExtras } from "@/lib/menu-cache";
 import { localeDir } from "@/lib/utils";
-import type { PublicRestaurant, Review, ReviewForm } from "@/types/db";
-import { normalizeRatings } from "@/lib/reviews";
-import { buildMenuView, loadMenuData, type MenuData } from "@/lib/menu-view";
+import type { PublicRestaurant } from "@/types/db";
+import { buildMenuView } from "@/lib/menu-view";
 import { MenuHeader } from "@/components/menu/MenuHeader";
 import { MenuHero } from "@/components/menu/MenuHero";
 import { MenuBrowser } from "@/components/menu/MenuBrowser";
@@ -16,65 +16,26 @@ import { CartBar } from "@/components/ordering/CartBar";
 import { ServiceButtons } from "@/components/ordering/ServiceButtons";
 import type { OrderingInfo } from "@/components/menu/types";
 
-// Public menus change when the owner edits/publishes; keep them fresh but cheap.
-export const revalidate = 60;
+// This page reads ?t= and ?lang=, so it renders per request; what it reads
+// is cached (lib/menu-cache): the restaurant and its menu come from one
+// cache entry each, cleared by the owner's own edits and every sixty
+// seconds otherwise. A QR scan costs no database round trip on a warm cache.
 
 // 86'd dishes are hidden by default. Flip to false to show them dimmed.
 const HIDE_UNAVAILABLE = true;
 
-type LoadedMenu = MenuData & {
-  restaurant: PublicRestaurant;
-  /** Approved reviews with something to say, for the floating strip. */
-  reviews: Review[];
-};
-
-// Only comments make sense as "floating words", and only so many fit before
-// the loop gets tediously long.
-const MAX_FLOATING_REVIEWS = 20;
+type LoadedMenu = PublicMenuExtras & { restaurant: PublicRestaurant };
 
 // ---------------------------------------------------------------------------
-// Data loading — SERVER anon client. RLS returns the restaurant (and its child
-// rows) only when is_published = true, so an unpublished slug reads as absent.
+// Data loading — the anon client with no session. RLS returns the restaurant
+// (and its child rows) only when is_published = true, so an unpublished slug
+// reads as absent.
 // ---------------------------------------------------------------------------
 async function loadMenu(slug: string): Promise<LoadedMenu | null> {
-  const supabase = await createClient();
-
-  const { data: restaurant } = await supabase
-    .from("restaurants_public")
-    .select("*")
-    .eq("slug", slug)
-    .maybeSingle<PublicRestaurant>();
-
+  const restaurant = await getPublicRestaurant(slug);
   if (!restaurant) return null;
-
-  const [menu, formRes, reviewsRes] = await Promise.all([
-    loadMenuData(supabase, restaurant.id),
-    supabase
-      .from("review_forms")
-      .select("show_on_menu")
-      .eq("restaurant_id", restaurant.id)
-      .maybeSingle<Pick<ReviewForm, "show_on_menu">>(),
-    // RLS already limits this to approved reviews on published restaurants.
-    supabase
-      .from("reviews")
-      .select("*")
-      .eq("restaurant_id", restaurant.id)
-      .not("comment", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(MAX_FLOATING_REVIEWS),
-  ]);
-
-  // No form row yet means the feature is on by default (see DEFAULT_REVIEW_SETTINGS).
-  const showOnMenu = formRes.data?.show_on_menu ?? true;
-
-  const reviews = showOnMenu
-    ? ((reviewsRes.data as Review[] | null) ?? [])
-        .map((r) => ({ ...r, ratings: normalizeRatings(r.ratings) }))
-        // A comment of only whitespace would render as an empty bubble.
-        .filter((r) => (r.comment ?? "").trim().length > 0)
-    : [];
-
-  return { restaurant, ...menu, reviews };
+  const menu = await getPublicMenu(restaurant.id);
+  return { restaurant, ...menu };
 }
 
 // The table behind a per-table QR code (?t=<token>). Only active tables on a
@@ -84,7 +45,8 @@ async function resolveTable(
   token: string | undefined,
 ): Promise<{ label: string; token: string } | null> {
   if (!token) return null;
-  const supabase = await createClient();
+  // Live, not cached: one small call, and a retired table must stop at once.
+  const supabase = createPublicClient();
   // Guests may resolve one token, never list a restaurant's tables.
   const { data } = await supabase.rpc("resolve_table_token", { p_slug: slug, p_token: token });
   const table = data as { id: string; label: string; qr_token: string } | null;

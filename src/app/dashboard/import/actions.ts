@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidateMenu } from "@/lib/menu-cache";
+
 import { requireRestaurantAccess } from "../lib";
 import {
   parseMenuFile,
@@ -143,6 +145,7 @@ export async function applyImport(
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");
   revalidatePath(`/m/${slug}`);
+  invalidateMenu(restaurantId);
 
   return {
     ok: true,

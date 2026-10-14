@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { invalidateRestaurants } from "@/lib/menu-cache";
 import { z } from "zod";
 import { requireRestaurantAccess, type ActionResult } from "../lib";
 import { REVIEW_MAX_QUESTIONS } from "@/lib/constants";
@@ -12,6 +14,9 @@ function revalidateReviewSurfaces(slug: string) {
   revalidatePath("/dashboard/reviews/settings");
   revalidatePath(`/r/${slug}`);
   revalidatePath(`/m/${slug}`);
+  // The cached menu and review form are keyed by id, which this helper is
+  // not given; clearing the restaurant layer clears them all.
+  invalidateRestaurants();
 }
 
 const questionSchema = z.object({

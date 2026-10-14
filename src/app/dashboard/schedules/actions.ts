@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { invalidateRestaurants } from "@/lib/menu-cache";
 import { z } from "zod";
 
 import {
@@ -11,9 +13,12 @@ import {
 
 const SCHEDULES_MAX = 20;
 
+// Schedules decide what a guest sees right now; the helper does not know
+// which restaurant, so every public menu is cleared. Rare enough to be fine.
 function revalidateScheduleSurfaces() {
   revalidatePath("/dashboard/schedules");
   revalidatePath("/dashboard/menu");
+  invalidateRestaurants();
 }
 
 const timeField = z

@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { invalidateRestaurants } from "@/lib/menu-cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
@@ -42,5 +44,7 @@ export async function setRestaurantPlan(input: {
   revalidatePath("/admin/plans");
   // The dashboard reads the plan on every render, so its cache has to go too.
   revalidatePath("/dashboard", "layout");
+  // And the public menu's branding flag is computed from the plan.
+  invalidateRestaurants();
   return { ok: true };
 }
