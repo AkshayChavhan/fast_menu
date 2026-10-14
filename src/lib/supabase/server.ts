@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -5,7 +6,10 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 // Server-side Supabase client (Server Components, Route Handlers, Server Actions).
 // Reads/writes the auth session from cookies. Governed by RLS via the anon key.
-export async function createClient() {
+//
+// Wrapped in React's cache(): a layout and the page inside it, rendered in
+// the same request, share one client instead of each building their own.
+export const createClient = cache(async () => {
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -29,4 +33,4 @@ export async function createClient() {
       },
     },
   );
-}
+});

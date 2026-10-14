@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { can, homeFor, type Capability } from "@/lib/permissions";
@@ -71,6 +72,29 @@ export async function resolveMembership(
   return { restaurant, role: staff.role };
 }
 
+// --- Once per request ---------------------------------------------------------
+//
+// A dashboard page renders inside the dashboard layout, and both need to know
+// who is signed in and where they work. React's cache() memoises these for
+// the length of one request, so the auth round trip and the restaurant lookup
+// happen once however many components ask. In a server action there is one
+// caller anyway; the wrapper costs nothing there.
+
+/** The signed-in user, or null. One call to Supabase Auth per request. */
+export const getCurrentUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});
+
+/** Where a user works, memoised per request. */
+export const getMembership = cache(async (userId: string): Promise<Membership | null> => {
+  const supabase = await createClient();
+  return resolveMembership(supabase, userId);
+});
+
 // The signed-in user's context for a page, or a redirect:
 //   - not signed in            → /login
 //   - no active membership     → /auth/home (signs out with an explanation)
@@ -82,13 +106,10 @@ export async function requireContext(
   capability?: Capability,
   options: RequireOptions = {},
 ): Promise<ActiveContext> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const membership = await resolveMembership(supabase, user.id);
+  const membership = await getMembership(user.id);
   if (!membership) redirect("/auth/home");
 
   if (

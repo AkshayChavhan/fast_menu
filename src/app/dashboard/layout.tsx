@@ -7,8 +7,7 @@ import { homeFor, ROLE_LABELS } from "@/lib/permissions";
 import { effectivePlan, graceEndsAt, PLAN_LABELS } from "@/lib/plans";
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
 import { MobileNav } from "@/components/dashboard/MobileNav";
-import { createClient } from "@/lib/supabase/server";
-import { isAdminRole } from "@/lib/admin-role";
+import { getAdminRole } from "@/app/admin/lib";
 
 export default async function DashboardLayout({
   children,
@@ -19,9 +18,7 @@ export default async function DashboardLayout({
 
   // The few operators also get a link into /admin. Everyone else never
   // learns the pages exist.
-  const supabase = await createClient();
-  const { data: adminRoleRaw } = await supabase.rpc("platform_admin_role");
-  const adminRole = isAdminRole(adminRoleRaw) ? adminRoleRaw : null;
+  const adminRole = await getAdminRole();
 
   // Waiters and kitchen staff have their own apps; the dashboard is the back
   // office. Navigation never links here for them, so this only catches a
