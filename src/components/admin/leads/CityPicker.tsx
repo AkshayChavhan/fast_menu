@@ -36,9 +36,10 @@ export function CityPicker({
   return (
     <div className="space-y-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="grid gap-3 sm:grid-cols-3">
-        <label className="block text-xs font-medium text-neutral-500">
+        <label htmlFor="lead-state" className="block text-xs font-medium text-neutral-500">
           State
           <select
+            id="lead-state"
             className={cn(selectClass, "mt-1")}
             value={picked.state ?? ""}
             onChange={(e) => go({ state: e.target.value || undefined, bucket: picked.bucket })}
@@ -52,9 +53,10 @@ export function CityPicker({
           </select>
         </label>
 
-        <label className="block text-xs font-medium text-neutral-500">
+        <label htmlFor="lead-district" className="block text-xs font-medium text-neutral-500">
           District
           <select
+            id="lead-district"
             className={cn(selectClass, "mt-1")}
             value={picked.district ?? ""}
             disabled={!picked.state}
@@ -71,9 +73,10 @@ export function CityPicker({
           </select>
         </label>
 
-        <label className="block text-xs font-medium text-neutral-500">
+        <label htmlFor="lead-city" className="block text-xs font-medium text-neutral-500">
           City
           <select
+            id="lead-city"
             className={cn(selectClass, "mt-1")}
             value={picked.city ?? ""}
             disabled={!picked.state}

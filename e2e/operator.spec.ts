@@ -33,11 +33,11 @@ test("the owner works a lead from a city to a logged call", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Pick a state to start" })).toBeVisible();
 
   // State → district → city. Each choice is a URL, so wait for it.
-  await page.getByLabel("State").selectOption("Maharashtra");
+  await page.locator("#lead-state").selectOption("Maharashtra");
   await page.waitForURL(/state=Maharashtra/);
-  await page.getByLabel("District").selectOption("Nashik");
+  await page.locator("#lead-district").selectOption("Nashik");
   await page.waitForURL(/district=Nashik/);
-  await page.getByLabel("City").selectOption({ label: "Nashik" });
+  await page.locator("#lead-city").selectOption({ label: "Nashik" });
   await page.waitForURL(/city=Q200235/);
   await expect(page.getByRole("heading", { level: 2, name: /^Nashik/ })).toBeVisible();
   await expect(page.getByText("Population 14.9 lakh")).toBeVisible();
@@ -112,6 +112,8 @@ test("the owner sees one restaurant read-only, with staff and menu", async ({ pa
 });
 
 test("the owner adds an admin, sees it audited, and removes them", async ({ page }) => {
+  // Remove asks "are you sure?"; say yes to every dialog in this test.
+  page.on("dialog", (d) => d.accept());
   await loginTo(page, "/admin/admins", E2E.admin.email, E2E.admin.password);
   await expect(page.getByRole("heading", { level: 1, name: "Admins" })).toBeVisible();
   const admins = page.getByRole("list", { name: "Platform admins" });
@@ -125,12 +127,18 @@ test("the owner adds an admin, sees it audited, and removes them", async ({ page
   const row = admins.locator("li", { hasText: E2E.newAdminEmail });
   await expect(row).toBeVisible();
   await expect(row.getByRole("combobox")).toHaveValue("admin");
-  await expect(changes.getByText(`${E2E.newAdminEmail} set to admin`)).toBeVisible();
+  // Newest first; .first() so a retried run, which adds them twice, still reads.
+  await expect(changes.getByText(`${E2E.newAdminEmail} set to admin`).first()).toBeVisible();
 
-  page.once("dialog", (d) => d.accept());
   await row.getByRole("button", { name: "Remove" }).click();
+  // If the action was refused, say why rather than just "still there".
+  await expect
+    .poll(async () => (await page.getByRole("alert").count()) ? await page.getByRole("alert").textContent() : null, {
+      message: "no error after Remove",
+    })
+    .toBeNull();
   await expect(row).toHaveCount(0);
-  await expect(changes.getByText(`${E2E.newAdminEmail} removed`)).toBeVisible();
+  await expect(changes.getByText(`${E2E.newAdminEmail} removed`).first()).toBeVisible();
 
   // Money is one click away for the owner.
   await page.getByRole("link", { name: "Payments", exact: true }).click();
