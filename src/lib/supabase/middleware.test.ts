@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { isProtectedPath } from "@/lib/supabase/middleware";
+import { hasSessionCookie, isProtectedPath } from "@/lib/supabase/middleware";
 
 describe("isProtectedPath", () => {
   it("protects each signed-in area and everything under it", () => {
@@ -39,5 +39,18 @@ describe("isProtectedPath", () => {
     expect(isProtectedPath("/dashboardish")).toBe(false);
     expect(isProtectedPath("/admin-signup")).toBe(false);
     expect(isProtectedPath("/waiters")).toBe(false);
+  });
+});
+
+describe("hasSessionCookie", () => {
+  it("recognises Supabase's session cookie, chunked or not", () => {
+    expect(hasSessionCookie(["sb-abcdefgh-auth-token"])).toBe(true);
+    expect(hasSessionCookie(["sb-abcdefgh-auth-token.0", "sb-abcdefgh-auth-token.1"])).toBe(true);
+    expect(hasSessionCookie(["_ga", "sb-abcdefgh-auth-token-code-verifier"])).toBe(true);
+  });
+
+  it("sees a guest for what they are: no auth cookie at all", () => {
+    expect(hasSessionCookie([])).toBe(false);
+    expect(hasSessionCookie(["_ga", "cart", "sb-abcdefgh-something-else"])).toBe(false);
   });
 });

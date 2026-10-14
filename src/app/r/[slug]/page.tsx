@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
+import { getPublicRestaurant, getPublicReviewForm } from "@/lib/menu-cache";
 import { settingsFromForm } from "@/lib/reviews";
 import { publicMenuPath } from "@/lib/site";
 import type { PublicRestaurant, ReviewForm } from "@/types/db";
@@ -22,26 +22,15 @@ type LoadedForm = {
 // RLS returns the restaurant only when it's published and the trial is live,
 // so an unreachable slug reads as absent here with no extra checks.
 async function loadReviewPage(slug: string): Promise<LoadedForm | null> {
-  const supabase = await createClient();
-
-  const { data: restaurant } = await supabase
-    .from("restaurants_public")
-    .select("*")
-    .eq("slug", slug)
-    .maybeSingle<PublicRestaurant>();
-
+  const restaurant = await getPublicRestaurant(slug);
   if (!restaurant) return null;
 
-  const { data: form } = await supabase
-    .from("review_forms")
-    .select("*")
-    .eq("restaurant_id", restaurant.id)
-    .maybeSingle<ReviewForm>();
+  const form = await getPublicReviewForm(restaurant.id);
 
   // A form row that exists but is switched off hides the page entirely.
   if (form && !form.is_enabled) return null;
 
-  return { restaurant, form: form ?? null };
+  return { restaurant, form };
 }
 
 export async function generateMetadata({

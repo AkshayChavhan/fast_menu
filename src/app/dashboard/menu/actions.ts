@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { invalidateMenu } from "@/lib/menu-cache";
 import { z } from "zod";
 
 import { requirePlanFeature } from "../lib";
@@ -117,6 +119,7 @@ export async function createCategory(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/dashboard/menu");
+  invalidateMenu(restaurantId);
   revalidatePath("/dashboard");
   return { ok: true };
 }
@@ -144,7 +147,8 @@ export async function updateCategory(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await managedCategoryRestaurant(supabase, categoryId)))
+  const restaurantId = await managedCategoryRestaurant(supabase, categoryId);
+  if (!restaurantId)
     return { ok: false, error: "Category not found" };
 
   const patch: Record<string, unknown> = { name };
@@ -157,6 +161,7 @@ export async function updateCategory(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/dashboard/menu");
+  invalidateMenu(restaurantId);
   return { ok: true };
 }
 
@@ -171,7 +176,8 @@ export async function deleteCategory(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await managedCategoryRestaurant(supabase, categoryId)))
+  const restaurantId = await managedCategoryRestaurant(supabase, categoryId);
+  if (!restaurantId)
     return { ok: false, error: "Category not found" };
 
   // Dishes reference categories with ON DELETE SET NULL, so deleting a category
@@ -183,6 +189,7 @@ export async function deleteCategory(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/dashboard/menu");
+  invalidateMenu(restaurantId);
   revalidatePath("/dashboard");
   return { ok: true };
 }
@@ -220,6 +227,7 @@ export async function reorderCategories(input: {
   if (failed?.error) return { ok: false, error: failed.error.message };
 
   revalidatePath("/dashboard/menu");
+  invalidateMenu(restaurantId);
   return { ok: true };
 }
 
@@ -357,6 +365,7 @@ export async function createDish(input: {
   if (error || !created) return { ok: false, error: error?.message ?? "Could not create the dish" };
 
   revalidatePath("/dashboard/menu");
+  invalidateMenu(d.restaurantId);
   revalidatePath("/dashboard");
   return { ok: true, data: { id: created.id } };
 }
@@ -431,6 +440,7 @@ export async function updateDish(input: {
   await removeRestaurantImages(supabase, restaurantId, [before?.image_url], d.imageUrl);
 
   revalidatePath("/dashboard/menu");
+  invalidateMenu(restaurantId);
   revalidatePath("/dashboard");
   return { ok: true };
 }
@@ -450,7 +460,8 @@ export async function toggleDishAvailability(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await managedDishRestaurant(supabase, dishId)))
+  const restaurantId = await managedDishRestaurant(supabase, dishId);
+  if (!restaurantId)
     return { ok: false, error: "Dish not found" };
 
   const { error } = await supabase
@@ -460,6 +471,7 @@ export async function toggleDishAvailability(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/dashboard/menu");
+  invalidateMenu(restaurantId);
   revalidatePath("/dashboard");
   return { ok: true };
 }
@@ -490,6 +502,7 @@ export async function deleteDish(input: {
   await removeRestaurantImages(supabase, restaurantId, [dish?.image_url]);
 
   revalidatePath("/dashboard/menu");
+  invalidateMenu(restaurantId);
   revalidatePath("/dashboard");
   return { ok: true };
 }
@@ -540,7 +553,8 @@ export async function setDishModifiers(input: {
 
   const { supabase, user } = await auth();
   if (!user) return { ok: false, error: "Not authenticated" };
-  if (!(await managedDishRestaurant(supabase, dishId)))
+  const restaurantId = await managedDishRestaurant(supabase, dishId);
+  if (!restaurantId)
     return { ok: false, error: "Dish not found" };
 
   const payload = groups.map((g) => ({
@@ -574,6 +588,7 @@ export async function setDishModifiers(input: {
   }
 
   revalidatePath("/dashboard/menu");
+  invalidateMenu(restaurantId);
   return { ok: true };
 }
 
@@ -618,6 +633,7 @@ export async function setCategorySchedule(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/dashboard/menu");
+  invalidateMenu(restaurantId);
   revalidatePath("/dashboard/schedules");
   return { ok: true };
 }

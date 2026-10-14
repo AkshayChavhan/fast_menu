@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidateRestaurants } from "@/lib/menu-cache";
+
 import { isValidTimezone } from "@/lib/time";
 import { z } from "zod";
 import { requireRestaurantAccess, getPlan, type ActionResult } from "../lib";
@@ -100,6 +102,7 @@ export async function updateRestaurantSettings(
   }
 
   revalidatePath("/dashboard/settings");
+  invalidateRestaurants();
   revalidatePath("/dashboard");
   return { ok: true };
 }
@@ -138,6 +141,7 @@ export async function setPublished(
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/settings");
+  invalidateRestaurants();
   revalidatePath("/dashboard/qr");
   return { ok: true };
 }
@@ -174,6 +178,7 @@ export async function updateLogo(
   await removeRestaurantImages(guard.supabase, restaurantId, [current?.logo_url], logoUrl);
 
   revalidatePath("/dashboard/settings");
+  invalidateRestaurants();
   revalidatePath("/dashboard");
   return { ok: true };
 }
@@ -244,6 +249,7 @@ export async function updateOrderingSettings(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/dashboard/settings");
+  invalidateRestaurants();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/qr");
   revalidatePath("/waiter");
@@ -281,6 +287,7 @@ export async function updateIntegrations(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/dashboard/settings");
+  invalidateRestaurants();
   return { ok: true };
 }
 
@@ -314,6 +321,7 @@ export async function setOrderingPaused(input: {
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/settings");
+  invalidateRestaurants();
   revalidatePath("/waiter");
   return { ok: true };
 }
