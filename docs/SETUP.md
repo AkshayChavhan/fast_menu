@@ -185,8 +185,19 @@ insert into public.platform_admins (email) values ('you.com');
 ```
 
 The same login opens `/admin`, which shows every restaurant's plan, setup and
-order activity and lists who needs a follow-up, and `/admin/plans`, where a
-plan is set by hand. Everyone else gets a 404 on all three.
+order activity and lists who needs a follow-up, `/admin/plans`, where a plan
+is set by hand, and `/admin/leads`, the call sheet for restaurants we have
+not signed yet. Everyone else gets a 404 on all four.
+
+**Leads.** `/admin/leads` drills down state → district → city (2,700 Indian
+cities and towns, seeded from Wikidata with Census populations) and keeps a
+per-restaurant log of every call: status, what was discussed, what is
+pending, and when to go back. "Fetch from OpenStreetMap" pulls the
+restaurants OSM has mapped around a city, free and without a key; it is
+thin outside the metros and rarely records a phone or website, so a row
+starting as "Not recorded" means nobody has checked, not that they have
+none. Add the rest by hand as callers find them. A lead whose phone or name
+matches a signed-up restaurant is flagged "Already a customer".
 
 **Push notifications (optional).** Waiters can get a buzz when a guest orders
 or calls. Generate a key pair once and put it in the env:

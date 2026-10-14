@@ -4,6 +4,7 @@ const PAGES = [
   { key: "activity", href: "/admin", label: "Restaurants" },
   { key: "plans", href: "/admin/plans", label: "Plans" },
   { key: "trials", href: "/admin/trials", label: "Trial reviews" },
+  { key: "leads", href: "/admin/leads", label: "Leads" },
 ] as const;
 
 export type AdminPage = (typeof PAGES)[number]["key"];
