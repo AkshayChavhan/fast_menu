@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { requireProjectOwner } from "@/app/admin/lib";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AdminManager, type AdminRow } from "@/components/admin/AdminManager";
+import { PlaceholderRestaurants, type PlaceholderRow } from "@/components/admin/PlaceholderRestaurants";
 
 export const metadata: Metadata = {
   title: "Admins — fast_menu",
@@ -40,6 +41,10 @@ function describe(a: AuditRow): string {
       return `${a.target} set to ${d.role === "project_owner" ? "project owner" : "admin"}`;
     case "admin.remove":
       return `${a.target} removed`;
+    case "restaurant.remove_placeholder":
+      return `empty restaurant "${(d as { name?: string }).name ?? a.target}" of ${(d as { owner_email?: string }).owner_email ?? "?"} removed`;
+    case "leads.replace":
+      return `leads in ${(d as { city?: string }).city ?? a.target} replaced (${(d as { removed?: number }).removed ?? "?"} removed)`;
     case "plan.set":
       return d.to?.months
         ? `plan ${d.from?.plan ?? "?"} → ${d.to.plan} for ${d.to.months} months`
@@ -54,15 +59,20 @@ function describe(a: AuditRow): string {
 export default async function AdminsPage() {
   const { supabase, user, role } = await requireProjectOwner("/admin/admins");
 
-  const [adminsRes, auditRes] = await Promise.all([
+  const [adminsRes, auditRes, placeholdersRes] = await Promise.all([
     supabase.rpc("list_platform_admins"),
     supabase.rpc("list_platform_audit", { p_limit: 50 }),
+    supabase.rpc("operator_placeholder_restaurants"),
   ]);
   if (adminsRes.error) throw new Error(`Failed to load admins: ${adminsRes.error.message}`);
   if (auditRes.error) throw new Error(`Failed to load audit log: ${auditRes.error.message}`);
+  if (placeholdersRes.error) {
+    throw new Error(`Failed to load placeholder restaurants: ${placeholdersRes.error.message}`);
+  }
 
   const admins = (adminsRes.data as AdminRow[] | null) ?? [];
   const audit = (auditRes.data as AuditRow[] | null) ?? [];
+  const placeholders = (placeholdersRes.data as PlaceholderRow[] | null) ?? [];
 
   return (
     <main className="min-h-screen bg-neutral-50 px-4 py-10 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
@@ -81,6 +91,8 @@ export default async function AdminsPage() {
         </div>
 
         <AdminManager rows={admins} selfEmail={user.email ?? ""} />
+
+        <PlaceholderRestaurants rows={placeholders} />
 
         <section className="space-y-2">
           <h2 className="text-sm font-semibold">
