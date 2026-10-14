@@ -66,13 +66,25 @@ export default async function AdminsPage() {
   ]);
   if (adminsRes.error) throw new Error(`Failed to load admins: ${adminsRes.error.message}`);
   if (auditRes.error) throw new Error(`Failed to load audit log: ${auditRes.error.message}`);
+
+  // The placeholder list came in a later migration than the rest of this
+  // page. Until that migration is applied the function is missing (PostgREST
+  // answers PGRST202); that is a notice to the owner, not a reason to take
+  // the whole page down.
+  let placeholders: PlaceholderRow[] = [];
+  let pendingMigration: string | null = null;
   if (placeholdersRes.error) {
-    throw new Error(`Failed to load placeholder restaurants: ${placeholdersRes.error.message}`);
+    if (placeholdersRes.error.code === "PGRST202") {
+      pendingMigration = "20260924003900_operator_accounts.sql";
+    } else {
+      throw new Error(`Failed to load placeholder restaurants: ${placeholdersRes.error.message}`);
+    }
+  } else {
+    placeholders = (placeholdersRes.data as PlaceholderRow[] | null) ?? [];
   }
 
   const admins = (adminsRes.data as AdminRow[] | null) ?? [];
   const audit = (auditRes.data as AuditRow[] | null) ?? [];
-  const placeholders = (placeholdersRes.data as PlaceholderRow[] | null) ?? [];
 
   return (
     <main className="min-h-screen bg-neutral-50 px-4 py-10 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
@@ -92,7 +104,15 @@ export default async function AdminsPage() {
 
         <AdminManager rows={admins} selfEmail={user.email ?? ""} />
 
-        <PlaceholderRestaurants rows={placeholders} />
+        {pendingMigration ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+            A database migration is pending: <code>{pendingMigration}</code>. Paste{" "}
+            <code>supabase/pending-migrations.generated.sql</code> into the Supabase SQL
+            editor and run it to manage placeholder restaurants here.
+          </p>
+        ) : (
+          <PlaceholderRestaurants rows={placeholders} />
+        )}
 
         <section className="space-y-2">
           <h2 className="text-sm font-semibold">
