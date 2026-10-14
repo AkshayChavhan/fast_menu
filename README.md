@@ -78,6 +78,9 @@ Built with **Next.js 16 (App Router) · TypeScript · Tailwind CSS · Supabase**
 > **New to Supabase?** Follow the click-by-click **[Setup Walkthrough](docs/SETUP.md)**
 > instead — it covers every step below in detail with troubleshooting.
 >
+> **What does each plan include?** **[Plans and features](docs/PLANS.md)** — prices,
+> the trial, the grace period, and where every gate is enforced.
+>
 > **Using the product?** The **[Guide Book](docs/user-guide/fast_menu-guide-book.pdf)**
 > covers every screen for owners, waiters, cashiers, kitchen staff and guests,
 > with no technical content. Rebuild it after edits with `scripts/build-guide.sh`.
