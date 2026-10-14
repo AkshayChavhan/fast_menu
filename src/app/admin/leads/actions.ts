@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { fetchOsmRestaurants, OverpassError } from "@/lib/leads/overpass";
 import { parseLeadImport } from "@/lib/leads/import";
+import { invalidateLeadGeo } from "@/lib/leads/geo-cache";
 import {
   LEAD_STATUSES,
   REVISIT_TYPES,
@@ -30,6 +31,8 @@ function refused(error: { code?: string; message: string }): { ok: false; error:
 function revalidate(leadId?: string) {
   revalidatePath("/admin/leads");
   if (leadId) revalidatePath(`/admin/leads/${leadId}`);
+  // Counts beside states and cities come from a cache; this is what clears it.
+  invalidateLeadGeo();
   refresh();
 }
 

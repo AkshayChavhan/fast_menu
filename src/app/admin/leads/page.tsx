@@ -2,12 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PhoneCall } from "lucide-react";
 
-import { requireAdmin, type AdminContext } from "@/app/admin/lib";
+import { requireAdmin } from "@/app/admin/lib";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CityActions } from "@/components/admin/leads/CityActions";
 import { CityPicker } from "@/components/admin/leads/CityPicker";
 import { leadsHref, type PickerState } from "@/lib/leads/href";
 import { LeadList, type LeadRow } from "@/components/admin/leads/LeadList";
+import {
+  getLeadCities,
+  getLeadStates,
+  LeadGeoPendingMigration,
+  type CityWithCount,
+  type LeadState,
+} from "@/lib/leads/geo-cache";
 import {
   bucketFor,
   filterCities,
@@ -56,9 +63,11 @@ export default async function LeadsPage({
     day: "2-digit",
   }).format(new Date());
 
-  const [statesRes, citiesRes, dueRes] = await Promise.all([
-    supabase.rpc("list_lead_states"),
-    loadCities(supabase, picked),
+  // Geography and counts come from a ten-minute cache the lead actions clear;
+  // only the revisit list and the chosen city's leads are read live.
+  const [statesLoaded, cities, dueRes] = await Promise.all([
+    loadStates(),
+    picked.state ? getLeadCities(picked.state) : picked.bucket === "metro" ? getLeadCities(null) : [],
     supabase
       .from("leads")
       .select("*, lead_cities(name, state)")
@@ -68,13 +77,23 @@ export default async function LeadsPage({
       .order("revisit_at", { ascending: true })
       .limit(50),
   ]);
-  if (statesRes.error) throw new Error(`Failed to load states: ${statesRes.error.message}`);
-  if (citiesRes.error) throw new Error(`Failed to load cities: ${citiesRes.error.message}`);
   if (dueRes.error) throw new Error(`Failed to load revisits: ${dueRes.error.message}`);
 
-  const states = (statesRes.data ?? []) as { state: string; city_count: number; lead_count: number }[];
-  const cities = citiesRes.data;
   const due = (dueRes.data ?? []) as LeadRow[];
+  const { states, pendingMigration } = statesLoaded;
+
+  // Until lead_geo_summary() exists on the database, the states come from
+  // the live query as before and the page says which migration is pending.
+  async function loadStates(): Promise<{ states: LeadState[]; pendingMigration: string | null }> {
+    try {
+      return { states: await getLeadStates(), pendingMigration: null };
+    } catch (e) {
+      if (!(e instanceof LeadGeoPendingMigration)) throw e;
+      const { data, error } = await supabase.rpc("list_lead_states");
+      if (error) throw new Error(`Failed to load states: ${error.message}`);
+      return { states: (data ?? []) as LeadState[], pendingMigration: e.migration };
+    }
+  }
 
   const city = picked.city ? cities.find((c) => c.id === picked.city) ?? null : null;
   const visibleCities = filterCities(cities, {
@@ -120,6 +139,13 @@ export default async function LeadsPage({
             </h2>
             <LeadList leads={due} label="Due for a revisit" showCity todayIso={todayIso} />
           </section>
+        ) : null}
+
+        {pendingMigration ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+            A database migration is pending: <code>{pendingMigration}</code>. The page works; once
+            it is applied, the state and city lists come from a cache instead of a live query.
+          </p>
         ) : null}
 
         <CityPicker states={states} cities={cities} picked={picked} />
@@ -168,32 +194,6 @@ export default async function LeadsPage({
     </main>
   );
 }
-
-type Db = AdminContext["supabase"];
-
-// One state's cities, or the eight metros when that chip is on with no
-// state. Either way well under the API's thousand-row cap. Each row carries
-// its lead count so the grid can show where work has started.
-async function loadCities(supabase: Db, picked: PickerState) {
-  let q = supabase
-    .from("lead_cities")
-    .select("id, name, state, district, population, lat, lon, is_metro, leads(count)")
-    .order("name", { ascending: true })
-    .limit(1000);
-  if (picked.state) q = q.eq("state", picked.state);
-  else if (picked.bucket === "metro") q = q.eq("is_metro", true);
-  else return { data: [] as CityWithCount[], error: null };
-
-  const { data, error } = await q;
-  if (error) return { data: [] as CityWithCount[], error };
-  const rows = (data ?? []) as (LeadCity & { leads: { count: number }[] })[];
-  return {
-    data: rows.map(({ leads, ...c }) => ({ ...c, lead_count: leads?.[0]?.count ?? 0 })),
-    error: null,
-  };
-}
-
-type CityWithCount = LeadCity & { lead_count: number };
 
 function CityGrid({ cities, picked }: { cities: CityWithCount[]; picked: PickerState }) {
   if (cities.length === 0) {
