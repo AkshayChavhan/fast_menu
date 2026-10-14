@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { fetchOsmRestaurants, OverpassError } from "@/lib/leads/overpass";
+import { parseLeadImport } from "@/lib/leads/import";
 import {
   LEAD_STATUSES,
   REVISIT_TYPES,
@@ -165,11 +166,19 @@ export async function updateLeadDetails(
 // One form after every conversation: what was said, where it leaves things,
 // what is still pending, and when to go back.
 
+// Three-valued answers from the call form: yes, no, or not asked.
+const answer = z.enum(["yes", "no", ""]);
+const toBool = (a: "yes" | "no" | "") => (a === "" ? null : a === "yes");
+
 const logSchema = z.object({
   leadId: z.string().uuid(),
   body: z.string().trim().max(2000),
   status: z.enum(LEAD_STATUSES),
   pending: z.string().trim().max(500),
+  digitalMenu: answer.default(""),
+  digitalMenuProvider: z.string().trim().max(80).default(""),
+  hardMenu: answer.default(""),
+  onlineOrders: answer.default(""),
   revisitAt: z
     .string()
     .trim()
@@ -206,6 +215,18 @@ export async function logLeadCall(input: z.input<typeof logSchema>): Promise<Act
   if (updateError) return refused(updateError);
   if (!count) return { ok: false, error: "Lead not found." };
 
+  // What the call established. Reaching them at all makes the lead verified:
+  // a person has confirmed it is a real place that answers the phone.
+  const { error: factsError } = await supabase.rpc("set_lead_facts", {
+    p_lead_id: d.leadId,
+    p_digital_menu: toBool(d.digitalMenu),
+    p_digital_menu_provider: d.digitalMenuProvider || null,
+    p_hard_menu: toBool(d.hardMenu),
+    p_online_orders: toBool(d.onlineOrders),
+    p_verified: d.status === "new" ? null : true,
+  });
+  if (factsError) return refused(factsError);
+
   if (d.body) {
     const { error } = await supabase
       .from("lead_notes")
@@ -229,4 +250,71 @@ export async function deleteLead(input: { id: string }): Promise<ActionResult> {
 
   revalidate(parsed.data.id);
   return { ok: true };
+}
+
+// --- Import a file --------------------------------------------------------------
+//
+// The JSON a person assembled for this city. Parsed here so a bad file is
+// explained in words; matched and written by import_leads_json(), which
+// never overwrites what a caller typed.
+
+export type ImportResult =
+  | {
+      ok: true;
+      inserted: number;
+      updated: number;
+      skipped: { index: number; reason: string }[];
+      warning: string | null;
+    }
+  | { ok: false; error: string };
+
+export async function importLeadsJson(input: {
+  cityId: string;
+  jsonText: string;
+}): Promise<ImportResult> {
+  const parsed = z
+    .object({ cityId: z.string().min(1).max(32), jsonText: z.string().min(2).max(5_000_000) })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input" };
+
+  let file;
+  try {
+    file = parseLeadImport(parsed.data.jsonText);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not read the file." };
+  }
+  if (file.rows.length === 0) {
+    return { ok: false, error: "No usable rows: every restaurant is missing a name." };
+  }
+
+  const supabase = await createClient();
+  const { data: city, error: cityError } = await supabase
+    .from("lead_cities")
+    .select("id, name, state")
+    .eq("id", parsed.data.cityId)
+    .maybeSingle();
+  if (cityError) return refused(cityError);
+  if (!city) return { ok: false, error: "That city is not in the list." };
+
+  // The file says where it is for; a mismatch is worth a sentence, not a refusal.
+  let warning: string | null = null;
+  if (file.city && file.city.trim().toLowerCase() !== city.name.trim().toLowerCase()) {
+    warning = `The file says "${file.city}", but it was imported into ${city.name}.`;
+  }
+
+  const { data, error } = await supabase.rpc("import_leads_json", {
+    p_city_id: city.id,
+    p_rows: file.rows,
+  });
+  if (error) return refused(error);
+
+  const summary = (data ?? {}) as { inserted?: number; updated?: number };
+  revalidate();
+  return {
+    ok: true,
+    inserted: summary.inserted ?? 0,
+    updated: summary.updated ?? 0,
+    skipped: file.skipped,
+    warning,
+  };
 }

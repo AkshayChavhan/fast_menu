@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Phone } from "lucide-react";
 
 import { StatusBadge, WebsiteCell } from "@/components/admin/leads/StatusBadge";
-import { REVISIT_TYPE_LABELS, type Lead } from "@/lib/leads/types";
+import { formatRating, LEAD_SOURCE_LABELS, REVISIT_TYPE_LABELS, type Lead } from "@/lib/leads/types";
 
 export type LeadRow = Lead & {
   // Joined for the revisit list, which spans cities.
@@ -40,11 +40,12 @@ export function LeadList({
 
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
-      <table aria-label={label} className="w-full min-w-[720px] text-sm">
+      <table aria-label={label} className="w-full min-w-[800px] text-sm">
         <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
           <tr>
             <th className="px-3 py-2 font-medium">Restaurant</th>
             {showCity ? <th className="px-3 py-2 font-medium">City</th> : null}
+            <th className="px-3 py-2 font-medium">Google</th>
             <th className="px-3 py-2 font-medium">Phone</th>
             <th className="px-3 py-2 font-medium">Website</th>
             <th className="px-3 py-2 font-medium">Status</th>
@@ -62,12 +63,11 @@ export function LeadList({
                     {l.name}
                   </Link>
                   <div className="text-xs text-neutral-500">
-                    {[l.cuisine, l.address].filter(Boolean).join(" · ") || (
-                      <span className="text-neutral-400">
-                        {l.source === "osm" ? "From OpenStreetMap" : "Added by hand"}
-                      </span>
+                    {[l.cuisine, l.locality ?? l.address].filter(Boolean).join(" · ") || (
+                      <span className="text-neutral-400">{LEAD_SOURCE_LABELS[l.source]}</span>
                     )}
                   </div>
+                  <MenuFacts lead={l} />
                   {l.restaurant_id ? (
                     <span className="mt-1 inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-200">
                       Already a customer
@@ -79,6 +79,25 @@ export function LeadList({
                     {l.lead_cities?.name ?? "—"}
                   </td>
                 ) : null}
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {formatRating(l.google_rating, l.google_review_count) ? (
+                    l.google_maps_url ? (
+                      <a
+                        href={l.google_maps_url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="hover:underline"
+                        title="Open in Google Maps"
+                      >
+                        {formatRating(l.google_rating, l.google_review_count)}
+                      </a>
+                    ) : (
+                      formatRating(l.google_rating, l.google_review_count)
+                    )
+                  ) : (
+                    <span className="text-xs text-neutral-400">—</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   {l.phone ? (
                     <a href={telHref(l.phone)} className="inline-flex items-center gap-1 hover:underline">
@@ -124,6 +143,38 @@ export function LeadList({
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+
+// What a file or a call has established about their menu, as small tags.
+// Unknown is simply absent: a missing tag means nobody has asked yet.
+function MenuFacts({ lead }: { lead: Lead }) {
+  const tags: { label: string; good: boolean }[] = [];
+  if (lead.digital_menu === false) tags.push({ label: "No QR menu", good: true });
+  if (lead.digital_menu === true)
+    tags.push({ label: lead.digital_menu_provider ? `QR menu: ${lead.digital_menu_provider}` : "Has QR menu", good: false });
+  if (lead.hard_menu === false) tags.push({ label: "No printed menu", good: true });
+  if (lead.on_zomato) tags.push({ label: "Zomato", good: false });
+  if (lead.on_swiggy) tags.push({ label: "Swiggy", good: false });
+  if (lead.verified) tags.push({ label: "Verified", good: false });
+  if (tags.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {tags.map((t) => (
+        <span
+          key={t.label}
+          className={
+            "rounded-full px-1.5 py-0.5 text-[11px] font-medium " +
+            (t.good
+              ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
+              : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300")
+          }
+        >
+          {t.label}
+        </span>
+      ))}
     </div>
   );
 }

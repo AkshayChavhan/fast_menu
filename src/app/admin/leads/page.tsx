@@ -40,6 +40,7 @@ export default async function LeadsPage({
     return typeof v === "string" && v ? v : undefined;
   };
   const rawBucket = one("bucket");
+  const sortByRating = one("sort") === "rating";
   const picked: PickerState = {
     state: one("state"),
     district: one("district"),
@@ -83,13 +84,12 @@ export default async function LeadsPage({
 
   let leads: LeadRow[] = [];
   if (city) {
-    const { data, error } = await supabase
-      .from("leads")
-      .select("*")
-      .eq("city_id", city.id)
-      .order("status", { ascending: true })
-      .order("name", { ascending: true })
-      .limit(1000);
+    let q = supabase.from("leads").select("*").eq("city_id", city.id);
+    q = sortByRating
+      ? q.order("google_rating", { ascending: false, nullsFirst: false })
+          .order("google_review_count", { ascending: false, nullsFirst: false })
+      : q.order("status", { ascending: true });
+    const { data, error } = await q.order("name", { ascending: true }).limit(1000);
     if (error) throw new Error(`Failed to load leads: ${error.message}`);
     leads = (data ?? []) as LeadRow[];
   }
@@ -138,6 +138,17 @@ export default async function LeadsPage({
                   Population {formatPopulation(city.population)}
                   {city.is_metro ? " · metro" : ""} · {leads.length} on the list
                   {leads.length ? ` · ${leads.filter((l) => l.status !== "new").length} reached` : ""}
+                  {leads.length > 1 ? (
+                    <>
+                      {" · "}
+                      <Link
+                        href={leadsHref({ ...picked, sort: sortByRating ? undefined : "rating" })}
+                        className="underline"
+                      >
+                        {sortByRating ? "Sort by status" : "Sort by Google rating"}
+                      </Link>
+                    </>
+                  ) : null}
                 </p>
               </div>
               <CityActions city={city} />

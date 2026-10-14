@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Phone, Trash2 } from "lucide-react";
+import { ExternalLink, Loader2, Phone, Trash2 } from "lucide-react";
 
 import { deleteLead, logLeadCall, updateLeadDetails } from "@/app/admin/leads/actions";
 import { StatusBadge, WebsiteCell } from "@/components/admin/leads/StatusBadge";
 import {
+  formatRating,
+  LEAD_SOURCE_LABELS,
   LEAD_STATUSES,
   LEAD_STATUS_LABELS,
   REVISIT_TYPES,
@@ -47,6 +49,7 @@ export function LeadDetail({
       ) : null}
 
       <LogCallForm lead={lead} />
+      <FactsCard lead={lead} />
       <CallLog notes={notes} />
       <DetailsForm lead={lead} currentUserEmail={currentUserEmail} />
       <DangerZone lead={lead} />
@@ -63,6 +66,10 @@ function LogCallForm({ lead }: { lead: Lead }) {
   const [todo, setTodo] = useState(lead.pending ?? "");
   const [revisitAt, setRevisitAt] = useState(lead.revisit_at ?? "");
   const [revisitType, setRevisitType] = useState<RevisitType | "">(lead.revisit_type ?? "");
+  const [digitalMenu, setDigitalMenu] = useState<Answer>(fromBool(lead.digital_menu));
+  const [digitalMenuProvider, setDigitalMenuProvider] = useState(lead.digital_menu_provider ?? "");
+  const [hardMenu, setHardMenu] = useState<Answer>(fromBool(lead.hard_menu));
+  const [onlineOrders, setOnlineOrders] = useState<Answer>(fromBool(lead.online_orders));
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -78,6 +85,10 @@ function LogCallForm({ lead }: { lead: Lead }) {
         pending: todo,
         revisitAt,
         revisitType,
+        digitalMenu,
+        digitalMenuProvider,
+        hardMenu,
+        onlineOrders,
       });
       if (!res.ok) {
         setError(res.error);
@@ -156,6 +167,25 @@ function LogCallForm({ lead }: { lead: Lead }) {
             ))}
           </select>
         </label>
+      </div>
+
+      {/* The sales qualification itself: asked on the call, recorded here. */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <AnswerSelect label="Do they have a QR / digital menu?" value={digitalMenu} onChange={setDigitalMenu} />
+        <AnswerSelect label="A printed menu?" value={hardMenu} onChange={setHardMenu} />
+        <AnswerSelect label="Taking online orders?" value={onlineOrders} onChange={setOnlineOrders} />
+        {digitalMenu === "yes" ? (
+          <label className="block text-xs font-medium text-neutral-500 sm:col-span-3">
+            Whose QR menu?
+            <input
+              className={`${inputClass} mt-1`}
+              value={digitalMenuProvider}
+              onChange={(e) => setDigitalMenuProvider(e.target.value)}
+              maxLength={80}
+              placeholder="Zomato QR, DotPe, their own app…"
+            />
+          </label>
+        ) : null}
       </div>
 
       {error ? (
@@ -394,5 +424,148 @@ function DangerZone({ lead }: { lead: Lead }) {
         Remove
       </button>
     </div>
+  );
+}
+
+// --- Yes / no / not asked --------------------------------------------------------
+
+type Answer = "yes" | "no" | "";
+const fromBool = (b: boolean | null): Answer => (b == null ? "" : b ? "yes" : "no");
+
+function AnswerSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: Answer;
+  onChange: (a: Answer) => void;
+}) {
+  return (
+    <label className="block text-xs font-medium text-neutral-500">
+      {label}
+      <select
+        className={`${inputClass} mt-1`}
+        value={value}
+        onChange={(e) => onChange(e.target.value as Answer)}
+      >
+        <option value="">Not asked yet</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+    </label>
+  );
+}
+
+// --- What is known about them ---------------------------------------------------
+//
+// From the file they were imported from, or from calls. Nothing here is a
+// guess: a fact nobody has established is simply not shown.
+
+function FactsCard({ lead }: { lead: Lead }) {
+  const yesNo = (b: boolean | null) => (b == null ? null : b ? "Yes" : "No");
+  const facts: [string, React.ReactNode][] = [];
+  const rating = formatRating(lead.google_rating, lead.google_review_count);
+  if (rating) {
+    facts.push([
+      "Google rating",
+      lead.google_maps_url ? (
+        <a
+          href={lead.google_maps_url}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex items-center gap-1 underline"
+        >
+          {rating}
+          <ExternalLink className="h-3 w-3" aria-hidden />
+        </a>
+      ) : (
+        rating
+      ),
+    ]);
+  } else if (lead.google_maps_url) {
+    facts.push([
+      "Google Maps",
+      <a key="maps" href={lead.google_maps_url} target="_blank" rel="noreferrer noopener" className="underline">
+        Open
+      </a>,
+    ]);
+  }
+  if (lead.kind) facts.push(["Type", lead.kind.replace(/_/g, " ")]);
+  if (lead.price_level) facts.push(["Price", "₹".repeat(lead.price_level)]);
+  if (lead.digital_menu != null)
+    facts.push([
+      "QR / digital menu",
+      lead.digital_menu ? `Yes${lead.digital_menu_provider ? ` — ${lead.digital_menu_provider}` : ""}` : "No",
+    ]);
+  if (lead.hard_menu != null) facts.push(["Printed menu", yesNo(lead.hard_menu)]);
+  if (lead.online_orders != null) facts.push(["Online orders", yesNo(lead.online_orders)]);
+  if (lead.on_zomato != null || lead.on_swiggy != null)
+    facts.push([
+      "Aggregators",
+      [lead.on_zomato ? "Zomato" : null, lead.on_swiggy ? "Swiggy" : null].filter(Boolean).join(", ") ||
+        "Neither",
+    ]);
+  if (lead.contact_person) facts.push(["Contact", lead.contact_person]);
+  if (lead.whatsapp) facts.push(["WhatsApp", lead.whatsapp]);
+  if (lead.email) facts.push(["Email", lead.email]);
+  if (lead.opening_hours) facts.push(["Hours", lead.opening_hours]);
+  if (lead.seating) facts.push(["Seating", lead.seating]);
+  if (lead.locality || lead.pincode)
+    facts.push(["Area", [lead.locality, lead.pincode].filter(Boolean).join(" ")]);
+  const extras = Object.entries(lead.extra ?? {}).filter(([, v]) => v != null && v !== "");
+  for (const [k, v] of extras.slice(0, 8)) {
+    facts.push([k, typeof v === "object" ? JSON.stringify(v) : String(v)]);
+  }
+
+  if (facts.length === 0 && !lead.image_url) return null;
+  return (
+    <section className={cn(cardClass, "space-y-2")}>
+      {lead.image_url ? <Photo url={lead.image_url} name={lead.name} /> : null}
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">What we know</h2>
+        <span className="text-xs text-neutral-500">
+          {LEAD_SOURCE_LABELS[lead.source]}
+          {lead.verified ? " · verified on a call" : ""}
+        </span>
+      </div>
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+        {facts.map(([k, v]) => (
+          <div key={k} className="flex gap-2">
+            <dt className="w-32 shrink-0 text-neutral-500">{k}</dt>
+            <dd className="min-w-0 break-words">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {lead.source_url ? (
+        <p className="text-xs text-neutral-500">
+          Source:{" "}
+          <a href={lead.source_url} target="_blank" rel="noreferrer noopener" className="underline">
+            {lead.source_url.replace(/^https?:\/\//, "").slice(0, 60)}
+          </a>
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+
+// A photo someone found on the web. Hot-linked, never copied, so it can
+// vanish; when it does, so does this.
+function Photo({ url, name }: { url: string; name: string }) {
+  const [dead, setDead] = useState(false);
+  if (dead) return null;
+  return (
+    <a href={url} target="_blank" rel="noreferrer noopener" className="block">
+      {/* eslint-disable-next-line @next/next/no-img-element -- a remote URL from a file; next/image needs the host configured */}
+      <img
+        src={url}
+        alt={name}
+        referrerPolicy="no-referrer"
+        loading="lazy"
+        onError={() => setDead(true)}
+        className="max-h-48 w-full rounded-lg object-cover"
+      />
+    </a>
   );
 }
