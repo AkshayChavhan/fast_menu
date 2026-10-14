@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
@@ -23,9 +23,13 @@ function refused(error: { code?: string; message: string }): { ok: false; error:
   return { ok: false, error: error.message };
 }
 
+// revalidatePath drops what is cached; refresh() re-renders the page the
+// caller is on as part of the action's own response, so the client never
+// has to call router.refresh() and race it.
 function revalidate(leadId?: string) {
   revalidatePath("/admin/leads");
   if (leadId) revalidatePath(`/admin/leads/${leadId}`);
+  refresh();
 }
 
 // --- Fetch from OpenStreetMap ----------------------------------------------

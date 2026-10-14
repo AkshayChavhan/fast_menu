@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 
 import { removePlatformAdmin, setPlatformAdmin } from "@/app/admin/admins/actions";
@@ -22,7 +21,6 @@ const inputClass =
 // owner's own row has no remove button: the database would refuse it if
 // they are the last owner, and if they are not, someone else should do it.
 export function AdminManager({ rows, selfEmail }: { rows: AdminRow[]; selfEmail: string }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -37,9 +35,7 @@ export function AdminManager({ rows, selfEmail }: { rows: AdminRow[]; selfEmail:
       setBusy(null);
       if (!res.ok) {
         setError(res.error ?? "Something went wrong");
-        return;
       }
-      router.refresh();
     });
   }
 

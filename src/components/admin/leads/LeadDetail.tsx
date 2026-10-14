@@ -57,7 +57,6 @@ export function LeadDetail({
 // --- After the call ----------------------------------------------------------------
 
 function LogCallForm({ lead }: { lead: Lead }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [body, setBody] = useState("");
   const [status, setStatus] = useState<LeadStatus>(lead.status === "new" ? "reached" : lead.status);
@@ -86,7 +85,6 @@ function LogCallForm({ lead }: { lead: Lead }) {
       }
       setBody("");
       setSaved(true);
-      router.refresh();
     });
   }
 
@@ -209,7 +207,6 @@ function CallLog({ notes }: { notes: LeadNote[] }) {
 // --- Contact details -------------------------------------------------------------
 
 function DetailsForm({ lead, currentUserEmail }: { lead: Lead; currentUserEmail: string }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [phone, setPhone] = useState(lead.phone ?? "");
   const [website, setWebsite] = useState(lead.website ?? "");
@@ -237,7 +234,6 @@ function DetailsForm({ lead, currentUserEmail }: { lead: Lead; currentUserEmail:
         return;
       }
       setSaved(true);
-      router.refresh();
     });
   }
 

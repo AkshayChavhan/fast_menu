@@ -14,7 +14,6 @@ const inputClass =
 // The two ways a restaurant gets onto the list for a city: pulled from
 // OpenStreetMap, or typed in by whoever found it.
 export function CityActions({ city }: { city: LeadCity }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [fetching, setFetching] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -37,7 +36,6 @@ export function CityActions({ city }: { city: LeadCity }) {
           ? `OpenStreetMap has no named restaurants mapped around ${city.name} yet. Add them by hand as you find them.`
           : `${res.found} found on OpenStreetMap, ${res.added} new.`,
       );
-      router.refresh();
     });
   }
 

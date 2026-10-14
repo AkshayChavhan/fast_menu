@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
@@ -34,6 +34,7 @@ export async function setPlatformAdmin(input: z.input<typeof setSchema>): Promis
   });
   if (error) return failed(error);
   revalidatePath("/admin/admins");
+  refresh();
   return { ok: true };
 }
 
@@ -44,5 +45,6 @@ export async function removePlatformAdmin(input: { email: string }): Promise<Act
   const { error } = await supabase.rpc("remove_platform_admin", { p_email: parsed.data.email });
   if (error) return failed(error);
   revalidatePath("/admin/admins");
+  refresh();
   return { ok: true };
 }

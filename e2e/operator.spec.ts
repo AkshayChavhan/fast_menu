@@ -10,6 +10,10 @@ import { E2E } from "./global-setup";
 
 const state = JSON.parse(readFileSync(E2E.stateFile, "utf8")) as { restaurantId: string };
 
+// A server action plus the re-render it carries, on a CI runner that is also
+// hosting the database: slower than a click, not slow enough to call hung.
+const afterAction = { timeout: 15_000 };
+
 async function loginTo(page: Page, path: string, email: string, password: string) {
   await page.goto(`/login?next=${encodeURIComponent(path)}`);
   await page.getByLabel("Email").fill(email);
@@ -52,7 +56,7 @@ test("the owner works a lead from a city to a logged call", async ({ page }) => 
 
   // Lands on the lead itself.
   await page.waitForURL(/\/admin\/leads\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole("heading", { level: 1, name: E2E.leadName })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: E2E.leadName })).toBeVisible(afterAction);
   await expect(page.getByLabel("Where it stands now")).toHaveValue("reached");
   await expect(page.getByText("No calls logged yet.")).toBeVisible();
 
@@ -64,15 +68,15 @@ test("the owner works a lead from a city to a logged call", async ({ page }) => 
   await page.getByLabel("Revisit on").fill(todayIst);
   await page.getByLabel("Revisit as").selectOption("call");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText("Saved").first()).toBeVisible();
-  await expect(page.getByText("Owner was busy, asked to call after 4pm.")).toBeVisible();
+  await expect(page.getByText("Saved").first()).toBeVisible(afterAction);
+  await expect(page.getByText("Owner was busy, asked to call after 4pm.")).toBeVisible(afterAction);
   await expect(page.getByRole("heading", { name: /Call log/ })).toContainText("(1)");
 
   // The website question is answered on the call, never assumed.
   await expect(page.getByText("Not recorded")).toBeVisible();
   await page.getByLabel("No — confirmed on the call").check();
   await page.getByRole("button", { name: "Save details" }).click();
-  await expect(page.getByText("No website")).toBeVisible();
+  await expect(page.getByText("No website")).toBeVisible(afterAction);
 
   // Back on the city list, with everything the caller just recorded.
   await page.getByRole("link", { name: /Nashik, Maharashtra/ }).click();
@@ -125,19 +129,21 @@ test("the owner adds an admin, sees it audited, and removes them", async ({ page
   await page.getByLabel("Level").selectOption("admin");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   const row = admins.locator("li", { hasText: E2E.newAdminEmail });
-  await expect(row).toBeVisible();
+  await expect(row).toBeVisible(afterAction);
   await expect(row.getByRole("combobox")).toHaveValue("admin");
   // Newest first; .first() so a retried run, which adds them twice, still reads.
   await expect(changes.getByText(`${E2E.newAdminEmail} set to admin`).first()).toBeVisible();
 
   await row.getByRole("button", { name: "Remove" }).click();
   // If the action was refused, say why rather than just "still there".
+  // Next's route announcer is also role=alert; the page's own errors are <p>.
+  const pageError = page.locator('p[role="alert"]');
   await expect
-    .poll(async () => (await page.getByRole("alert").count()) ? await page.getByRole("alert").textContent() : null, {
+    .poll(async () => ((await pageError.count()) ? await pageError.first().textContent() : null), {
       message: "no error after Remove",
     })
     .toBeNull();
-  await expect(row).toHaveCount(0);
+  await expect(row).toHaveCount(0, afterAction);
   await expect(changes.getByText(`${E2E.newAdminEmail} removed`).first()).toBeVisible();
 
   // Money is one click away for the owner.
