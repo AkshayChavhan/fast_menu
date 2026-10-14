@@ -155,6 +155,15 @@ create table public.payments (
 
 create table public.platform_admins (
   email      text primary key,
+  role       text not null default 'admin' check (role in ('admin', 'project_owner')),
+  created_at timestamptz not null default now()
+);
+create table public.platform_audit (
+  id         uuid primary key default gen_random_uuid(),
+  actor      text,
+  action     text not null,
+  target     text,
+  details    jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -176,6 +185,7 @@ create table public.restaurant_staff (
   id            uuid primary key default gen_random_uuid(),
   restaurant_id uuid not null references public.restaurants (id) on delete cascade,
   user_id       uuid not null,
+  email         text,
   role          text not null check (role in ('manager', 'cashier', 'waiter', 'kitchen')),
   display_name  text,
   is_active     boolean not null default true,
@@ -332,4 +342,51 @@ create table public.rate_limit_buckets (
   key          text primary key,
   window_start timestamptz not null,
   count        integer not null default 0
+);
+
+-- Leads (match_lead_restaurant, import_osm_leads, create_lead).
+create table public.lead_cities (
+  id         text primary key,
+  name       text not null,
+  state      text not null,
+  district   text,
+  population integer,
+  lat        double precision not null,
+  lon        double precision not null,
+  is_metro   boolean not null default false
+);
+create table public.leads (
+  id             uuid primary key default gen_random_uuid(),
+  city_id        text not null references public.lead_cities (id),
+  name           text not null,
+  source         text not null check (source in ('osm', 'manual')),
+  osm_ref        text,
+  phone          text,
+  website        text,
+  website_status text not null default 'unknown'
+                 check (website_status in ('unknown', 'has', 'none')),
+  address        text,
+  cuisine        text,
+  lat            double precision,
+  lon            double precision,
+  status         text not null default 'new'
+                 check (status in ('new', 'reached', 'interested', 'demo_booked',
+                                   'trial', 'won', 'not_interested')),
+  assigned_to    text,
+  pending        text,
+  revisit_at     date,
+  revisit_type   text check (revisit_type in ('call', 'online_meeting', 'demo')),
+  restaurant_id  uuid references public.restaurants (id) on delete set null,
+  last_seen_at   timestamptz,
+  created_by     uuid,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+create unique index leads_osm_ref_key on public.leads (osm_ref) where osm_ref is not null;
+create table public.lead_notes (
+  id         uuid primary key default gen_random_uuid(),
+  lead_id    uuid not null references public.leads (id) on delete cascade,
+  author     text,
+  body       text not null,
+  created_at timestamptz not null default now()
 );

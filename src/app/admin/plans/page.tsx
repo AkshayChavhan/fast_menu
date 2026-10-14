@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
 import { CreditCard } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/app/admin/lib";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PlanAdminList, type PlanRow } from "@/components/admin/PlanAdminList";
 
@@ -15,14 +14,7 @@ export const metadata: Metadata = {
 // Same shape as /admin/trials — only emails in platform_admins get in, and
 // everyone else sees a 404 so the page's existence isn't advertised.
 export default async function PlansAdminPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/admin/plans");
-
-  const { data: isAdmin } = await supabase.rpc("is_platform_admin");
-  if (isAdmin !== true) notFound();
+  const { supabase, role } = await requireAdmin("/admin/plans");
 
   const { data, error } = await supabase.rpc("list_restaurant_plans");
   if (error) throw new Error(`Failed to load plans: ${error.message}`);
@@ -38,7 +30,7 @@ export default async function PlansAdminPage() {
             <span className="text-xs font-semibold uppercase tracking-wide">
               Platform admin
             </span>
-            <AdminNav current="plans" />
+            <AdminNav current="plans" role={role} />
           </div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Plans</h1>
           <p className="text-sm text-neutral-500">
@@ -48,7 +40,7 @@ export default async function PlansAdminPage() {
           </p>
         </div>
 
-        <PlanAdminList rows={rows} />
+        <PlanAdminList rows={rows} canEdit={role === "project_owner"} />
       </div>
     </main>
   );

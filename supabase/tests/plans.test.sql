@@ -176,7 +176,7 @@ $$;
 
 select public.assert(public.restaurant_plan(:'R') = 'starter', 'and nothing changed');
 
-insert into public.platform_admins (email) values ('ops@example.com');
+insert into public.platform_admins (email, role) values ('ops@example.com', 'project_owner');
 update public.test_auth set email = 'ops@example.com';
 
 select public.set_restaurant_plan(:'R', 'pro', 12);

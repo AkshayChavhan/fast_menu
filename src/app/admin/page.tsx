@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
 import { Activity } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
 import { buildDashboard, type ActivityRow } from "@/lib/admin-activity";
+import { requireAdmin } from "@/app/admin/lib";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AttentionList, SummaryTiles } from "@/components/admin/ActivitySummary";
 import { RestaurantActivityList } from "@/components/admin/RestaurantActivityList";
@@ -18,14 +17,7 @@ export const metadata: Metadata = {
 // emails in platform_admins get in, and everyone else sees a 404 so the page's
 // existence isn't advertised.
 export default async function AdminActivityPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/admin");
-
-  const { data: isAdmin } = await supabase.rpc("is_platform_admin");
-  if (isAdmin !== true) notFound();
+  const { supabase, role } = await requireAdmin("/admin");
 
   const { data, error } = await supabase.rpc("list_restaurant_activity");
   if (error) throw new Error(`Failed to load restaurant activity: ${error.message}`);
@@ -45,7 +37,7 @@ export default async function AdminActivityPage() {
             <span className="text-xs font-semibold uppercase tracking-wide">
               Platform admin
             </span>
-            <AdminNav current="activity" />
+            <AdminNav current="activity" role={role} />
           </div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Restaurants</h1>
           <p className="text-sm text-neutral-500">

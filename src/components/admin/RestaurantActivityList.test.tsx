@@ -78,7 +78,8 @@ const setup = (list = restaurants) =>
 const card = (name: string) => screen.getByText(name).closest("li") as HTMLElement;
 const names = () =>
   Array.from(document.querySelectorAll('li[id^="r-"]')).map(
-    (li) => li.querySelector("p")?.textContent,
+    // The name is the card's heading link (it opens the read-only page).
+    (li) => li.querySelector("a[href^='/admin/restaurants/']")?.textContent?.trim(),
   );
 
 describe("RestaurantActivityList", () => {
