@@ -98,6 +98,7 @@ export interface Lead {
   online_orders: boolean | null;
   verified: boolean;
   source_url: string | null;
+  image_url: string | null;
   extra: Record<string, unknown>;
 }
 

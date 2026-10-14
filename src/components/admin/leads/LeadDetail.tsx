@@ -518,9 +518,10 @@ function FactsCard({ lead }: { lead: Lead }) {
     facts.push([k, typeof v === "object" ? JSON.stringify(v) : String(v)]);
   }
 
-  if (facts.length === 0) return null;
+  if (facts.length === 0 && !lead.image_url) return null;
   return (
     <section className={cn(cardClass, "space-y-2")}>
+      {lead.image_url ? <Photo url={lead.image_url} name={lead.name} /> : null}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">What we know</h2>
         <span className="text-xs text-neutral-500">
@@ -545,5 +546,26 @@ function FactsCard({ lead }: { lead: Lead }) {
         </p>
       ) : null}
     </section>
+  );
+}
+
+
+// A photo someone found on the web. Hot-linked, never copied, so it can
+// vanish; when it does, so does this.
+function Photo({ url, name }: { url: string; name: string }) {
+  const [dead, setDead] = useState(false);
+  if (dead) return null;
+  return (
+    <a href={url} target="_blank" rel="noreferrer noopener" className="block">
+      {/* eslint-disable-next-line @next/next/no-img-element -- a remote URL from a file; next/image needs the host configured */}
+      <img
+        src={url}
+        alt={name}
+        referrerPolicy="no-referrer"
+        loading="lazy"
+        onError={() => setDead(true)}
+        className="max-h-48 w-full rounded-lg object-cover"
+      />
+    </a>
   );
 }

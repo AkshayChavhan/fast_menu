@@ -71,6 +71,13 @@ const level = z.preprocess((v) => {
   return Number.isInteger(n) && n >= 1 && n <= 4 ? n : null;
 }, z.number().int().nullable());
 
+// A public http(s) link, or unknown. Not fetched or copied: shown as-is.
+const url = z.preprocess((v) => {
+  if (isUnknown(v)) return null;
+  const s = String(v).trim();
+  return /^https?:\/\/\S+$/i.test(s) ? s.slice(0, 1000) : null;
+}, z.string().nullable());
+
 const kind = z.preprocess((v) => {
   if (isUnknown(v)) return null;
   const s = String(v).trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -137,6 +144,10 @@ const restaurantSchema = z
     verified: flag.optional(),
     sourceUrl: text(500).optional(),
     source_url: text(500).optional(),
+    imageUrl: url.optional(),
+    image_url: url.optional(),
+    image: url.optional(),
+    photo: url.optional(),
     notes: text(2000).optional(),
   })
   .passthrough();
@@ -179,6 +190,7 @@ export interface ImportRow {
   opening_hours: string | null;
   seating: string | null;
   source_url: string | null;
+  image_url: string | null;
   notes: string | null;
   extra: Record<string, unknown>;
 }
@@ -266,6 +278,7 @@ export function parseLeadImport(jsonText: string): ParsedImport {
       opening_hours: pick(r.openingHours, r.opening_hours),
       seating: pick(r.seating),
       source_url: pick(r.sourceUrl, r.source_url),
+      image_url: pick(r.imageUrl, r.image_url, r.image, r.photo),
       notes: pick(r.notes),
       extra,
     });
@@ -313,6 +326,7 @@ export function importTemplate(city: string, state: string): string {
           seating: "NA",
           verified: false,
           sourceUrl: "https://www.google.com/maps/place/...",
+          imageUrl: "NA",
           notes: "NA",
         },
       ],
@@ -334,6 +348,7 @@ Rules — these matter more than completeness:
 3. A googleRating or googleReviewCount is allowed only if you also give the sourceUrl where you saw it. Otherwise write "NA" for both.
 4. Set verified to false for every row.
 5. Prefer places with no website of their own, or that are only on Zomato/Swiggy.
+6. imageUrl: a direct link to a photo of the place only if one is already public on the web (the restaurant's own site or social page). Otherwise "NA". Never a Google Maps photo link.
 
 Return a single JSON object, nothing else, in exactly this shape:
 

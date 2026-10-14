@@ -31,6 +31,7 @@ select public.import_leads_json('Q9', '[
    "notes": "should not duplicate"},
   {"name": "Cafe Imported", "phone": "+91 93322 22222", "kind": "cafe",
    "website": "cafeimported.in", "google_rating": "3.9", "on_swiggy": null,
+   "image_url": "https://img.example/cafe.jpg",
    "notes": "Imported with a note", "extra": {"color": "blue"}},
   {"name": "  ", "phone": "1"},
   {"name": "No Website Dhaba", "website_known": false, "digital_menu": null}
@@ -75,12 +76,16 @@ select public.assert(
   (select on_swiggy is null and digital_menu is null from public.leads where name = 'Cafe Imported'),
   'NA stays unknown');
 select public.assert(
+  (select image_url from public.leads where name = 'Cafe Imported') = 'https://img.example/cafe.jpg',
+  'a photo link from the file is kept');
+select public.assert(
   (select website_status from public.leads where name = 'No Website Dhaba') = 'none',
   'no website is recorded as none when the file says so');
 
 -- Re-import: nothing new, the newer rating wins, blanks fill.
 select public.import_leads_json('Q9', '[
-  {"name": "Cafe Imported", "google_rating": 4.1, "address": "Station Rd", "phone": "0000"}
+  {"name": "Cafe Imported", "google_rating": 4.1, "address": "Station Rd", "phone": "0000",
+   "image_url": "https://img.example/cafe-new.jpg"}
 ]'::jsonb) as r2 \gset
 select public.assert((:'r2'::jsonb ->> 'inserted') = '0' and (:'r2'::jsonb ->> 'updated') = '1',
   're-importing by name updates, never duplicates');
@@ -88,6 +93,9 @@ select public.assert(
   (select google_rating::text || '|' || address || '|' || phone from public.leads where name = 'Cafe Imported')
     = '4.1|Station Rd|+91 93322 22222',
   'the newer rating replaces, the address fills, the known phone stays');
+select public.assert(
+  (select image_url from public.leads where name = 'Cafe Imported') = 'https://img.example/cafe-new.jpg',
+  'a newer photo link replaces the old one');
 
 update public.test_auth set email = 'nobody@example.com';
 do $$

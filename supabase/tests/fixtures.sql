@@ -402,6 +402,7 @@ create table public.leads (
   online_orders         boolean,
   verified              boolean not null default false,
   source_url            text,
+  image_url             text,
   extra                 jsonb not null default '{}'::jsonb
 );
 create unique index leads_osm_ref_key on public.leads (osm_ref) where osm_ref is not null;

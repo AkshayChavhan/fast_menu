@@ -57,6 +57,17 @@ describe("parseLeadImport", () => {
     expect(r.extra).toEqual({ ownerAge: 52 });
   });
 
+  it("keeps a photo link only when it is a real http(s) URL", () => {
+    const { rows } = parseLeadImport(
+      JSON.stringify([
+        { name: "P", imageUrl: "https://x.in/a.jpg" },
+        { name: "Q", photo: "NA" },
+        { name: "R", image_url: "a.jpg" },
+      ]),
+    );
+    expect(rows.map((r) => r.image_url)).toEqual(["https://x.in/a.jpg", null, null]);
+  });
+
   it("treats a URL as a website whatever the flag says", () => {
     const { rows } = parseLeadImport(
       JSON.stringify([{ name: "X", website: "x.in", isWebsiteAvailable: false }]),

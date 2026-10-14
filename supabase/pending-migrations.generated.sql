@@ -3736,6 +3736,8 @@ alter table public.leads
   -- Flipped by the first logged call: a person has confirmed the details.
   add column if not exists verified              boolean not null default false,
   add column if not exists source_url            text,
+  -- A public photo of the place, if the file knew of one. Shown, not copied.
+  add column if not exists image_url             text,
   -- Whatever else the file carried, so nothing is lost.
   add column if not exists extra                 jsonb not null default '{}'::jsonb;
 
@@ -3756,7 +3758,7 @@ create index if not exists leads_city_rating_idx
 --           hard_menu, on_zomato, on_swiggy, online_orders,
 --           google_rating, google_review_count, google_maps_url,
 --           google_place_id, price_level, opening_hours, seating,
---           source_url, notes, extra}, ...]
+--           source_url, image_url, notes, extra}, ...]
 -- Nulls mean unknown; the TypeScript side has already turned NA into null.
 -- ---------------------------------------------------------------------------
 create or replace function public.import_leads_json(p_city_id text, p_rows jsonb)
@@ -3813,7 +3815,7 @@ begin
          address, locality, pincode, lat, lon, website, website_status,
          digital_menu, digital_menu_provider, hard_menu, on_zomato, on_swiggy,
          online_orders, google_rating, google_review_count, google_maps_url,
-         google_place_id, price_level, opening_hours, seating, source_url, extra,
+         google_place_id, price_level, opening_hours, seating, source_url, image_url, extra,
          restaurant_id, created_by)
       values
         (p_city_id, v_name, 'import',
@@ -3833,6 +3835,7 @@ begin
          nullif(r ->> 'google_maps_url', ''), nullif(r ->> 'google_place_id', ''),
          (r ->> 'price_level')::smallint, nullif(r ->> 'opening_hours', ''),
          nullif(r ->> 'seating', ''), nullif(r ->> 'source_url', ''),
+         nullif(r ->> 'image_url', ''),
          coalesce(r -> 'extra', '{}'::jsonb),
          public.match_lead_restaurant(v_name, v_phone, city_name),
          auth.uid())
@@ -3877,6 +3880,7 @@ begin
         opening_hours         = coalesce(nullif(r ->> 'opening_hours', ''), l.opening_hours),
         seating               = coalesce(l.seating, nullif(r ->> 'seating', '')),
         source_url            = coalesce(nullif(r ->> 'source_url', ''), l.source_url),
+        image_url             = coalesce(nullif(r ->> 'image_url', ''), l.image_url),
         extra                 = l.extra || coalesce(r -> 'extra', '{}'::jsonb),
         restaurant_id         = coalesce(l.restaurant_id,
                                   public.match_lead_restaurant(v_name, coalesce(l.phone, v_phone), city_name))
