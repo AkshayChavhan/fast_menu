@@ -81,7 +81,12 @@ test("the owner works a lead from a city to a logged call", async ({ page }) => 
   // Back on the city list, with everything the caller just recorded.
   await page.getByRole("link", { name: /Nashik, Maharashtra/ }).click();
   await page.waitForURL(/city=Q200235/);
-  const row = page.getByRole("row", { name: new RegExp(E2E.leadName) });
+  // The lead is due today, so it is in the revisit table too; look in the
+  // city's own. .first(): a retried run leaves an earlier copy behind.
+  const row = page
+    .getByRole("table", { name: "Leads in Nashik" })
+    .getByRole("row", { name: new RegExp(E2E.leadName) })
+    .first();
   await expect(row).toContainText("Reached");
   await expect(row).toContainText("Call back after 4pm");
   await expect(row).toContainText("No website");
@@ -89,12 +94,17 @@ test("the owner works a lead from a city to a logged call", async ({ page }) => 
     "href",
     "tel:9811122333",
   );
-  await expect(page.getByText("1 reached")).toBeVisible();
+  await expect(page.getByText(/\d+ reached/)).toBeVisible();
 
   // And it is due today, so it heads the page wherever the caller is.
   await page.goto("/admin/leads");
   await expect(page.getByRole("heading", { name: /Due for a revisit/ })).toBeVisible();
-  await expect(page.getByRole("row", { name: new RegExp(E2E.leadName) })).toContainText("Nashik");
+  await expect(
+    page
+      .getByRole("table", { name: "Due for a revisit" })
+      .getByRole("row", { name: new RegExp(E2E.leadName) })
+      .first(),
+  ).toContainText("Nashik");
 });
 
 test("the owner sees one restaurant read-only, with staff and menu", async ({ page }) => {

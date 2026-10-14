@@ -118,7 +118,7 @@ export default async function LeadsPage({
               Due for a revisit{" "}
               <span className="font-normal text-neutral-500">({due.length})</span>
             </h2>
-            <LeadList leads={due} showCity todayIso={todayIso} />
+            <LeadList leads={due} label="Due for a revisit" showCity todayIso={todayIso} />
           </section>
         ) : null}
 
@@ -142,7 +142,7 @@ export default async function LeadsPage({
               </div>
               <CityActions city={city} />
             </div>
-            <LeadList leads={leads} todayIso={todayIso} />
+            <LeadList leads={leads} label={`Leads in ${city.name}`} todayIso={todayIso} />
           </section>
         ) : picked.state || picked.bucket ? (
           <CityGrid cities={visibleCities} picked={picked} />

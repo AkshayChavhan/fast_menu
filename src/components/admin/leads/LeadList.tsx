@@ -19,10 +19,13 @@ const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
 
 export function LeadList({
   leads,
+  label,
   showCity = false,
   todayIso,
 }: {
   leads: LeadRow[];
+  // Accessible name for the table; the page shows two at once.
+  label: string;
   showCity?: boolean;
   // YYYY-MM-DD in the operator's timezone, for flagging an overdue revisit.
   todayIso: string;
@@ -37,7 +40,7 @@ export function LeadList({
 
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
-      <table className="w-full min-w-[720px] text-sm">
+      <table aria-label={label} className="w-full min-w-[720px] text-sm">
         <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
           <tr>
             <th className="px-3 py-2 font-medium">Restaurant</th>
