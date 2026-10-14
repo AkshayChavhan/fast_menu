@@ -151,7 +151,11 @@ export default async function LeadsPage({
                   ) : null}
                 </p>
               </div>
-              <CityActions city={city} />
+              <CityActions
+                city={city}
+                leadCount={leads.length}
+                canReplace={role === "project_owner"}
+              />
             </div>
             <LeadList leads={leads} label={`Leads in ${city.name}`} todayIso={todayIso} />
           </section>

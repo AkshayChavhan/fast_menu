@@ -120,5 +120,53 @@ select public.assert(
   (select digital_menu and not hard_menu from public.leads where id = '1ead1000-0000-0000-0000-000000000001'),
   'a later answer changes one fact and keeps the others');
 
+\echo ''
+\echo '=== replace mode ==='
+-- An admin may update; only the owner may wipe a city.
+insert into public.platform_admins (email, role) values ('import@example.com', 'admin')
+on conflict (email) do update set role = 'admin';
+update public.test_auth set email = 'import@example.com';
+do $$
+begin
+  perform public.import_leads_json('Q9', '[{"name": "X"}]'::jsonb, 'replace');
+  raise exception 'FAIL  an admin could replace a list';
+exception when insufficient_privilege then
+  raise notice '  PASS  an admin cannot replace a list';
+end $$;
+select public.assert(
+  (select count(*) from public.leads where city_id = 'Q9') = 3,
+  'and nothing was removed by the refused call');
+
+do $$
+begin
+  perform public.import_leads_json('Q9', '[]'::jsonb, 'sideways');
+  raise exception 'FAIL  an unknown mode was accepted';
+exception when invalid_parameter_value then
+  raise notice '  PASS  an unknown mode is refused';
+end $$;
+
+update public.platform_admins set role = 'project_owner' where email = 'import@example.com';
+select public.import_leads_json('Q9', '[
+  {"name": "Brand New Cafe", "phone": "+91 93322 99999"},
+  {"name": "Krishna Bhavan Restaurant", "phone": "09332211111"}
+]'::jsonb, 'replace') as r3 \gset
+select public.assert(
+  (:'r3'::jsonb ->> 'removed') = '3' and (:'r3'::jsonb ->> 'inserted') = '2' and (:'r3'::jsonb ->> 'updated') = '0',
+  'replace removes the three that were there and inserts the file as new');
+select public.assert(
+  (select count(*) from public.leads where city_id = 'Q9') = 2,
+  'only the file remains');
+select public.assert(
+  not exists (select 1 from public.leads where id = '1ead1000-0000-0000-0000-000000000001'),
+  'the lead the caller had worked is gone, as asked');
+select public.assert(
+  (select status || '|' || coalesce(pending, '-') from public.leads where name = 'Krishna Bhavan Restaurant') = 'new|-',
+  'and its namesake from the file starts fresh');
+select public.assert(
+  (select count(*) from public.platform_audit
+    where action = 'leads.replace' and target = 'Q9' and (details ->> 'removed') = '3'
+      and actor = 'import@example.com') = 1,
+  'the wipe is audited with the count');
+
 delete from public.platform_admins where email = 'import@example.com';
 update public.test_auth set email = null;
