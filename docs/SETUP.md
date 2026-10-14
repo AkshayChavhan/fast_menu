@@ -193,7 +193,12 @@ can also change things: set plans, see `/admin/payments` (what restaurants
 paid us), and add or remove admins at `/admin/admins`. Every such change is
 written to `platform_audit` and shown on that page. The last project owner
 cannot be removed or demoted. Everyone outside the list gets a 404 on all of
-it; an admin gets a 404 on the owner-only pages.
+it; an admin gets a 404 on the owner-only pages. Operators land on `/admin`
+after sign-in, not the dashboard. Add an operator's email to the list
+*before* they first sign in and they are not given the starter restaurant
+every signup otherwise gets; one created earlier shows under "Placeholder
+restaurants" on `/admin/admins`, where a project owner can remove it (only
+while it is unpublished and empty).
 
 **Leads.** `/admin/leads` drills down state → district → city (2,700 Indian
 cities and towns, seeded from Wikidata with Census populations) and keeps a

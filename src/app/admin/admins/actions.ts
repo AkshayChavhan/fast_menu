@@ -48,3 +48,18 @@ export async function removePlatformAdmin(input: { email: string }): Promise<Act
   refresh();
   return { ok: true };
 }
+
+// The empty "My Restaurant" an operator's login was given at signup. The
+// database only removes one that is unpublished with nothing in it.
+export async function removePlaceholderRestaurant(input: { id: string }): Promise<ActionResult> {
+  const parsed = z.object({ id: z.string().uuid() }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("remove_placeholder_restaurant", { rid: parsed.data.id });
+  if (error) return failed(error);
+  revalidatePath("/admin/admins");
+  revalidatePath("/admin");
+  revalidatePath("/admin/plans");
+  refresh();
+  return { ok: true };
+}

@@ -1,13 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resolveMembership } from "@/lib/membership";
+import { isAdminRole } from "@/lib/admin-role";
 import { homeFor } from "@/lib/permissions";
 
-// GET /auth/home — send the signed-in user to the app for their role: owners,
-// managers and cashiers to the dashboard, waiters to /waiter, kitchen staff
-// to /kitchen. A session with no active membership (a deactivated staff
-// account, or a broken provisioning trigger) is signed out and told why, so
-// nobody is stuck on a page that cannot load.
+// GET /auth/home — send the signed-in user to the app for their role:
+// operators (platform_admins) to /admin; owners, managers and cashiers to
+// the dashboard; waiters to /waiter; kitchen staff to /kitchen. A session
+// with no active membership (a deactivated staff account, or a broken
+// provisioning trigger) is signed out and told why, so nobody is stuck on a
+// page that cannot load.
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -16,6 +18,13 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // An operator runs the platform, whether or not they also own a
+  // restaurant; the dashboard is a link away from /admin if they do.
+  const { data: adminRole } = await supabase.rpc("platform_admin_role");
+  if (isAdminRole(adminRole)) {
+    return NextResponse.redirect(new URL("/admin", request.url));
   }
 
   const membership = await resolveMembership(supabase, user.id);
