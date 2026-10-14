@@ -1,8 +1,10 @@
 import "server-only";
 
+import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/membership";
 import { isAdminRole, type AdminRole } from "@/lib/admin-role";
 
 type Db = Awaited<ReturnType<typeof createClient>>;
@@ -13,19 +15,24 @@ export interface AdminContext {
   role: AdminRole;
 }
 
+/** The signed-in user's operator level, or null. Once per request. */
+export const getAdminRole = cache(async (): Promise<AdminRole | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("platform_admin_role");
+  return isAdminRole(data) ? data : null;
+});
+
 // The gate on every operator page. Not signed in: to the login and back.
 // Signed in but not in platform_admins: a 404, so the pages' existence is
 // not advertised.
 export async function requireAdmin(next: string): Promise<AdminContext> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(next)}`);
 
-  const { data: role } = await supabase.rpc("platform_admin_role");
-  if (!isAdminRole(role)) notFound();
+  const role = await getAdminRole();
+  if (!role) notFound();
 
+  const supabase = await createClient();
   return { supabase, user: { id: user.id, email: user.email ?? null }, role };
 }
 

@@ -8,7 +8,7 @@ import {
   type Plan,
   type PlanFeature,
 } from "@/lib/plans";
-import { requireContext, type ActiveContext } from "@/lib/membership";
+import { getCurrentUser, requireContext, type ActiveContext } from "@/lib/membership";
 import type { MemberRole } from "@/types/db";
 
 export type { ActiveContext } from "@/lib/membership";
@@ -59,9 +59,7 @@ export async function requireRestaurantAccess(
   capability: Capability,
 ): Promise<RestaurantAccess> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Not authenticated" };
 
   const role = await getMemberRole(supabase, restaurantId);
