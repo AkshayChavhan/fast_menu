@@ -114,21 +114,23 @@ test("the owner sees one restaurant read-only, with staff and menu", async ({ pa
 test("the owner adds an admin, sees it audited, and removes them", async ({ page }) => {
   await loginTo(page, "/admin/admins", E2E.admin.email, E2E.admin.password);
   await expect(page.getByRole("heading", { level: 1, name: "Admins" })).toBeVisible();
-  await expect(page.getByText(E2E.admin.email)).toBeVisible();
-  await expect(page.getByText("you", { exact: true })).toBeVisible();
+  const admins = page.getByRole("list", { name: "Platform admins" });
+  const changes = page.getByRole("list", { name: "What owners changed" });
+  await expect(admins.getByText(E2E.admin.email)).toBeVisible();
+  await expect(admins.getByText("you", { exact: true })).toBeVisible();
 
   await page.getByLabel("Email").fill(E2E.newAdminEmail);
   await page.getByLabel("Level").selectOption("admin");
   await page.getByRole("button", { name: "Add", exact: true }).click();
-  const row = page.locator("li", { hasText: E2E.newAdminEmail });
+  const row = admins.locator("li", { hasText: E2E.newAdminEmail });
   await expect(row).toBeVisible();
   await expect(row.getByRole("combobox")).toHaveValue("admin");
-  await expect(page.getByText(`${E2E.newAdminEmail} set to admin`)).toBeVisible();
+  await expect(changes.getByText(`${E2E.newAdminEmail} set to admin`)).toBeVisible();
 
   page.once("dialog", (d) => d.accept());
   await row.getByRole("button", { name: "Remove" }).click();
   await expect(row).toHaveCount(0);
-  await expect(page.getByText(`${E2E.newAdminEmail} removed`)).toBeVisible();
+  await expect(changes.getByText(`${E2E.newAdminEmail} removed`)).toBeVisible();
 
   // Money is one click away for the owner.
   await page.getByRole("link", { name: "Payments", exact: true }).click();

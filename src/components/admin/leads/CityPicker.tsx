@@ -2,32 +2,12 @@
 
 import { useRouter } from "next/navigation";
 
-import {
-  POPULATION_BUCKETS,
-  type LeadCity,
-  type PopulationBucket,
-} from "@/lib/leads/types";
+import { leadsHref, type PickerState } from "@/lib/leads/href";
+import { POPULATION_BUCKETS, type LeadCity } from "@/lib/leads/types";
 import { cn } from "@/lib/utils";
-
-export interface PickerState {
-  state?: string;
-  district?: string;
-  city?: string;
-  bucket?: PopulationBucket;
-}
 
 const selectClass =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800";
-
-export function leadsHref(next: PickerState): string {
-  const p = new URLSearchParams();
-  if (next.state) p.set("state", next.state);
-  if (next.district) p.set("district", next.district);
-  if (next.city) p.set("city", next.city);
-  if (next.bucket) p.set("bucket", next.bucket);
-  const q = p.toString();
-  return q ? `/admin/leads?${q}` : "/admin/leads";
-}
 
 // State → district → city, with the size buckets as chips. Every choice is a
 // URL change, so a caller can bookmark "Nashik district, under 1 lakh" and

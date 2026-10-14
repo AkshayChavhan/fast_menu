@@ -5,7 +5,8 @@ import { PhoneCall } from "lucide-react";
 import { requireAdmin, type AdminContext } from "@/app/admin/lib";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CityActions } from "@/components/admin/leads/CityActions";
-import { CityPicker, leadsHref, type PickerState } from "@/components/admin/leads/CityPicker";
+import { CityPicker } from "@/components/admin/leads/CityPicker";
+import { leadsHref, type PickerState } from "@/lib/leads/href";
 import { LeadList, type LeadRow } from "@/components/admin/leads/LeadList";
 import {
   bucketFor,

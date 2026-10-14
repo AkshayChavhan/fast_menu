@@ -78,7 +78,10 @@ export function AdminManager({ rows, selfEmail }: { rows: AdminRow[]; selfEmail:
         </p>
       ) : null}
 
-      <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+      <ul
+        aria-label="Platform admins"
+        className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900"
+      >
         {rows.map((row) => {
           const isSelf = row.email.toLowerCase() === selfEmail.toLowerCase();
           const rowBusy = busy === row.email;

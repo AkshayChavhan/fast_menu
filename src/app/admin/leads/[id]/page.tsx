@@ -6,7 +6,7 @@ import { ArrowLeft, PhoneCall } from "lucide-react";
 import { requireAdmin } from "@/app/admin/lib";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { LeadDetail } from "@/components/admin/leads/LeadDetail";
-import { leadsHref } from "@/components/admin/leads/CityPicker";
+import { leadsHref } from "@/lib/leads/href";
 import type { Lead, LeadCity, LeadNote } from "@/lib/leads/types";
 
 export const metadata: Metadata = {

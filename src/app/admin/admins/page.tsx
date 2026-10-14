@@ -90,7 +90,10 @@ export default async function AdminsPage() {
           {audit.length === 0 ? (
             <p className="text-sm text-neutral-500">Nothing yet.</p>
           ) : (
-            <ol className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white text-sm dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+            <ol
+              aria-label="What owners changed"
+              className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white text-sm dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900"
+            >
               {audit.map((a) => (
                 <li key={a.id} className="flex flex-wrap gap-x-3 gap-y-0.5 px-4 py-2">
                   <span className="w-28 shrink-0 text-xs text-neutral-500">{when(a.created_at)}</span>
