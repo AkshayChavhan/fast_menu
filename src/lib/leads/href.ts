@@ -8,6 +8,7 @@ export interface PickerState {
   district?: string;
   city?: string;
   bucket?: PopulationBucket;
+  sort?: "rating";
 }
 
 export function leadsHref(next: PickerState): string {
@@ -16,6 +17,7 @@ export function leadsHref(next: PickerState): string {
   if (next.district) p.set("district", next.district);
   if (next.city) p.set("city", next.city);
   if (next.bucket) p.set("bucket", next.bucket);
+  if (next.sort) p.set("sort", next.sort);
   const q = p.toString();
   return q ? `/admin/leads?${q}` : "/admin/leads";
 }

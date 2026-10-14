@@ -202,8 +202,14 @@ pending, and when to go back. "Fetch from OpenStreetMap" pulls the
 restaurants OSM has mapped around a city, free and without a key; it is
 thin outside the metros and rarely records a phone or website, so a row
 starting as "Not recorded" means nobody has checked, not that they have
-none. Add the rest by hand as callers find them. A lead whose phone or name
-matches a signed-up restaurant is flagged "Already a customer".
+none. Add the rest by hand as callers find them, or **Import JSON**: a file
+per city with names, phones, Google rating, Zomato/Swiggy presence and
+whether they already have a QR menu — the modal gives you a prompt to
+paste into Claude (web search on) that answers in the right shape, and a
+template. Anything unknown is written as "NA" and stays unknown; it is
+never read as "no". Re-importing updates and never duplicates, and never
+overwrites what a caller typed. A lead whose phone or name matches a
+signed-up restaurant is flagged "Already a customer".
 
 **Push notifications (optional).** Waiters can get a buzz when a guest orders
 or calls. Generate a key pair once and put it in the env:

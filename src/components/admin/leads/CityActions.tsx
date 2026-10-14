@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Loader2, Plus } from "lucide-react";
+import { Copy, Download, FileJson, FileUp, Loader2, Plus } from "lucide-react";
 
-import { createLead, fetchOsmLeads } from "@/app/admin/leads/actions";
+import { createLead, fetchOsmLeads, importLeadsJson, type ImportResult } from "@/app/admin/leads/actions";
+import { claudePromptFor, importTemplate } from "@/lib/leads/import";
 import { Modal } from "@/components/dashboard/Modal";
 import type { LeadCity } from "@/lib/leads/types";
 
@@ -19,6 +20,7 @@ export function CityActions({ city }: { city: LeadCity }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   function fetchFromOsm() {
     setFetching(true);
@@ -57,6 +59,14 @@ export function CityActions({ city }: { city: LeadCity }) {
         </button>
         <button
           type="button"
+          onClick={() => setImporting(true)}
+          className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+        >
+          <FileJson className="h-4 w-4" aria-hidden />
+          Import JSON
+        </button>
+        <button
+          type="button"
           onClick={() => setAdding(true)}
           className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
         >
@@ -72,6 +82,7 @@ export function CityActions({ city }: { city: LeadCity }) {
       ) : null}
 
       <AddLeadModal city={city} open={adding} onClose={() => setAdding(false)} />
+      <ImportModal city={city} open={importing} onClose={() => setImporting(false)} />
     </div>
   );
 }
@@ -183,6 +194,170 @@ function AddLeadModal({
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Add
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// A file for this city: pasted or chosen, then imported. The prompt and
+// template are here so the person who needs a file can make one without
+// reading docs — and the prompt's rules (real places, NA over a guess, a
+// link for every rating) are what keep the imported data honest.
+function ImportModal({
+  city,
+  open,
+  onClose,
+}: {
+  city: LeadCity;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [text, setText] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFileName(f.name);
+    setResult(null);
+    f.text().then(setText);
+  }
+
+  function copyPrompt() {
+    navigator.clipboard.writeText(claudePromptFor(city.name, city.state)).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function downloadTemplate() {
+    const blob = new Blob([importTemplate(city.name, city.state)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `leads-${city.name.toLowerCase().replace(/\s+/g, "-")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setResult(null);
+    startTransition(async () => {
+      const res = await importLeadsJson({ cityId: city.id, jsonText: text });
+      setResult(res);
+      if (res.ok) {
+        setText("");
+        setFileName(null);
+      }
+    });
+  }
+
+  function close() {
+    setResult(null);
+    onClose();
+  }
+
+  return (
+    <Modal open={open} onClose={close} title={`Import restaurants into ${city.name}`}>
+      <form onSubmit={submit} className="space-y-3">
+        <div className="flex flex-wrap gap-2 text-xs">
+          <button
+            type="button"
+            onClick={copyPrompt}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 px-2.5 py-1.5 font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+          >
+            <Copy className="h-3.5 w-3.5" aria-hidden />
+            {copied ? "Copied" : "Copy prompt for Claude"}
+          </button>
+          <button
+            type="button"
+            onClick={downloadTemplate}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 px-2.5 py-1.5 font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden />
+            Download template
+          </button>
+        </div>
+        <p className="text-xs text-neutral-500">
+          Paste the prompt into Claude with web search on; it answers with a
+          JSON file in the template&apos;s shape. &ldquo;NA&rdquo; means not known
+          and stays that way: it is never read as &ldquo;no&rdquo;. A restaurant
+          already on the list is updated, not duplicated, and nothing a caller
+          typed is overwritten.
+        </p>
+
+        <label className="block text-xs font-medium text-neutral-500">
+          <span className="inline-flex items-center gap-1.5">
+            <FileUp className="h-3.5 w-3.5" aria-hidden />
+            Choose a .json file
+          </span>
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={onFile}
+            className="mt-1 block w-full text-sm file:mr-3 file:rounded-lg file:border file:border-neutral-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium dark:file:border-neutral-700 dark:file:bg-neutral-800"
+          />
+        </label>
+        <label className="block text-xs font-medium text-neutral-500">
+          {fileName ? `${fileName} — or paste instead` : "Or paste the JSON here"}
+          <textarea
+            className={`${inputClass} mt-1 min-h-[8rem] font-mono text-xs`}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              setResult(null);
+            }}
+            spellCheck={false}
+            placeholder={'{ "city": "' + city.name + '", "restaurants": [ ... ] }'}
+          />
+        </label>
+
+        {result && !result.ok ? (
+          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {result.error}
+          </p>
+        ) : null}
+        {result && result.ok ? (
+          <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">
+            <p>
+              {result.inserted} added, {result.updated} updated
+              {result.skipped.length ? `, ${result.skipped.length} skipped` : ""}.
+            </p>
+            {result.warning ? <p className="mt-1 text-amber-800 dark:text-amber-200">{result.warning}</p> : null}
+            {result.skipped.length ? (
+              <ul className="mt-1 text-xs">
+                {result.skipped.slice(0, 5).map((s) => (
+                  <li key={s.index}>
+                    Row {s.index + 1}: {s.reason}
+                  </li>
+                ))}
+                {result.skipped.length > 5 ? <li>…and {result.skipped.length - 5} more</li> : null}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={close}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            {result?.ok ? "Done" : "Cancel"}
+          </button>
+          <button
+            type="submit"
+            disabled={pending || text.trim().length < 2}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+            Import
           </button>
         </div>
       </form>

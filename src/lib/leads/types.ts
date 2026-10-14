@@ -46,7 +46,13 @@ export const REVISIT_TYPE_LABELS: Record<RevisitType, string> = {
   demo: "Demo",
 };
 
-export type LeadSource = "osm" | "manual";
+export type LeadSource = "osm" | "manual" | "import";
+
+export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
+  osm: "From OpenStreetMap",
+  manual: "Added by hand",
+  import: "Imported from a file",
+};
 
 export interface Lead {
   id: string;
@@ -70,6 +76,36 @@ export interface Lead {
   last_seen_at: string | null;
   created_at: string;
   updated_at: string;
+  // From an imported file or a call. Null is "not known", never "no".
+  kind: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  contact_person: string | null;
+  locality: string | null;
+  pincode: string | null;
+  google_rating: number | null;
+  google_review_count: number | null;
+  google_maps_url: string | null;
+  google_place_id: string | null;
+  price_level: number | null;
+  opening_hours: string | null;
+  seating: string | null;
+  digital_menu: boolean | null;
+  digital_menu_provider: string | null;
+  hard_menu: boolean | null;
+  on_zomato: boolean | null;
+  on_swiggy: boolean | null;
+  online_orders: boolean | null;
+  verified: boolean;
+  source_url: string | null;
+  extra: Record<string, unknown>;
+}
+
+// "4.3 ★ (1,240)" or null when nothing is known.
+export function formatRating(rating: number | null, count: number | null): string | null {
+  if (rating == null) return null;
+  const stars = `${rating.toFixed(1)} ★`;
+  return count != null ? `${stars} (${count.toLocaleString("en-IN")})` : stars;
 }
 
 export interface LeadNote {
