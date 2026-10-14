@@ -257,3 +257,25 @@ describe("plan gating", () => {
   });
 });
 
+describe("SidebarNav — the way into /admin", () => {
+  it("is absent for everyone who is not a platform admin", () => {
+    renderAt("/dashboard");
+    expect(screen.queryByRole("link", { name: /Platform admin|Project owner/ })).toBeNull();
+    expect(screen.queryByText("Platform")).toBeNull();
+  });
+
+  it("appears, named by level, for the few who are", () => {
+    usePathname.mockReturnValue("/dashboard");
+    render(<SidebarNav role="owner" plan="pro" adminRole="admin" />);
+    expect(screen.getByRole("link", { name: "Platform admin" })).toHaveProperty(
+      "pathname",
+      "/admin",
+    );
+  });
+
+  it("calls a project owner what they are", () => {
+    usePathname.mockReturnValue("/dashboard");
+    render(<SidebarNav role="owner" plan="pro" adminRole="project_owner" />);
+    expect(screen.getByRole("link", { name: "Project owner" })).toBeTruthy();
+  });
+});

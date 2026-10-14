@@ -16,12 +16,14 @@ import {
   Receipt,
   BarChart3,
   ChevronDown,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { can, type Capability } from "@/lib/permissions";
 import { planAllows, type Plan, type PlanFeature } from "@/lib/plans";
 import type { MemberRole } from "@/types/db";
+import type { AdminRole } from "@/lib/admin-role";
 
 type NavLeaf = {
   href: string;
@@ -131,10 +133,13 @@ const idleCls =
 export function SidebarNav({
   role,
   plan,
+  adminRole = null,
   onNavigate,
 }: {
   role: MemberRole;
   plan: Plan;
+  /** Set for the few people in platform_admins; adds the way into /admin. */
+  adminRole?: AdminRole | null;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -187,6 +192,22 @@ export function SidebarNav({
           />
         );
       })}
+
+      {adminRole ? (
+        <>
+          <p className="mt-4 mb-1 px-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            Platform
+          </p>
+          <Link
+            href="/admin"
+            onClick={onNavigate}
+            className={cn(linkBase, pathname.startsWith("/admin") ? activeCls : idleCls)}
+          >
+            <ShieldCheck className="h-4 w-4 shrink-0" />
+            {adminRole === "project_owner" ? "Project owner" : "Platform admin"}
+          </Link>
+        </>
+      ) : null}
     </nav>
   );
 }

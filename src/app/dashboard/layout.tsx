@@ -7,6 +7,8 @@ import { homeFor, ROLE_LABELS } from "@/lib/permissions";
 import { effectivePlan, graceEndsAt, PLAN_LABELS } from "@/lib/plans";
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
 import { MobileNav } from "@/components/dashboard/MobileNav";
+import { createClient } from "@/lib/supabase/server";
+import { isAdminRole } from "@/lib/admin-role";
 
 export default async function DashboardLayout({
   children,
@@ -14,6 +16,12 @@ export default async function DashboardLayout({
   children: ReactNode;
 }) {
   const { restaurant, email, role } = await getActiveContext();
+
+  // The few operators also get a link into /admin. Everyone else never
+  // learns the pages exist.
+  const supabase = await createClient();
+  const { data: adminRoleRaw } = await supabase.rpc("platform_admin_role");
+  const adminRole = isAdminRole(adminRoleRaw) ? adminRoleRaw : null;
 
   // Waiters and kitchen staff have their own apps; the dashboard is the back
   // office. Navigation never links here for them, so this only catches a
@@ -29,7 +37,7 @@ export default async function DashboardLayout({
     <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       {/* Topbar */}
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-neutral-200 bg-white/90 px-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/90">
-        <MobileNav restaurantName={restaurant.name} role={role} plan={plan} />
+        <MobileNav restaurantName={restaurant.name} role={role} plan={plan} adminRole={adminRole} />
         <div className="flex min-w-0 items-center gap-2">
           <span className="hidden text-lg font-bold text-brand-600 lg:inline">
             fast_menu
@@ -100,7 +108,7 @@ export default async function DashboardLayout({
           <p className="mb-3 px-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
             Manage
           </p>
-          <SidebarNav role={role} plan={plan} />
+          <SidebarNav role={role} plan={plan} adminRole={adminRole} />
         </aside>
 
         <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
