@@ -200,6 +200,15 @@ every signup otherwise gets; one created earlier shows under "Placeholder
 restaurants" on `/admin/admins`, where a project owner can remove it (only
 while it is unpublished and empty).
 
+**Usage.** `/admin/usage` (project owner) shows each plan's limits, what is
+used and what is left: the database and image storage are measured from
+inside, with a "full in about N months" projection from the order rate;
+meters the vendors keep to themselves (bandwidth, Realtime, credits) link to
+their dashboards. Set `HOSTING_PROVIDER`, `HOSTING_PLAN` and `SUPABASE_PLAN`
+in the environment so the right limits show; without them the page assumes
+the cheapest plan and says so. `GITHUB_USAGE_TOKEN` + `GITHUB_BILLING_OWNER`
+(optional) read the Actions minutes live.
+
 **Leads.** `/admin/leads` drills down state → district → city (2,700 Indian
 cities and towns, seeded from Wikidata with Census populations) and keeps a
 per-restaurant log of every call: status, what was discussed, what is
