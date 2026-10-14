@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/app/admin/lib";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { TrialReviewList, type TrialReviewRow } from "@/components/admin/TrialReviewList";
 
@@ -17,14 +16,7 @@ export const metadata: Metadata = {
 // It deliberately does not go through requireContext(): an operator account
 // need not own or work at any restaurant.
 export default async function TrialReviewsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/admin/trials");
-
-  const { data: isAdmin } = await supabase.rpc("is_platform_admin");
-  if (isAdmin !== true) notFound();
+  const { supabase, role } = await requireAdmin("/admin/trials");
 
   const { data, error } = await supabase.rpc("list_trial_reviews");
   if (error) throw new Error(`Failed to load trial reviews: ${error.message}`);
@@ -40,7 +32,7 @@ export default async function TrialReviewsPage() {
             <span className="text-xs font-semibold uppercase tracking-wide">
               Platform admin
             </span>
-            <AdminNav current="trials" />
+            <AdminNav current="trials" role={role} />
           </div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Trial reviews</h1>
           <p className="text-sm text-neutral-500">

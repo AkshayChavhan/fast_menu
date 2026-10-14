@@ -155,6 +155,15 @@ create table public.payments (
 
 create table public.platform_admins (
   email      text primary key,
+  role       text not null default 'admin' check (role in ('admin', 'project_owner')),
+  created_at timestamptz not null default now()
+);
+create table public.platform_audit (
+  id         uuid primary key default gen_random_uuid(),
+  actor      text,
+  action     text not null,
+  target     text,
+  details    jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -176,6 +185,7 @@ create table public.restaurant_staff (
   id            uuid primary key default gen_random_uuid(),
   restaurant_id uuid not null references public.restaurants (id) on delete cascade,
   user_id       uuid not null,
+  email         text,
   role          text not null check (role in ('manager', 'cashier', 'waiter', 'kitchen')),
   display_name  text,
   is_active     boolean not null default true,

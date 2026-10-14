@@ -34,7 +34,7 @@ export async function setRestaurantPlan(input: {
 
   if (error) {
     if (error.code === "42501") {
-      return { ok: false, error: "You are not a platform admin." };
+      return { ok: false, error: "Only the project owner can change plans." };
     }
     return { ok: false, error: error.message };
   }

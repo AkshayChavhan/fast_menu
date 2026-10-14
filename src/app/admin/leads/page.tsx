@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
 import { PhoneCall } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin, type AdminContext } from "@/app/admin/lib";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CityActions } from "@/components/admin/leads/CityActions";
 import { CityPicker, leadsHref, type PickerState } from "@/components/admin/leads/CityPicker";
@@ -32,14 +31,7 @@ export default async function LeadsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/admin/leads");
-
-  const { data: isAdmin } = await supabase.rpc("is_platform_admin");
-  if (isAdmin !== true) notFound();
+  const { supabase, role } = await requireAdmin("/admin/leads");
 
   const sp = await searchParams;
   const one = (k: string) => {
@@ -108,7 +100,7 @@ export default async function LeadsPage({
           <div className="flex items-center gap-2 text-brand-600">
             <PhoneCall className="h-5 w-5" aria-hidden />
             <span className="text-xs font-semibold uppercase tracking-wide">Platform admin</span>
-            <AdminNav current="leads" />
+            <AdminNav current="leads" role={role} />
           </div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Leads</h1>
           <p className="text-sm text-neutral-500">
@@ -161,7 +153,7 @@ export default async function LeadsPage({
   );
 }
 
-type Db = Awaited<ReturnType<typeof createClient>>;
+type Db = AdminContext["supabase"];
 
 // One state's cities, or the eight metros when that chip is on with no
 // state. Either way well under the API's thousand-row cap. Each row carries

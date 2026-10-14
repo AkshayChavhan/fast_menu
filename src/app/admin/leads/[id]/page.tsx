@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ArrowLeft, PhoneCall } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/app/admin/lib";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { LeadDetail } from "@/components/admin/leads/LeadDetail";
 import { leadsHref } from "@/components/admin/leads/CityPicker";
@@ -20,14 +20,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect(`/login?next=/admin/leads/${id}`);
-
-  const { data: isAdmin } = await supabase.rpc("is_platform_admin");
-  if (isAdmin !== true) notFound();
+  const { supabase, user, role } = await requireAdmin(`/admin/leads/${id}`);
 
   const [leadRes, notesRes] = await Promise.all([
     supabase.from("leads").select("*, lead_cities(*)").eq("id", id).maybeSingle(),
@@ -62,7 +55,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           <div className="flex items-center gap-2 text-brand-600">
             <PhoneCall className="h-5 w-5" aria-hidden />
             <span className="text-xs font-semibold uppercase tracking-wide">Platform admin</span>
-            <AdminNav current="leads" />
+            <AdminNav current="leads" role={role} />
           </div>
           <Link
             href={leadsHref({ state: city.state, district: city.district ?? undefined, city: city.id })}

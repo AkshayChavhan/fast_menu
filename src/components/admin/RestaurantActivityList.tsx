@@ -163,7 +163,9 @@ function RestaurantCard({ r, now }: { r: RestaurantView; now: Date }) {
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-semibold">{r.name}</p>
+          <Link href={`/admin/restaurants/${r.id}`} className="block truncate font-semibold hover:underline">
+            {r.name}
+          </Link>
           <p className="truncate text-xs text-neutral-500">
             {[r.city, `signed up ${istDate(r.createdAt)}`].filter(Boolean).join(" · ")}
           </p>

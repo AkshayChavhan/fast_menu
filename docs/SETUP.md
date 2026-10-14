@@ -178,16 +178,22 @@ update public.platform_settings set value = 'none' where key = 'trial_verificati
 Set it back to `'phone'` once SMS works.
 
 **Platform admins.** Flagged claims are reviewed at `/admin/trials`. Allow
-yourself in with:
+yourself in as the project owner with:
 
 ```sql
-insert into public.platform_admins (email) values ('you.com');
+insert into public.platform_admins (email, role) values ('you.com', 'project_owner');
 ```
 
-The same login opens `/admin`, which shows every restaurant's plan, setup and
-order activity and lists who needs a follow-up, `/admin/plans`, where a plan
-is set by hand, and `/admin/leads`, the call sheet for restaurants we have
-not signed yet. Everyone else gets a 404 on all four.
+There are two levels. An **admin** can look: `/admin` (every restaurant's
+plan, setup and order activity, and who needs a follow-up), `/admin/plans`
+(read only), `/admin/trials`, `/admin/leads`, and `/admin/restaurants/<id>`,
+a read-only page with one restaurant's profile, plan, switches, staff and
+menu — never its orders, takings, guests or review text. A **project owner**
+can also change things: set plans, see `/admin/payments` (what restaurants
+paid us), and add or remove admins at `/admin/admins`. Every such change is
+written to `platform_audit` and shown on that page. The last project owner
+cannot be removed or demoted. Everyone outside the list gets a 404 on all of
+it; an admin gets a 404 on the owner-only pages.
 
 **Leads.** `/admin/leads` drills down state → district → city (2,700 Indian
 cities and towns, seeded from Wikidata with Census populations) and keeps a

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
@@ -24,9 +25,23 @@ export interface PlanRow {
 }
 
 const day = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  iso
+    ? new Date(iso).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
 
-export function PlanAdminList({ rows }: { rows: PlanRow[] }) {
+// canEdit: only a project owner may change a plan; an admin sees the same
+// list without the buttons (and the database would refuse them anyway).
+export function PlanAdminList({
+  rows,
+  canEdit,
+}: {
+  rows: PlanRow[];
+  canEdit: boolean;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -66,7 +81,10 @@ export function PlanAdminList({ rows }: { rows: PlanRow[] }) {
   return (
     <div className="space-y-3">
       {error ? (
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p
+          role="alert"
+          className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
+        >
           {error}
         </p>
       ) : null}
@@ -74,7 +92,8 @@ export function PlanAdminList({ rows }: { rows: PlanRow[] }) {
       {rows.map((row) => {
         const busy = busyId === row.restaurant_id;
         // Paid but lapsed: the menu is still up, the features are not.
-        const inGrace = row.is_live && row.effective_plan === "starter" && row.is_published;
+        const inGrace =
+          row.is_live && row.effective_plan === "starter" && row.is_published;
 
         return (
           <div
@@ -83,8 +102,15 @@ export function PlanAdminList({ rows }: { rows: PlanRow[] }) {
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate font-semibold">{row.name}</p>
-                <p className="truncate text-xs text-neutral-500">/m/{row.slug}</p>
+                <Link
+                  href={`/admin/restaurants/${row.restaurant_id}`}
+                  className="block truncate font-semibold hover:underline"
+                >
+                  {row.name}
+                </Link>
+                <p className="truncate text-xs text-neutral-500">
+                  /m/{row.slug}
+                </p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <span
@@ -133,47 +159,53 @@ export function PlanAdminList({ rows }: { rows: PlanRow[] }) {
 
             {inGrace ? (
               <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                In the grace period — the menu is still up, but Pro features are off.
+                In the grace period — the menu is still up, but Pro features are
+                off.
               </p>
             ) : null}
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin text-neutral-400" aria-label="Saving" />
-              ) : null}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => apply(row, "pro", 12)}
-                className="rounded-lg bg-brand-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
-              >
-                Pro · 12 months
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => apply(row, "starter", 12)}
-                className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
-              >
-                Starter · 12 months
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => apply(row, row.plan, 1)}
-                className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              >
-                +1 month
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => apply(row, "starter", 0)}
-                className="ml-auto rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950/40"
-              >
-                End subscription
-              </button>
-            </div>
+            {canEdit ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {busy ? (
+                  <Loader2
+                    className="h-4 w-4 animate-spin text-neutral-400"
+                    aria-label="Saving"
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => apply(row, "pro", 12)}
+                  className="rounded-lg bg-brand-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
+                >
+                  Pro · 12 months
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => apply(row, "starter", 12)}
+                  className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                >
+                  Starter · 12 months
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => apply(row, row.plan, 1)}
+                  className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                >
+                  +1 month
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => apply(row, "starter", 0)}
+                  className="ml-auto rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950/40"
+                >
+                  End subscription
+                </button>
+              </div>
+            ) : null}
           </div>
         );
       })}
