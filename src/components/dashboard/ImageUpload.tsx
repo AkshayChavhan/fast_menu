@@ -12,6 +12,9 @@ import {
   imagePathFromUrl,
 } from "@/lib/storage-url";
 
+// One year, in seconds. See the upload call for why that is safe.
+const IMAGE_CACHE_SECONDS = String(60 * 60 * 24 * 365);
+
 const ACCEPT = IMAGE_MIME_TYPES.join(",");
 const EXTENSIONS: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -117,7 +120,10 @@ export function ImageUpload({
       const { error: upErr } = await supabase.storage
         .from(IMAGE_BUCKET)
         .upload(path, blob, {
-          cacheControl: "3600",
+          // The name is a fresh id and upsert is off, so what sits at this
+          // URL never changes: browsers and the CDN may keep it for a year.
+          // A replaced photo gets a new name; the old one is deleted.
+          cacheControl: IMAGE_CACHE_SECONDS,
           upsert: false,
           contentType: blob.type,
         });
