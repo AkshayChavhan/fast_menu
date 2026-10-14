@@ -263,17 +263,28 @@ export type ImportResult =
       ok: true;
       inserted: number;
       updated: number;
+      removed: number;
       skipped: { index: number; reason: string }[];
       warning: string | null;
     }
   | { ok: false; error: string };
 
+// "update" matches and fills; "replace" first removes every lead in the
+// city, call logs included. The database lets only a project owner replace,
+// and audits it.
+export type ImportMode = "update" | "replace";
+
 export async function importLeadsJson(input: {
   cityId: string;
   jsonText: string;
+  mode?: ImportMode;
 }): Promise<ImportResult> {
   const parsed = z
-    .object({ cityId: z.string().min(1).max(32), jsonText: z.string().min(2).max(5_000_000) })
+    .object({
+      cityId: z.string().min(1).max(32),
+      jsonText: z.string().min(2).max(5_000_000),
+      mode: z.enum(["update", "replace"]).default("update"),
+    })
     .safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input" };
 
@@ -305,15 +316,22 @@ export async function importLeadsJson(input: {
   const { data, error } = await supabase.rpc("import_leads_json", {
     p_city_id: city.id,
     p_rows: file.rows,
+    p_mode: parsed.data.mode,
   });
-  if (error) return refused(error);
+  if (error) {
+    if (error.code === "42501" && parsed.data.mode === "replace") {
+      return { ok: false, error: "Only the project owner can remove a city's list." };
+    }
+    return refused(error);
+  }
 
-  const summary = (data ?? {}) as { inserted?: number; updated?: number };
+  const summary = (data ?? {}) as { inserted?: number; updated?: number; removed?: number };
   revalidate();
   return {
     ok: true,
     inserted: summary.inserted ?? 0,
     updated: summary.updated ?? 0,
+    removed: summary.removed ?? 0,
     skipped: file.skipped,
     warning,
   };

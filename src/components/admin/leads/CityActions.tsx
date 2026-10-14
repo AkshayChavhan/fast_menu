@@ -4,17 +4,34 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Copy, Download, FileJson, FileUp, Loader2, Plus } from "lucide-react";
 
-import { createLead, fetchOsmLeads, importLeadsJson, type ImportResult } from "@/app/admin/leads/actions";
+import {
+  createLead,
+  fetchOsmLeads,
+  importLeadsJson,
+  type ImportMode,
+  type ImportResult,
+} from "@/app/admin/leads/actions";
 import { claudePromptFor, importTemplate } from "@/lib/leads/import";
 import { Modal } from "@/components/dashboard/Modal";
 import type { LeadCity } from "@/lib/leads/types";
+import { cn } from "@/lib/utils";
 
 const inputClass =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-neutral-700 dark:bg-neutral-800";
 
 // The two ways a restaurant gets onto the list for a city: pulled from
 // OpenStreetMap, or typed in by whoever found it.
-export function CityActions({ city }: { city: LeadCity }) {
+export function CityActions({
+  city,
+  leadCount,
+  canReplace,
+}: {
+  city: LeadCity;
+  // How many are on the list now: what "remove and replace" would delete.
+  leadCount: number;
+  // Only a project owner may wipe a city; the database enforces it too.
+  canReplace: boolean;
+}) {
   const [pending, startTransition] = useTransition();
   const [fetching, setFetching] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -82,7 +99,13 @@ export function CityActions({ city }: { city: LeadCity }) {
       ) : null}
 
       <AddLeadModal city={city} open={adding} onClose={() => setAdding(false)} />
-      <ImportModal city={city} open={importing} onClose={() => setImporting(false)} />
+      <ImportModal
+        city={city}
+        leadCount={leadCount}
+        canReplace={canReplace}
+        open={importing}
+        onClose={() => setImporting(false)}
+      />
     </div>
   );
 }
@@ -207,14 +230,20 @@ function AddLeadModal({
 // link for every rating) are what keep the imported data honest.
 function ImportModal({
   city,
+  leadCount,
+  canReplace,
   open,
   onClose,
 }: {
   city: LeadCity;
+  leadCount: number;
+  canReplace: boolean;
   open: boolean;
   onClose: () => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const [mode, setMode] = useState<ImportMode>("update");
+  const [confirmed, setConfirmed] = useState(false);
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -249,19 +278,27 @@ function ImportModal({
     e.preventDefault();
     setResult(null);
     startTransition(async () => {
-      const res = await importLeadsJson({ cityId: city.id, jsonText: text });
+      const res = await importLeadsJson({ cityId: city.id, jsonText: text, mode });
       setResult(res);
       if (res.ok) {
         setText("");
         setFileName(null);
+        setMode("update");
+        setConfirmed(false);
       }
     });
   }
 
   function close() {
     setResult(null);
+    setMode("update");
+    setConfirmed(false);
     onClose();
   }
+
+  // Replacing needs something to replace, the right to do it, and a tick.
+  const replacing = mode === "replace";
+  const canSubmit = text.trim().length >= 2 && (!replacing || confirmed);
 
   return (
     <Modal open={open} onClose={close} title={`Import restaurants into ${city.name}`}>
@@ -318,6 +355,64 @@ function ImportModal({
           />
         </label>
 
+        {leadCount > 0 ? (
+          <fieldset className="space-y-2 rounded-lg border border-neutral-200 p-3 text-sm dark:border-neutral-700">
+            <legend className="px-1 text-xs font-medium text-neutral-500">
+              {leadCount} {leadCount === 1 ? "restaurant is" : "restaurants are"} already on this list
+            </legend>
+            <label className="flex items-start gap-2">
+              <input
+                type="radio"
+                name="import-mode"
+                checked={!replacing}
+                onChange={() => {
+                  setMode("update");
+                  setConfirmed(false);
+                }}
+                className="mt-1"
+              />
+              <span>
+                <span className="font-medium">Update the list</span>
+                <span className="block text-xs text-neutral-500">
+                  Matches by phone or name, fills in blanks, keeps every call log.
+                </span>
+              </span>
+            </label>
+            <label className={cn("flex items-start gap-2", !canReplace && "opacity-50")}>
+              <input
+                type="radio"
+                name="import-mode"
+                checked={replacing}
+                disabled={!canReplace}
+                onChange={() => setMode("replace")}
+                className="mt-1"
+              />
+              <span>
+                <span className="font-medium">Remove the existing {leadCount} and replace</span>
+                <span className="block text-xs text-neutral-500">
+                  {canReplace
+                    ? "Deletes them and their call logs, then imports the file as new. Cannot be undone."
+                    : "Only a project owner can do this."}
+                </span>
+              </span>
+            </label>
+            {replacing ? (
+              <label className="flex items-start gap-2 rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-800 dark:bg-red-900/30 dark:text-red-200">
+                <input
+                  type="checkbox"
+                  checked={confirmed}
+                  onChange={(e) => setConfirmed(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  I understand {leadCount} {leadCount === 1 ? "restaurant" : "restaurants"} in{" "}
+                  {city.name}, with every note logged against them, will be deleted.
+                </span>
+              </label>
+            ) : null}
+          </fieldset>
+        ) : null}
+
         {result && !result.ok ? (
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
             {result.error}
@@ -326,6 +421,7 @@ function ImportModal({
         {result && result.ok ? (
           <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">
             <p>
+              {result.removed ? `${result.removed} removed, ` : ""}
               {result.inserted} added, {result.updated} updated
               {result.skipped.length ? `, ${result.skipped.length} skipped` : ""}.
             </p>
@@ -353,11 +449,14 @@ function ImportModal({
           </button>
           <button
             type="submit"
-            disabled={pending || text.trim().length < 2}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+            disabled={pending || !canSubmit}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-white disabled:opacity-60",
+              replacing ? "bg-red-600 hover:bg-red-700" : "bg-brand-600 hover:bg-brand-700",
+            )}
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-            Import
+            {replacing ? "Remove and replace" : "Import"}
           </button>
         </div>
       </form>

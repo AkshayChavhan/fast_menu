@@ -213,7 +213,9 @@ whether they already have a QR menu — the modal gives you a prompt to
 paste into Claude (web search on) that answers in the right shape, and a
 template. Anything unknown is written as "NA" and stays unknown; it is
 never read as "no". Re-importing updates and never duplicates, and never
-overwrites what a caller typed. A lead whose phone or name matches a
+overwrites what a caller typed — unless a project owner chooses **remove
+and replace**, which deletes the city's list and its call logs first; that
+asks for a tick and is written to the audit log. A lead whose phone or name matches a
 signed-up restaurant is flagged "Already a customer".
 
 **Push notifications (optional).** Waiters can get a buzz when a guest orders
