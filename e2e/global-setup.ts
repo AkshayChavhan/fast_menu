@@ -12,6 +12,11 @@ export const E2E = {
   owner: { email: "e2e-owner@example.com", password: "e2e-owner-pass-123" },
   waiter: { email: "e2e-waiter@example.com", password: "e2e-waiter-pass-123" },
   admin: { email: "e2e-admin@example.com", password: "e2e-admin-pass-123" },
+  // The lower operator level: may look, may not change money or admins.
+  support: { email: "e2e-support@example.com", password: "e2e-support-pass-123" },
+  // Written and removed by operator.spec.ts; cleared here in case a run died.
+  newAdminEmail: "e2e-new-admin@example.com",
+  leadName: "E2E Dhaba",
   stateFile: "e2e/.state.json",
 };
 
@@ -53,6 +58,13 @@ export default async function globalSetup() {
     .from("platform_admins")
     .upsert({ email: E2E.admin.email, role: "project_owner" }, { onConflict: "email" });
   if (aErr) throw aErr;
+  await ensureUser(E2E.support.email, E2E.support.password);
+  const { error: spErr } = await admin
+    .from("platform_admins")
+    .upsert({ email: E2E.support.email, role: "admin" }, { onConflict: "email" });
+  if (spErr) throw spErr;
+  await admin.from("platform_admins").delete().eq("email", E2E.newAdminEmail);
+  await admin.from("leads").delete().eq("name", E2E.leadName);
 
   // The signup trigger gave the owner a starter restaurant; take it over as
   // the e2e restaurant and reset it.
