@@ -7,6 +7,7 @@ import { SidebarNav } from "./SidebarNav";
 import { cn } from "@/lib/utils";
 import type { Plan } from "@/lib/plans";
 import type { MemberRole } from "@/types/db";
+import type { AdminRole } from "@/lib/admin-role";
 
 // false while server-rendering and during hydration, true afterwards. Written
 // with useSyncExternalStore rather than a setState in an effect, which the
@@ -33,10 +34,12 @@ export function MobileNav({
   restaurantName,
   role,
   plan,
+  adminRole = null,
 }: {
   restaurantName: string;
   role: MemberRole;
   plan: Plan;
+  adminRole?: AdminRole | null;
 }) {
   const [open, setOpen] = useState(false);
   // document.body only exists in the browser, so the portal is skipped on the
@@ -83,7 +86,7 @@ export function MobileNav({
               child shrink below its content height. Without it the items
               overflow `h-full` and paint over the page behind the drawer. */}
           <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-2">
-            <SidebarNav role={role} plan={plan} onNavigate={() => setOpen(false)} />
+            <SidebarNav role={role} plan={plan} adminRole={adminRole} onNavigate={() => setOpen(false)} />
           </div>
         </div>
       </div>
