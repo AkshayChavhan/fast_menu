@@ -9,6 +9,7 @@ const PAGES = [
   { key: "leads", href: "/admin/leads", label: "Leads", ownerOnly: false },
   { key: "payments", href: "/admin/payments", label: "Payments", ownerOnly: true },
   { key: "admins", href: "/admin/admins", label: "Admins", ownerOnly: true },
+  { key: "usage", href: "/admin/usage", label: "Usage", ownerOnly: true },
   { key: "dashboard", href: "/dashboard", label: "Dashboard", ownerOnly: false },
 ] as const;
 
