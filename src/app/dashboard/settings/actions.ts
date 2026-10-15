@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { invalidateRestaurants } from "@/lib/menu-cache";
+import { VIDEO_BUCKET, videoPathForRestaurant } from "@/lib/storage-url";
 
 import { isValidTimezone } from "@/lib/time";
 import { z } from "zod";
@@ -143,6 +144,47 @@ export async function setPublished(
   revalidatePath("/dashboard/settings");
   invalidateRestaurants();
   revalidatePath("/dashboard/qr");
+  return { ok: true };
+}
+
+const heroVideoSchema = z.object({
+  restaurantId: z.string().uuid(),
+  videoUrl: z.string().url().nullable(),
+});
+
+// The welcome-banner clip. Saved at once, like the logo; the previous file
+// is removed only after the new URL is safely stored.
+export async function updateHeroVideo(
+  restaurantId: string,
+  videoUrl: string | null,
+): Promise<ActionResult> {
+  const parsed = heroVideoSchema.safeParse({ restaurantId, videoUrl });
+  if (!parsed.success) return { ok: false, error: "Invalid video URL" };
+
+  const guard = await requireRestaurantAccess(restaurantId, "settings:manage");
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const { data: current } = await guard.supabase
+    .from("restaurants")
+    .select("hero_video_url")
+    .eq("id", restaurantId)
+    .maybeSingle<{ hero_video_url: string | null }>();
+
+  const { error } = await guard.supabase
+    .from("restaurants")
+    .update({ hero_video_url: videoUrl })
+    .eq("id", restaurantId);
+  if (error) return { ok: false, error: error.message };
+
+  const old = videoPathForRestaurant(current?.hero_video_url, restaurantId);
+  if (old && current?.hero_video_url !== videoUrl) {
+    const { error: rmErr } = await guard.supabase.storage.from(VIDEO_BUCKET).remove([old]);
+    if (rmErr) console.warn(`Could not remove ${old}: ${rmErr.message}`);
+  }
+
+  revalidatePath("/dashboard/settings");
+  invalidateRestaurants();
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 
