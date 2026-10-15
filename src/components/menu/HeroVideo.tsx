@@ -6,6 +6,15 @@ import { useEffect, useRef, useState } from "react";
 // for autoplay; held still for anyone who asked their device to reduce
 // motion; and hidden entirely if it fails to load, so the banner beneath
 // simply shows through. Decorative: no controls, no sound, nothing it says.
+// play() returns a promise in today's browsers and nothing in old ones (and
+// in test DOMs); autoplay being refused is not an error worth surfacing.
+function tryPlay(video: HTMLVideoElement) {
+  const p: unknown = video.play();
+  if (p && typeof (p as Promise<void>).catch === "function") {
+    (p as Promise<void>).catch(() => undefined);
+  }
+}
+
 export function HeroVideo({ src }: { src: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
@@ -15,13 +24,13 @@ export function HeroVideo({ src }: { src: string }) {
     if (!video) return;
     // Older browsers (and test DOMs) have no matchMedia: just play.
     if (typeof window.matchMedia !== "function") {
-      void video.play().catch(() => undefined);
+      tryPlay(video);
       return;
     }
     const still = window.matchMedia("(prefers-reduced-motion: reduce)");
     const apply = () => {
       if (still.matches) video.pause();
-      else void video.play().catch(() => undefined);
+      else tryPlay(video);
     };
     apply();
     still.addEventListener("change", apply);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
 
 import { MenuHero } from "@/components/menu/MenuHero";
 
@@ -14,6 +14,10 @@ vi.mock("next/image", () => ({
     return <img {...(rest as React.ImgHTMLAttributes<HTMLImageElement>)} />;
   },
 }));
+
+// No globals in this Vitest config, so Testing Library's auto-cleanup
+// does not run between tests.
+afterEach(cleanup);
 
 describe("MenuHero", () => {
   it("is the plain banner when there is no video", () => {
