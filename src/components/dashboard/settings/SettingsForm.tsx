@@ -8,10 +8,12 @@ import { CURRENCIES, SUPPORTED_LOCALES } from "@/lib/constants";
 import { slugify } from "@/lib/utils";
 import { ChipSelect } from "@/components/dashboard/ChipSelect";
 import { ImageUpload } from "@/components/dashboard/ImageUpload";
+import { VideoUpload } from "@/components/dashboard/VideoUpload";
 import { PublishToggle } from "@/components/dashboard/PublishToggle";
 import {
   updateRestaurantSettings,
   updateLogo,
+  updateHeroVideo,
 } from "@/app/dashboard/settings/actions";
 // `import type` is erased at compile time, so pulling this from the server-only
 // dashboard lib doesn't drag any of it into the client bundle.
@@ -57,6 +59,11 @@ export function SettingsForm({
     router.refresh();
   }
 
+  async function saveHeroVideo(url: string | null) {
+    await updateHeroVideo(restaurant.id, url);
+    router.refresh();
+  }
+
   return (
     <div className="space-y-6">
       {/* Publish */}
@@ -74,6 +81,15 @@ export function SettingsForm({
           value={restaurant.logo_url}
           onChange={saveLogo}
           label="logo"
+        />
+      </Card>
+
+      {/* Welcome video */}
+      <Card title="Welcome video">
+        <VideoUpload
+          pathPrefix={`${restaurant.id}/hero`}
+          value={restaurant.hero_video_url}
+          onChange={saveHeroVideo}
         />
       </Card>
 

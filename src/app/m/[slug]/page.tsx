@@ -164,7 +164,12 @@ export default async function PublicMenuPage({
         activeLocale={locale}
       />
 
-      <MenuHero name={name} description={description} logoUrl={restaurant.logo_url} />
+      <MenuHero
+        name={name}
+        description={description}
+        logoUrl={restaurant.logo_url}
+        videoUrl={restaurant.hero_video_url}
+      />
 
       {ordering?.paused ? (
         <div className="mx-auto max-w-5xl px-4 pt-4">

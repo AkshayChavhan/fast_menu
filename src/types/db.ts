@@ -17,6 +17,8 @@ export interface Restaurant {
   slug: string;
   description: string | null;
   logo_url: string | null;
+  // A short clip behind the menu's welcome banner; see *_hero_video.sql.
+  hero_video_url: string | null;
   currency: string;
   default_locale: string;
   locales: string[];
@@ -57,7 +59,7 @@ export type Plan = "starter" | "pro";
 // the identity used to claim it.
 export type PublicRestaurant = Pick<
   Restaurant,
-  | "id" | "name" | "slug" | "description" | "logo_url" | "currency"
+  | "id" | "name" | "slug" | "description" | "logo_url" | "hero_video_url" | "currency"
   | "default_locale" | "locales" | "timezone" | "ordering_enabled"
   | "ordering_paused" | "pause_message" | "table_qr_enabled" | "kds_enabled"
   | "allow_takeaway" | "google_review_url" | "created_at" | "updated_at"

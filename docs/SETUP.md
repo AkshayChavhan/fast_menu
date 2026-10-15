@@ -227,6 +227,16 @@ and replace**, which deletes the city's list and its call logs first; that
 asks for a tick and is written to the audit log. A lead whose phone or name matches a
 signed-up restaurant is flagged "Already a customer".
 
+**Welcome video.** An owner can upload a short clip (MP4/WebM, up to 15 MB)
+or paste a YouTube link under Settings → Welcome video. A link takes no
+storage but embeds YouTube's player, which shows its own logo, may flash the
+title, and can run an ad on a monetised video; a file never does. It plays muted behind the menu's name and
+description, under a dark gradient — 70% at the top down to 30% at the
+bottom — so the text stays readable; a menu without one keeps the plain
+banner. Clips live in the `menu-videos` bucket with the same tenant rule as
+photos. A 10–15 second 720p clip is 2–4 MB, served once per guest and then
+cached by their browser for a year.
+
 **Push notifications (optional).** Waiters can get a buzz when a guest orders
 or calls. Generate a key pair once and put it in the env:
 
