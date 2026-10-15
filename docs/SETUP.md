@@ -228,7 +228,9 @@ asks for a tick and is written to the audit log. A lead whose phone or name matc
 signed-up restaurant is flagged "Already a customer".
 
 **Welcome video.** An owner can upload a short clip (MP4/WebM, up to 15 MB)
-under Settings → Welcome video. It plays muted behind the menu's name and
+or paste a YouTube link under Settings → Welcome video. A link takes no
+storage but embeds YouTube's player, which shows its own logo, may flash the
+title, and can run an ad on a monetised video; a file never does. It plays muted behind the menu's name and
 description, under a dark gradient — 70% at the top down to 30% at the
 bottom — so the text stays readable; a menu without one keeps the plain
 banner. Clips live in the `menu-videos` bucket with the same tenant rule as

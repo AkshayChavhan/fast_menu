@@ -52,4 +52,24 @@ describe("MenuHero", () => {
     expect(shade.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(heading.className).toContain("text-white");
   });
+
+  it("embeds a YouTube link silently and looping, under the same shade", () => {
+    const { container } = render(
+      <MenuHero
+        name="Mayavi"
+        description={null}
+        logoUrl={null}
+        videoUrl="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      />,
+    );
+    const frame = container.querySelector("iframe");
+    expect(frame).not.toBeNull();
+    const src = new URL(frame!.getAttribute("src")!);
+    expect(src.hostname).toBe("www.youtube-nocookie.com");
+    expect(src.searchParams.get("mute")).toBe("1");
+    expect(src.searchParams.get("loop")).toBe("1");
+    expect(frame!.getAttribute("tabindex")).toBe("-1");
+    expect(container.querySelector("video")).toBeNull();
+    expect(screen.getByTestId("hero-shade").className).toContain("from-black/70");
+  });
 });

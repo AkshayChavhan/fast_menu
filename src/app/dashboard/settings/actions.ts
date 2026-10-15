@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { invalidateRestaurants } from "@/lib/menu-cache";
-import { VIDEO_BUCKET, videoPathForRestaurant } from "@/lib/storage-url";
+import { VIDEO_BUCKET, videoPathForRestaurant, videoPathFromUrl } from "@/lib/storage-url";
+import { canonicalYoutubeUrl, youtubeIdFromUrl } from "@/lib/video-link";
 
 import { isValidTimezone } from "@/lib/time";
 import { z } from "zod";
@@ -147,9 +148,21 @@ export async function setPublished(
   return { ok: true };
 }
 
+// A file in our own bucket, a YouTube video, or nothing. Any other URL is
+// refused: the menu would otherwise embed whatever a client sent.
 const heroVideoSchema = z.object({
   restaurantId: z.string().uuid(),
-  videoUrl: z.string().url().nullable(),
+  videoUrl: z
+    .string()
+    .trim()
+    .transform((v, ctx) => {
+      const id = youtubeIdFromUrl(v);
+      if (id) return canonicalYoutubeUrl(id);
+      if (/^https?:\/\//.test(v) && videoPathFromUrl(v)) return v;
+      ctx.addIssue({ code: "custom", message: "Paste a YouTube link, or upload a file." });
+      return z.NEVER;
+    })
+    .nullable(),
 });
 
 // The welcome-banner clip. Saved at once, like the logo; the previous file
@@ -159,7 +172,11 @@ export async function updateHeroVideo(
   videoUrl: string | null,
 ): Promise<ActionResult> {
   const parsed = heroVideoSchema.safeParse({ restaurantId, videoUrl });
-  if (!parsed.success) return { ok: false, error: "Invalid video URL" };
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid video URL" };
+  }
+  // The canonical form, not whatever was pasted.
+  videoUrl = parsed.data.videoUrl;
 
   const guard = await requireRestaurantAccess(restaurantId, "settings:manage");
   if (!guard.ok) return { ok: false, error: guard.error };

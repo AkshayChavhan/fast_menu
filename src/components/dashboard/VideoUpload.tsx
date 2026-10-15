@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Loader2, Trash2, Video } from "lucide-react";
+import { Link2, Loader2, Trash2, Video } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -10,6 +10,7 @@ import {
   VIDEO_MIME_TYPES,
   videoPathFromUrl,
 } from "@/lib/storage-url";
+import { youtubeIdFromUrl, youtubeThumbnailUrl } from "@/lib/video-link";
 
 const ACCEPT = VIDEO_MIME_TYPES.join(",");
 const EXTENSIONS: Record<string, string> = { "video/mp4": "mp4", "video/webm": "webm" };
@@ -47,6 +48,21 @@ export function VideoUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState("");
+  const youtubeId = youtubeIdFromUrl(value);
+
+  function useLink(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const id = youtubeIdFromUrl(link);
+    if (!id) {
+      setError("That does not look like a YouTube video link.");
+      return;
+    }
+    // The parent saves whatever it is given; the server keeps one canonical form.
+    onChange(`https://www.youtube.com/watch?v=${id}`);
+    setLink("");
+  }
 
   async function handleFile(file: File) {
     setError(null);
@@ -98,7 +114,11 @@ export function VideoUpload({
             "relative h-24 w-40 shrink-0 overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-200 dark:bg-neutral-800 dark:ring-neutral-700",
           )}
         >
-          {value ? (
+          {value && youtubeId ? (
+            // YouTube's own thumbnail; the player itself only runs on the menu.
+            // eslint-disable-next-line @next/next/no-img-element -- a remote thumbnail; next/image would need the host configured
+            <img src={youtubeThumbnailUrl(youtubeId)} alt="" className="h-full w-full object-cover" />
+          ) : value ? (
             // The owner's own preview: muted, looping, as a guest would see it.
             <video
               src={value}
@@ -151,6 +171,32 @@ export function VideoUpload({
           </p>
         </div>
       </div>
+
+      <form onSubmit={useLink} className="flex flex-wrap items-end gap-2">
+        <label className="block min-w-[14rem] flex-1 text-xs font-medium text-neutral-500">
+          Or paste a YouTube link
+          <input
+            className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-neutral-700 dark:bg-neutral-800"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            inputMode="url"
+            placeholder="https://youtu.be/…"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={busy || !link.trim()}
+          className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+        >
+          <Link2 className="h-4 w-4" aria-hidden />
+          Use link
+        </button>
+        <p className="w-full text-xs text-neutral-500">
+          Takes no storage. YouTube shows its own logo, may show the title for a moment, and
+          can run an ad on a monetised video — an uploaded file never does.
+          {youtubeId ? " Currently using a YouTube video." : ""}
+        </p>
+      </form>
       {error ? (
         <p role="alert" className="text-sm text-red-700 dark:text-red-300">
           {error}
