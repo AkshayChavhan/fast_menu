@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { isOptimizedImageUrl } from "@/lib/image-hosts";
 import { Sparkles, Plus, UtensilsCrossed } from "lucide-react";
 import type { PairingView } from "./types";
 
@@ -56,6 +57,8 @@ function PairingGroup({
               {p.imageUrl ? (
                 <Image
                   src={p.imageUrl}
+                  // A linked photo on another host loads straight from it.
+                  unoptimized={!isOptimizedImageUrl(p.imageUrl)}
                   alt={p.name}
                   fill
                   sizes="44px"

@@ -1,20 +1,11 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
+import { OPTIMIZED_IMAGE_HOSTS } from "./src/lib/image-hosts";
 
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
-      {
-        // Demo seed images (supabase/seed.sql). Real uploads use Supabase Storage.
-        protocol: "https",
-        hostname: "images.unsplash.com",
-      },
-    ],
+    // One list, shared with the menu: see src/lib/image-hosts.ts.
+    remotePatterns: OPTIMIZED_IMAGE_HOSTS.map((p) => ({ ...p })),
   },
 };
 

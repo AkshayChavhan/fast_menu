@@ -140,3 +140,58 @@ describe("ImageUpload", () => {
     expect(store.removed).toEqual([]);
   });
 });
+
+describe("ImageUpload: paste a link", () => {
+  function LinkForm({ start = null }: { start?: string | null }) {
+    const [url, setUrl] = useState<string | null>(start);
+    return (
+      <>
+        <ImageUpload pathPrefix="r1" value={url} onChange={setUrl} savesLater allowLink />
+        <output data-testid="value">{url ?? ""}</output>
+      </>
+    );
+  }
+
+  it("is not offered unless asked for", () => {
+    render(<Form />);
+    expect(screen.queryByLabelText("image link")).toBeNull();
+  });
+
+  it("uses a pasted https link as the photo, as-is", () => {
+    render(<LinkForm />);
+    fireEvent.change(screen.getByLabelText("image link"), {
+      target: { value: "  https://example.com/dosa.jpg " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Use link" }));
+    expect(screen.getByTestId("value").textContent).toBe("https://example.com/dosa.jpg");
+    expect(store.uploads).toHaveLength(0);
+  });
+
+  it("refuses a link that is not https", () => {
+    render(<LinkForm />);
+    fireEvent.change(screen.getByLabelText("image link"), {
+      target: { value: "http://example.com/dosa.jpg" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Use link" }));
+    expect(screen.getByTestId("value").textContent).toBe("");
+    expect(screen.getByText(/starts with https/)).toBeTruthy();
+  });
+
+  it("deletes an unsaved upload the link replaces", async () => {
+    const { container } = render(<LinkForm />);
+    pick(container, file("a.jpg", "image/jpeg", 10));
+    await waitFor(() => expect(store.uploads).toHaveLength(1));
+    fireEvent.change(screen.getByLabelText("image link"), {
+      target: { value: "https://example.com/dosa.jpg" },
+    });
+    fireEvent.keyDown(screen.getByLabelText("image link"), { key: "Enter" });
+    expect(screen.getByTestId("value").textContent).toBe("https://example.com/dosa.jpg");
+    await waitFor(() => expect(store.removed).toEqual([store.uploads[0].path]));
+  });
+
+  it("says so when the linked image does not load", () => {
+    const { container } = render(<LinkForm start="https://example.com/gone.jpg" />);
+    fireEvent.error(container.querySelector("img")!);
+    expect(screen.getByText(/didn't load/)).toBeTruthy();
+  });
+});

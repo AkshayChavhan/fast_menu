@@ -11,6 +11,7 @@ import { ALLERGENS, DIETARY_TAGS } from "@/lib/constants";
 import { can } from "@/lib/permissions";
 import type { ModifierGroupInput } from "@/lib/modifiers";
 import { removeRestaurantImages } from "@/lib/storage-cleanup";
+import { isImageLink } from "@/lib/image-hosts";
 import { getMemberRole } from "../lib";
 
 const ALLERGEN_VALUES = ALLERGENS as readonly string[];
@@ -275,9 +276,12 @@ const dishBase = {
   allergens: z.array(z.enum(ALLERGEN_VALUES as [string, ...string[]])),
   dietaryTags: z.array(z.enum(DIETARY_VALUES as [string, ...string[]])),
   isFeatured: z.boolean(),
+  // An upload's storage URL or a pasted https link. z.url() alone would
+  // also take javascript: and http: links.
   imageUrl: z
     .string()
-    .url()
+    .trim()
+    .refine(isImageLink, "Photo links must start with https://")
     .nullable()
     .or(z.literal("").transform(() => null)),
   // Daily special window; both empty for an ordinary dish.

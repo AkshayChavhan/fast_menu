@@ -77,3 +77,49 @@ input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
   display: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Moving between dashboard pages (app/dashboard/template.tsx, loading.tsx).
+   The old page leaves fast so it doesn't compete; the new one waits for it,
+   then fades up gently. Only the content area animates: the header and the
+   sidebar live in the layout, which never remounts.
+   ------------------------------------------------------------------------ */
+::view-transition-old(.dash-out) {
+  animation: 120ms ease-out both dash-fade reverse;
+}
+::view-transition-new(.dash-in) {
+  animation:
+    200ms ease-out 80ms both dash-fade,
+    260ms ease-out both dash-rise;
+}
+
+@keyframes dash-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes dash-rise {
+  from {
+    transform: translateY(6px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* The transition overlay would otherwise swallow clicks while it runs. */
+::view-transition {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
