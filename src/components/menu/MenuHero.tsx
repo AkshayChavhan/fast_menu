@@ -1,10 +1,15 @@
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { UtensilsCrossed } from "lucide-react";
 
 import { HeroVideo } from "@/components/menu/HeroVideo";
 import { cn } from "@/lib/utils";
 
-// Warm welcome banner beneath the sticky header: large logo, restaurant name
+// Kept in step with MenuHeader, which watches this element to know when
+// the banner has scrolled away. A literal, so this stays a server component.
+const MENU_HERO_ID = "menu-hero";
+
+// Warm welcome banner at the top of the menu: large logo, restaurant name
 // and description. On a soft brand gradient by default; when the restaurant
 // has uploaded a clip, the clip plays behind the text under a dark gradient
 // — heavier at the top, lighter at the bottom — so the words stay readable
@@ -14,16 +19,21 @@ export function MenuHero({
   description,
   logoUrl,
   videoUrl = null,
+  corner = null,
 }: {
   name: string;
   description: string | null;
   logoUrl: string | null;
   videoUrl?: string | null;
+  // Pinned to the banner's top corner: the language switcher, which the
+  // header carries only once it has slid in.
+  corner?: ReactNode;
 }) {
   const withVideo = Boolean(videoUrl);
 
   return (
     <section
+      id={MENU_HERO_ID}
       className={cn(
         "relative overflow-hidden",
         withVideo
@@ -55,6 +65,7 @@ export function MenuHero({
           />
         </>
       )}
+      {corner ? <div className="absolute end-3 top-3 z-10">{corner}</div> : null}
       <div
         className={cn(
           "relative mx-auto flex max-w-5xl flex-col items-center px-4 text-center",
