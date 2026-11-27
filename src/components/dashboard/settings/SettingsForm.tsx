@@ -7,8 +7,8 @@ import type { Restaurant } from "@/types/db";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/lib/constants";
 import { slugify } from "@/lib/utils";
 import { ChipSelect } from "@/components/dashboard/ChipSelect";
-import { ImageUpload } from "@/components/dashboard/ImageUpload";
-import { VideoUpload } from "@/components/dashboard/VideoUpload";
+import { ImageUpload, discardImage } from "@/components/dashboard/ImageUpload";
+import { VideoUpload, discardVideo } from "@/components/dashboard/VideoUpload";
 import { PublishToggle } from "@/components/dashboard/PublishToggle";
 import {
   updateRestaurantSettings,
@@ -54,13 +54,36 @@ export function SettingsForm({
     setLocales((prev) => (prev.includes(next) ? prev : [next, ...prev]));
   }
 
+  // The logo and the video save the moment they change. Say whether that
+  // worked: these used to drop the result, so a refused save (a missing
+  // column on a database that had not been migrated) looked like a success
+  // and the field was simply empty on the next visit.
+  const [logoStatus, setLogoStatus] = useState<SaveStatus>(null);
+  const [videoStatus, setVideoStatus] = useState<SaveStatus>(null);
+
   async function saveLogo(url: string | null) {
-    await updateLogo(restaurant.id, url);
+    setLogoStatus(null);
+    const res = await updateLogo(restaurant.id, url);
+    if (!res.ok) {
+      // Nothing points at a file that failed to save; don't keep it.
+      if (url !== restaurant.logo_url) void discardImage(url);
+      setLogoStatus({ ok: false, error: res.error });
+      return;
+    }
+    setLogoStatus({ ok: true });
     router.refresh();
   }
 
   async function saveHeroVideo(url: string | null) {
-    await updateHeroVideo(restaurant.id, url);
+    setVideoStatus(null);
+    const res = await updateHeroVideo(restaurant.id, url);
+    if (!res.ok) {
+      // A no-op for a YouTube link; deletes an uploaded clip nothing saved.
+      if (url !== restaurant.hero_video_url) void discardVideo(url);
+      setVideoStatus({ ok: false, error: res.error });
+      return;
+    }
+    setVideoStatus({ ok: true });
     router.refresh();
   }
 
@@ -82,6 +105,7 @@ export function SettingsForm({
           onChange={saveLogo}
           label="logo"
         />
+        <SaveNote status={logoStatus} />
       </Card>
 
       {/* Welcome video */}
@@ -91,6 +115,7 @@ export function SettingsForm({
           value={restaurant.hero_video_url}
           onChange={saveHeroVideo}
         />
+        <SaveNote status={videoStatus} />
       </Card>
 
       {/* Details form */}
@@ -226,6 +251,21 @@ export function SettingsForm({
 
 const inputClass =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-neutral-700 dark:bg-neutral-800";
+
+type SaveStatus = { ok: true } | { ok: false; error: string } | null;
+
+function SaveNote({ status }: { status: SaveStatus }) {
+  if (!status) return null;
+  return status.ok ? (
+    <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-green-600" aria-live="polite">
+      <Check className="h-3.5 w-3.5" /> Saved
+    </p>
+  ) : (
+    <p role="alert" className="mt-2 text-xs text-red-600">
+      Not saved: {status.error}
+    </p>
+  );
+}
 
 function Card({
   title,
