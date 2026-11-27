@@ -45,10 +45,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: a new CLI renamed inbucket to mailpit and broke "latest". Bump on purpose.
+          version: 3.4.0
       - name: Start Supabase and apply migrations
         run: |
-          supabase start -x studio,imgproxy,inbucket,logflare,vector
+          supabase start -x studio,imgproxy,mailpit,logflare,vector
           supabase status -o env > .supabase.env
           set -a; . ./.supabase.env; set +a
           {
