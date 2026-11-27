@@ -192,6 +192,7 @@ export function DishForm({
           onChange={setImageUrl}
           label="photo"
           savesLater
+          allowLink
         />
 
         <Field label="Name" required>

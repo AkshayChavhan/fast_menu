@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { ImagePlus, Link2, Loader2, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { fitImageUnder } from "@/lib/image-compress";
+import { isImageLink } from "@/lib/image-hosts";
 import {
   IMAGE_BUCKET,
   IMAGE_MAX_BYTES,
@@ -49,6 +50,7 @@ export function ImageUpload({
   shape = "square",
   label = "image",
   savesLater = false,
+  allowLink = false,
 }: {
   pathPrefix: string;
   value: string | null;
@@ -61,6 +63,9 @@ export function ImageUpload({
   // away: the server action then deletes the previous file, and only once
   // the new URL is safely stored.
   savesLater?: boolean;
+  // Also offer "paste a link": the URL is stored as-is and the image is
+  // loaded from that host, which must stay online and keep the file there.
+  allowLink?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<"idle" | "shrinking" | "uploading">("idle");
@@ -70,6 +75,7 @@ export function ImageUpload({
   const busy = phase !== "idle";
   // URLs this control uploaded that the parent has not saved yet.
   const unsaved = useRef(new Set<string>());
+  const [link, setLink] = useState("");
 
   function replace(next: string | null) {
     if (savesLater && value && unsaved.current.has(value)) {
@@ -78,6 +84,18 @@ export function ImageUpload({
     }
     if (savesLater && next) unsaved.current.add(next);
     onChange(next);
+  }
+
+  function applyLink() {
+    const url = link.trim();
+    setNote(null);
+    if (!isImageLink(url)) {
+      setError("Paste a full image link that starts with https://");
+      return;
+    }
+    setError(null);
+    setLink("");
+    replace(url);
   }
 
   async function handleFile(file: File) {
@@ -166,6 +184,12 @@ export function ImageUpload({
               src={value}
               alt={label}
               className="h-full w-full object-cover"
+              onError={() =>
+                setError(
+                  "This image didn't load. Check that the link opens the picture itself.",
+                )
+              }
+              onLoad={() => setError(null)}
             />
           ) : (
             <ImagePlus className="h-6 w-6 text-neutral-400" />
@@ -206,6 +230,46 @@ export function ImageUpload({
           </p>
         </div>
       </div>
+
+      {allowLink && (
+        <div className="mt-2">
+          <div className="flex gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="url"
+                inputMode="url"
+                value={link}
+                disabled={busy}
+                onChange={(e) => setLink(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter would submit the dish form with the link unused.
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyLink();
+                  }
+                }}
+                placeholder={`…or paste a ${label} link (https://…)`}
+                aria-label={`${label} link`}
+                className="w-full rounded-lg border border-neutral-200 bg-white py-1.5 pl-8 pr-2 text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-brand-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+              />
+            </div>
+            <button
+              type="button"
+              disabled={busy || link.trim() === ""}
+              onClick={applyLink}
+              className="shrink-0 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            >
+              Use link
+            </button>
+          </div>
+          <p className="mt-1 text-[11px] text-neutral-400">
+            A linked photo is loaded from that site. If it goes offline or
+            moves the file, the photo disappears from your menu. Uploading
+            keeps it safe.
+          </p>
+        </div>
+      )}
 
       {note && <p className="mt-1.5 text-xs text-neutral-500">{note}</p>}
       {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
