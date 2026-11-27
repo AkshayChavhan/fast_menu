@@ -118,7 +118,7 @@ export function TableQrSheet({
                 <p className="text-sm font-bold leading-tight text-neutral-900">
                   Scan to see the menu &amp; order
                 </p>
-                <p className="max-w-full truncate text-[10px] font-medium uppercase tracking-wide text-brand-600">
+                <p className="max-w-full text-balance break-words text-[10px] font-medium uppercase leading-snug tracking-wide text-brand-600">
                   {restaurantName}
                 </p>
               </div>

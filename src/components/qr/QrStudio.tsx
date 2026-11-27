@@ -384,7 +384,7 @@ function StickerSheet({
       <p className="text-sm font-bold leading-tight text-neutral-900">
         Scan for our menu
       </p>
-      <p className="max-w-full truncate text-[10px] font-medium uppercase tracking-wide text-brand-600">
+      <p className="max-w-full text-balance break-words text-[10px] font-medium uppercase leading-snug tracking-wide text-brand-600">
         {name}
       </p>
       <p className="max-w-full truncate text-[9px] text-neutral-400">{url}</p>
