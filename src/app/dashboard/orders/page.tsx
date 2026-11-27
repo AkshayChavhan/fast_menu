@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function OrdersPage() {
   const { restaurant, role } = await requireCapability("billing:settle");
-  const billing = await loadBilling(restaurant.id, restaurant.timezone);
+  const billing = await loadBilling(restaurant.id, restaurant.timezone, restaurant.owner_id);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
