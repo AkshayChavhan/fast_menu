@@ -14,6 +14,7 @@ import { removeRestaurantImages } from "@/lib/storage-cleanup";
 import { slugify } from "@/lib/utils";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/lib/constants";
 import { normalizeGoogleReviewUrl } from "@/lib/google-review";
+import { GSTIN_PATTERN, TAX_MODES, normalizeGstin } from "@/lib/bill-tax";
 
 const CURRENCY_VALUES = CURRENCIES as readonly string[];
 const LOCALE_VALUES = SUPPORTED_LOCALES.map((l) => l.code);
@@ -382,5 +383,110 @@ export async function setOrderingPaused(input: {
   revalidatePath("/dashboard/settings");
   invalidateRestaurants();
   revalidatePath("/waiter");
+  return { ok: true };
+}
+
+// --- Bill & taxes -------------------------------------------------------------
+
+// "5" or "2.5" (percent, as the owner types it) -> basis points. Empty is 0.
+function percentToBp(v: FormDataEntryValue | null): number {
+  const s = String(v ?? "").trim().replace("%", "");
+  if (s === "") return 0;
+  const n = Number(s);
+  return Number.isFinite(n) ? Math.round(n * 100) : Number.NaN;
+}
+
+// "20" or "20.50" (rupees) -> paise. Empty is 0.
+function rupeesToCents(v: FormDataEntryValue | null): number {
+  const s = String(v ?? "").trim().replace(/[₹,\s]/g, "");
+  if (s === "") return 0;
+  const n = Number(s);
+  return Number.isFinite(n) ? Math.round(n * 100) : Number.NaN;
+}
+
+const billingSchema = z
+  .object({
+    restaurantId: z.string().uuid(),
+    tax_mode: z.enum(TAX_MODES as [string, ...string[]]),
+    gst_rate_bp: z
+      .number({ message: "Enter the GST rate as a number, like 5 or 18" })
+      .int()
+      .min(0, "The GST rate can't be negative")
+      .max(2800, "The GST rate can't be above 28%"),
+    gstin: z
+      .string()
+      .transform(normalizeGstin)
+      .refine((g) => g === "" || GSTIN_PATTERN.test(g), "That GSTIN doesn't look right: it has 15 characters, like 27AAPFU0939F1ZV")
+      .transform((g) => (g === "" ? null : g)),
+    prices_include_tax: z.boolean(),
+    liquor_vat_bp: z
+      .number({ message: "Enter the liquor VAT as a number, like 10" })
+      .int()
+      .min(0, "VAT can't be negative")
+      .max(5000, "VAT can't be above 50%"),
+    packaging_cents: z
+      .number({ message: "Enter the packaging charge in rupees, like 20" })
+      .int()
+      .min(0, "The packaging charge can't be negative")
+      .max(100000, "The packaging charge can't be above ₹1,000"),
+    round_off: z.boolean(),
+    liquorCategoryIds: z.array(z.string().uuid()),
+  })
+  .refine((d) => d.tax_mode === "none" || d.gstin !== null, {
+    message: "Enter your GSTIN. It is printed on every bill when you charge GST.",
+  })
+  .refine((d) => d.tax_mode !== "gst" || d.gst_rate_bp > 0, {
+    message: "Enter a GST rate above 0%, or choose \"Not registered\".",
+  });
+
+// Save Settings -> Bill & taxes: the restaurant's tax settings, and which
+// categories are liquor (taxed with VAT rather than GST).
+export async function updateBillingSettings(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = billingSchema.safeParse({
+    restaurantId: String(formData.get("restaurantId") ?? ""),
+    tax_mode: String(formData.get("tax_mode") ?? "none"),
+    gst_rate_bp: percentToBp(formData.get("gst_rate")),
+    gstin: String(formData.get("gstin") ?? ""),
+    prices_include_tax: asBool(formData.get("prices_include_tax")),
+    liquor_vat_bp: percentToBp(formData.get("liquor_vat")),
+    packaging_cents: rupeesToCents(formData.get("packaging")),
+    round_off: asBool(formData.get("round_off")),
+    liquorCategoryIds: formData.getAll("liquor_category").map(String),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { restaurantId, liquorCategoryIds, ...settings } = parsed.data;
+
+  const guard = await requireRestaurantAccess(restaurantId, "settings:manage");
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const { error } = await guard.supabase
+    .from("restaurants")
+    .update(settings)
+    .eq("id", restaurantId);
+  if (error) return { ok: false, error: error.message };
+
+  // Every category is one or the other; both writes are scoped to this
+  // restaurant, so ids from anywhere else simply match nothing.
+  const liquor = guard.supabase
+    .from("categories")
+    .update({ tax_class: "liquor" })
+    .eq("restaurant_id", restaurantId)
+    .in("id", liquorCategoryIds.length > 0 ? liquorCategoryIds : ["00000000-0000-0000-0000-000000000000"]);
+  let food = guard.supabase
+    .from("categories")
+    .update({ tax_class: "food" })
+    .eq("restaurant_id", restaurantId);
+  if (liquorCategoryIds.length > 0) food = food.not("id", "in", `(${liquorCategoryIds.join(",")})`);
+  const [liquorRes, foodRes] = await Promise.all([liquor, food]);
+  const catErr = liquorRes.error ?? foodRes.error;
+  if (catErr) return { ok: false, error: `Taxes saved, but not the liquor categories: ${catErr.message}` };
+
+  revalidatePath("/dashboard/settings");
+  invalidateRestaurants();
   return { ok: true };
 }

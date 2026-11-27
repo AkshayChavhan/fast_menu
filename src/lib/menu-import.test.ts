@@ -219,6 +219,7 @@ describe("serializeMenu", () => {
     description: "Big plates",
     sort_order: 0,
     schedule_id: null,
+    tax_class: "food",
     created_at: "2026-01-01T00:00:00Z",
   };
 
@@ -415,6 +416,7 @@ describe("modifiers, specials and schedules", () => {
       description: null,
       sort_order: 0,
       schedule_id: "s1",
+      tax_class: "food",
       created_at: "",
     };
     const dish: Dish = {
