@@ -93,7 +93,7 @@ export function BillingCounter({
             <ul className="space-y-4">
               {billing.open.map((bill) => (
                 <li key={bill.id}>
-                  <BillCard bill={bill} price={price} timezone={timezone} busy={busyId === bill.id && pending}>
+                  <BillCard bill={bill} people={billing.people} price={price} timezone={timezone} busy={busyId === bill.id && pending}>
                     <div className="flex flex-wrap items-center gap-2">
                       {bill.requests.map((r) => (
                         <button
@@ -136,7 +136,7 @@ export function BillingCounter({
             <ul className="space-y-3">
               {billing.paidToday.map((bill) => (
                 <li key={bill.id}>
-                  <BillCard bill={bill} price={price} timezone={timezone} compact busy={busyId === bill.id && pending}>
+                  <BillCard bill={bill} people={billing.people} price={price} timezone={timezone} compact busy={busyId === bill.id && pending}>
                     {canReopen ? (
                       <button
                         type="button"
@@ -163,6 +163,21 @@ function billName(bill: Bill): string {
   return bill.guest_label ?? (bill.service_type === "takeaway" ? "Parcel" : "Walk-in");
 }
 
+// "by guest · approved by Ravi" for a guest's order, "by Ravi" for one a
+// waiter took (they placed and approved it in one go). Falls back to the
+// old wording when a name isn't known.
+export function orderPeople(
+  o: Pick<Bill["orders"][number], "source" | "created_by" | "approved_by">,
+  people: Record<string, string>,
+): string {
+  const approver = o.approved_by ? people[o.approved_by] : undefined;
+  if (o.source === "waiter") {
+    const by = (o.created_by && people[o.created_by]) || approver;
+    return by ? `by ${by}` : "by staff";
+  }
+  return approver ? `by guest · approved by ${approver}` : "by guest";
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
@@ -174,6 +189,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function BillCard({
   bill,
+  people,
   price,
   timezone,
   compact = false,
@@ -181,6 +197,7 @@ function BillCard({
   children,
 }: {
   bill: Bill;
+  people: Record<string, string>;
   price: (cents: number) => string;
   timezone: string;
   compact?: boolean;
@@ -224,7 +241,9 @@ function BillCard({
           </span>
           <span className="block text-xs text-neutral-500">
             {orders.length} {orders.length === 1 ? "order" : "orders"} · {itemCount} {itemCount === 1 ? "item" : "items"} ·{" "}
-            {bill.closed_at ? `paid ${clockTime(bill.closed_at, timezone)}` : `seated ${timeAgo(bill.opened_at)} ago`}
+            {bill.closed_at
+              ? `paid ${clockTime(bill.closed_at, timezone)}${bill.closed_by && people[bill.closed_by] ? ` by ${people[bill.closed_by]}` : ""}`
+              : `seated ${timeAgo(bill.opened_at)} ago`}
           </span>
         </span>
         <span translate="no" className="text-base font-extrabold tabular-nums">{price(bill.total_cents)}</span>
@@ -238,7 +257,7 @@ function BillCard({
                 <span translate="no" className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono font-bold tracking-wider dark:bg-neutral-800">
                   {o.code}
                 </span>
-                <span>{o.source === "waiter" ? "by staff" : "by guest"}</span>
+                <span className="min-w-0 truncate">{orderPeople(o, people)}</span>
                 {o.approved_at ? <span>· {clockTime(o.approved_at, timezone)}</span> : null}
                 {o.last_edited_at ? <span className="font-medium text-amber-700 dark:text-amber-300">· edited</span> : null}
                 <span translate="no" className="ml-auto font-semibold text-neutral-700 tabular-nums dark:text-neutral-200">

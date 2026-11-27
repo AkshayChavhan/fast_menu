@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ROLE_LABELS } from "@/lib/permissions";
 import { localClock } from "@/lib/schedule";
 import { sortByLabel } from "@/lib/tables";
 import type {
@@ -28,6 +30,8 @@ export interface BillingData {
   /** Sum of today's settled bills, in minor units. */
   todayCents: number;
   today: string;
+  /** Who did what: staff user id -> the name to show. */
+  people: Record<string, string>;
 }
 
 type Db = Awaited<ReturnType<typeof createClient>>;
@@ -86,7 +90,54 @@ async function billsFor(
   }));
 }
 
-export async function loadBilling(restaurantId: string, timezone: string): Promise<BillingData> {
+// The names of the staff who placed, approved or settled these bills.
+//
+// A cashier may only read their own restaurant_staff row (RLS), so this
+// reads with the service role. It is narrow on purpose: names and roles
+// only, never emails, for this restaurant and these user ids, and only
+// from the orders page, which requireCapability("billing:settle") guards.
+// A missing key or a failed read just means "by staff", as before.
+async function namesFor(
+  restaurantId: string,
+  ownerId: string,
+  userIds: Iterable<string | null>,
+): Promise<Record<string, string>> {
+  const ids = [...new Set([...userIds].filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) return {};
+  try {
+    const admin = createAdminClient();
+    const [staffRes, ownerRes] = await Promise.all([
+      admin
+        .from("restaurant_staff")
+        .select("user_id, display_name, role")
+        .eq("restaurant_id", restaurantId)
+        .in("user_id", ids),
+      ids.includes(ownerId)
+        ? admin.from("profiles").select("full_name").eq("id", ownerId).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    const names: Record<string, string> = {};
+    for (const row of (staffRes.data as
+      | { user_id: string; display_name: string | null; role: keyof typeof ROLE_LABELS }[]
+      | null) ?? []) {
+      names[row.user_id] = row.display_name?.trim() || ROLE_LABELS[row.role];
+    }
+    if (ids.includes(ownerId)) {
+      const full = (ownerRes.data as { full_name: string | null } | null)?.full_name?.trim();
+      names[ownerId] = full || ROLE_LABELS.owner;
+    }
+    return names;
+  } catch (e) {
+    console.warn(`Billing: could not read staff names: ${e instanceof Error ? e.message : e}`);
+    return {};
+  }
+}
+
+export async function loadBilling(
+  restaurantId: string,
+  timezone: string,
+  ownerId: string,
+): Promise<BillingData> {
   const supabase = await createClient();
   const now = new Date();
   const today = localClock(now, timezone).date;
@@ -127,10 +178,17 @@ export async function loadBilling(restaurantId: string, timezone: string): Promi
     billsFor(supabase, closedToday, tableById),
   ]);
 
+  const bills = [...open, ...paidToday];
+  const people = await namesFor(restaurantId, ownerId, [
+    ...bills.map((b) => b.closed_by),
+    ...bills.flatMap((b) => b.orders.flatMap((o) => [o.approved_by, o.created_by])),
+  ]);
+
   return {
     open,
     paidToday,
     todayCents: paidToday.reduce((n, s) => n + s.total_cents, 0),
     today,
+    people,
   };
 }
