@@ -7,11 +7,22 @@
   --foreground: #0a0a0a;
 }
 
+/* Same rule as tailwind.config.ts darkMode: the device's setting, unless
+   the guest picked a theme on the menu (a class on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.light) {
     --background: #0a0a0a;
     --foreground: #ededed;
+    color-scheme: dark;
   }
+}
+:root.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  color-scheme: dark;
+}
+:root.light {
+  color-scheme: light;
 }
 
 body {

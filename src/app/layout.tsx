@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 const inter = Inter({
@@ -38,7 +39,19 @@ export default function RootLayout({
     // `lang`/`dir` are corrected per-locale on public menus by DocumentLocale,
     // which writes them before the first paint — so React must accept whatever
     // it finds on this element rather than re-asserting "en".
+    // The theme script may add "light" or "dark" to <html> before React
+    // hydrates; suppressHydrationWarning (already needed for lang/dir) covers it.
     <html lang="en" dir="ltr" className={inter.variable} suppressHydrationWarning>
+      <head>
+        {/* A guest's saved light/dark choice, applied before the first paint. */}
+        <script
+          // Executes from the server HTML only; React never runs it again (the
+          // same trick as components/menu/DocumentLocale.tsx).
+          type={typeof window === "undefined" ? "text/javascript" : "text/plain"}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
+        />
+      </head>
       <body className="font-sans">
         {children}
         <ServiceWorkerRegister />
