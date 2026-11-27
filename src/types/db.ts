@@ -2,6 +2,8 @@
 // Kept hand-written (rather than generated) so the app has a single, stable
 // contract that every feature imports.
 
+import type { TaxClass, TaxMode } from "@/lib/bill-tax";
+
 export type PairingKind = "pairing" | "addon";
 
 export interface Profile {
@@ -38,6 +40,13 @@ export interface Restaurant {
   phone: string | null;
   phone_verified_at: string | null;
   gstin: string | null;
+  // Bill & taxes (migrations/*_billing_tax.sql; arithmetic in lib/bill-tax.ts).
+  tax_mode: TaxMode;
+  gst_rate_bp: number;
+  prices_include_tax: boolean;
+  liquor_vat_bp: number;
+  packaging_cents: number;
+  round_off: boolean;
   city: string | null;
   pincode: string | null;
   trial_status: TrialStatus;
@@ -172,6 +181,8 @@ export interface Category {
   sort_order: number;
   /** Restrict this category to a schedule; null = always. */
   schedule_id: string | null;
+  /** Food pays GST, liquor the state's VAT (lib/bill-tax.ts). */
+  tax_class: TaxClass;
   created_at: string;
 }
 
