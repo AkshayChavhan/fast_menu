@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { isOptimizedImageUrl } from "@/lib/image-hosts";
 import { UtensilsCrossed, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AllergenBadge, DietaryBadge } from "./badges";
@@ -34,6 +35,8 @@ export function DishCard({
         <div className="relative aspect-[16/10] w-full overflow-hidden bg-neutral-100 dark:bg-neutral-800">
           <Image
             src={dish.imageUrl}
+            // A linked photo on another host loads straight from it.
+            unoptimized={!isOptimizedImageUrl(dish.imageUrl)}
             alt={dish.name}
             fill
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
