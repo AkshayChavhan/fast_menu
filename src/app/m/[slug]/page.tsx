@@ -8,6 +8,7 @@ import type { PublicRestaurant } from "@/types/db";
 import { buildMenuView } from "@/lib/menu-view";
 import { MenuHeader } from "@/components/menu/MenuHeader";
 import { MenuHero } from "@/components/menu/MenuHero";
+import { LanguageSwitcher } from "@/components/menu/LanguageSwitcher";
 import { MenuBrowser } from "@/components/menu/MenuBrowser";
 import { FloatingReviews } from "@/components/menu/FloatingReviews";
 import { DocumentLocale } from "@/components/menu/DocumentLocale";
@@ -169,6 +170,11 @@ export default async function PublicMenuPage({
         description={description}
         logoUrl={restaurant.logo_url}
         videoUrl={restaurant.hero_video_url}
+        corner={
+          restaurant.locales.length > 1 ? (
+            <LanguageSwitcher locales={restaurant.locales} active={locale} />
+          ) : null
+        }
       />
 
       {ordering?.paused ? (

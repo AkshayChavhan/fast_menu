@@ -73,3 +73,17 @@ describe("MenuHero", () => {
     expect(screen.getByTestId("hero-shade").className).toContain("from-black/70");
   });
 });
+
+describe("MenuHero corner", () => {
+  it("pins what it is given to the banner's corner", () => {
+    render(
+      <MenuHero name="X" description={null} logoUrl={null} corner={<button>EN</button>} />,
+    );
+    expect(screen.getByRole("button", { name: "EN" })).toBeTruthy();
+  });
+
+  it("renders no corner when there is nothing to put there", () => {
+    const { container } = render(<MenuHero name="X" description={null} logoUrl={null} />);
+    expect(container.querySelector(".absolute.end-3")).toBeNull();
+  });
+});
